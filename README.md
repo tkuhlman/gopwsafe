@@ -1,18 +1,23 @@
 # gopwsafe
-A password safe written in go using [go-gtk](https://github.com/mattn/go-gtk) and implementing the [password safe](http://pwsafe.org/) version 3 database.
 
-The project consists for 3 components:
-- pwsafe contains interfaces for reading/writing to Password Safe v3 databases, all of which is part of the pwsafe package
-- gtk contains the gtk based gui leveraging the db library, gtk package
-- cli contains a command line based interface leveraging the library, cli package
+** In Progress **
+
+A password safe written in go using  and implementing the [password safe](http://pwsafe.org/) version 3 database.
+Simply download and run, no install needed.
+
+The pwsafe package contains interfaces for reading/writing to Password Safe v3 databases. This package is utilized by both the gui and cli interfaces with the
+preference going to the gtk based gui library.
+
+The gui is implemented with the [go-gtk](https://github.com/mattn/go-gtk) library.
+All cli is implemented using the ??? library
 
 The project has been largely tested and developed on OS X and Linux (Ubuntu).
 
 # GTK GUI
 Features:
-- The ability to have multiple windows open with different databases in each is a key feature I want.
+- The ability to have multiple windows open with different databases in each is a key feature that many other Password Safe implementations don't have.
 - Simple database search.
-- Tree representation based on group.
+- Tree representation based on db and group.
 - Copy/Paste shortcuts with timeout on pasting of sensitive fields.
 - Shortcut key to open user preferred browser.
 
@@ -27,7 +32,9 @@ Features:
     - Finish implementation of all header fields.
 - Additional Features
   - Edit of multiple entries at once for select fields, ie modify the group
+  - The ability copy/move entries from one open db to another.
   - The ability to diff two different databases.
     - Full diff
     - diff based on particular fields, name, username, url, password
   - Automatic storage of old passwords.
+- Setup travis-ci, possibly readthedocs
