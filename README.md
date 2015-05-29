@@ -30,6 +30,9 @@ Features:
     - Write unit test
     - Finish implemenation of all record fields
     - Finish implementation of all header fields.
+- Add the ability to create a new empty password db.
+- Add opening of more than one file at a time.
+- Keep list of recent files opened, do this in a way that it works for both interfaces.
 - Additional Features
   - Edit of multiple entries at once for select fields, ie modify the group
   - The ability copy/move entries from one open db to another.

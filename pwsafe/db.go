@@ -4,27 +4,27 @@
 package pwsafe
 
 import (
+	"errors"
 	"time"
-//	"code.google.com/p/go.crypto/twofish"
-	"uuid"
+	//	"code.google.com/p/go.crypto/twofish"
+	"code.google.com/p/go-uuid/uuid"
 )
 
 type Record struct {
-	AccessTime	time.Time
-	CreateTime	time.Time
-	Group				string
-	ModTime			time.Time
-	Notes				string
-	Password		string
-	PasswordModTime	string
-	Title				string
-	Username		string
-	URL					string
-	UUID				uuid.UUID
-
+	AccessTime      time.Time
+	CreateTime      time.Time
+	Group           string
+	ModTime         time.Time
+	Notes           string
+	Password        string
+	PasswordModTime string
+	Title           string
+	Username        string
+	URL             string
+	UUID            uuid.UUID
 }
 
-type DB struct {
+type PWSafeV3 struct {
 	// Note not all of the Header information from the specification is implemented
 	Name        string
 	Description string
@@ -32,4 +32,20 @@ type DB struct {
 	Records     map[string]Record //the key is the record title
 	UUID        uuid.UUID
 	Version     string
+}
+
+type DB interface {
+	List() []string
+}
+
+func (db PWSafeV3) List() []string {
+	contents := make([]string, 0)
+	return contents
+}
+
+func OpenPWSafe(dbPath string) (DB, error) {
+	db := PWSafeV3{}
+	// defer f.Close()
+	_ = errors.New("Big Error")
+	return db, nil
 }

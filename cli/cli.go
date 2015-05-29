@@ -5,16 +5,50 @@ Options include:
 	- termbox go - https://github.com/nsf/termbox-go - this could lead to a nice cli interface but may be overkill.
 	- just using bufio.ReadLine(),
 		- Add color to my output, https://github.com/aybabtme/rgbterm or https://github.com/alecthomas/colour
-	- Rejected options
-		- Wrapping of the readline library, https://github.com/shavac/readline - not universally compatible.
 */
 package cli
 
 import (
+	"../pwsafe"
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 )
 
 func CLIInterface(dbFile string) int {
-	fmt.Println("CLI not yet implmented")
+	console := bufio.NewScanner(os.Stdin)
+	if dbFile == "" {
+		fmt.Print("Please enter the path to the password database file to open:")
+		console.Scan()
+		dbFile = console.Text()
+	}
+	db, err := pwsafe.OpenPWSafe(dbFile)
+	if err == nil {
+		fmt.Printf("Opened file %s, enter a command or 'help' for information", dbFile)
+	} else {
+		fmt.Printf("Error Opening file %s\n\t%s\n", dbFile, err)
+		return 1
+	}
+
+CLILoop:
+	for {
+		fmt.Print("\n> ")
+		console.Scan()
+		cmd := console.Text()
+		switch strings.ToLower(cmd) {
+		case "help", "h":
+			fmt.Println("Valid commands: help, exit, list, quit, save")
+		// Todo: Support ^d for quitting also
+		case "exit", "quit", "q":
+			break CLILoop
+		case "list":
+			db.List()
+		case "save":
+			fmt.Println("Unimplemented")
+		default:
+			fmt.Printf("Unknown command %s, type 'help' for valid commands", cmd)
+		}
+	}
 	return 0
 }
