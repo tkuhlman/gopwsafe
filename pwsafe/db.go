@@ -33,6 +33,7 @@ type PWSafeV3 struct {
 	CBCIV         []byte //16 bytes - Random initial value for CBC
 	Description   string
 	EncryptionKey []byte //32 bytes
+	HMAC          []byte //32 bytes
 	HMACKey       []byte //32 bytes
 	Iter          uint32 //the number of iterations on the hash function to create the stretched key
 	LastSave      time.Time
@@ -80,6 +81,69 @@ func (db PWSafeV3) List() []string {
 		entries = append(entries, key)
 	}
 	return entries
+}
+
+// Parse the header of the decrypted DB returning the size of the Header and any error or nil
+// beginning with the Version type field, and terminated by the 'END' type field. The version number
+// and END fields are mandatory
+func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, Error) {
+	fieldStart := 0
+	for {
+		if fieldStart > len(decryptedDB) {
+			return 0, errors.New("No END field found in DB header")
+		}
+		var fieldLength int
+		buf := bytes.NewReader(decryptedDB[fieldStart : fieldStart+4])
+		err := binary.Read(buf, binary.LittleEndian, &fieldLength)
+		if err != nil {
+			fmt.Println("binary.Read failed:", err)
+		}
+
+		btype, data := parseField(decryptedDB[fieldStart:fieldLength])
+		switch btype {
+		case 0x00: //version
+			db.Version = data
+		case 0x01: //uuuid
+			db.UUID = data
+		case 0x02: //preferences
+			continue
+		case 0x03: //tree
+			continue
+		case 0x04: //timestamp
+			continue
+		case 0x05: //who last save
+			continue
+		case 0x06: //last save timestamp
+			continue
+		case 0x07: //last save user
+			continue
+		case 0x08: //last save host
+			continue
+		case 0x09: //DB name
+			db.Name = data
+		case 0x0a: //description
+			db.Description = data
+		case 0x0b: //filters
+			continue
+		case 0x0f: //recently used
+			continue
+		case 0x10: //password policy
+			continue
+		case 0x11: //Empty Groups
+			continue
+		case 0xff: //end
+			return fieldStart + fieldLength, nil
+		default:
+			return 0, errors.New("Encountered unknown Header Field")
+		}
+		fieldStart += fieldLength
+	}
+}
+
+// Parse the records returning records length and error or nil
+// The EOF string records end with is "PWS3-EOFPWS3-EOF"
+// Individual records stop with an END filed and UUID, Title and Password fields are mandatory all others are optional
+func (db PWSafeV3) ParseRecords(records []byte) (int, Error) {
 }
 
 func OpenPWSafe(dbPath string, passwd string) (DB, error) {
@@ -158,7 +222,22 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
 
-	//Parse the decrypted DB
+	//Parse the decrypted DB, first the header
+	hdrSize, err = db.ParseHeader(decryptedDB)
+	if err != nil {
+		return db, errors.New("Error parsing the unencrypted header")
+	}
+
+	recordSize, err = db.ParseRecords(decryptedDB[hdrSize:])
+	if err != nil {
+		return db, errors.New("Error parsing the unencrypted records")
+	}
+
+	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all db data until the EOF string
+	if len(decryptedDB[hdrSize+recordSize:]) != 32 {
+		return db, errors.New("Error reading HMAC value")
+	}
+	db.HMAC = decryptedDB[hdrSize+recordSize:]
 
 	return db, nil
 }
