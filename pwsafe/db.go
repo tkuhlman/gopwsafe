@@ -4,9 +4,11 @@
 package pwsafe
 
 import (
+	"bytes"
 	"code.google.com/p/go-uuid/uuid"
 	"crypto/cipher"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"golang.org/x/crypto/twofish"
 	"os"
@@ -86,7 +88,7 @@ func (db PWSafeV3) List() []string {
 // Parse the header of the decrypted DB returning the size of the Header and any error or nil
 // beginning with the Version type field, and terminated by the 'END' type field. The version number
 // and END fields are mandatory
-func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, Error) {
+func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 	fieldStart := 0
 	for {
 		if fieldStart > len(decryptedDB) {
@@ -94,15 +96,15 @@ func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, Error) {
 		}
 		var fieldLength int
 		buf := bytes.NewReader(decryptedDB[fieldStart : fieldStart+4])
-		err := binary.Read(buf, binary.LittleEndian, &fieldLength)
-		if err != nil {
-			fmt.Println("binary.Read failed:", err)
-		}
+		_ = binary.Read(buf, binary.LittleEndian, &fieldLength)
 
-		btype, data := parseField(decryptedDB[fieldStart:fieldLength])
+		// todo - review http://golang.org/pkg/bytes/
+		// I need to use a buffer to read the btype field and then conditionally read the data as string, timestamp, etc as needed.
+		btype := decryptedDB[fieldStart+4 : fieldStart+5]
+		data := decryptedDB[fieldStart+5 : fieldStart+fieldLength]
 		switch btype {
 		case 0x00: //version
-			db.Version = data
+			db.Version = string(data)
 		case 0x01: //uuuid
 			db.UUID = data
 		case 0x02: //preferences
@@ -142,8 +144,93 @@ func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, Error) {
 
 // Parse the records returning records length and error or nil
 // The EOF string records end with is "PWS3-EOFPWS3-EOF"
+func (db PWSafeV3) ParseRecords(records []byte) (int, error) {
+	recordStart := 0
+	for {
+		if recordStart+twofish.BlockSize == len(records) {
+			if string(records[recordStart:]) == "PWS3-EOFPWS3-EOF" {
+				return recordStart, nil
+			} else {
+				return recordStart, errors.New("Invalid EOF")
+			}
+		}
+		if recordStart > len(records) {
+			return recordStart, errors.New("No EOF found in records")
+		}
+		recordLength, err := db.ParseNextRecord(records[recordStart:])
+		if err != nil {
+			return recordStart, errors.New("Error parsing record")
+		}
+		recordStart += recordLength
+	}
+}
+
+// Parse a single record from the given records []byte, return record size
 // Individual records stop with an END filed and UUID, Title and Password fields are mandatory all others are optional
-func (db PWSafeV3) ParseRecords(records []byte) (int, Error) {
+func (db PWSafeV3) ParseNextRecord(records []byte) (int, error) {
+	fieldStart := 0
+	var record Record
+	for {
+		var fieldLength int
+		buf := bytes.NewReader(records[fieldStart : fieldStart+4])
+		_ = binary.Read(buf, binary.LittleEndian, &fieldLength)
+
+		btype := records[fieldStart+4 : fieldStart+5]
+		data := records[fieldStart+5 : fieldStart+fieldLength]
+		switch btype {
+		case 0x01:
+			record.UUID = data
+		case 0x02:
+			record.Group = data
+		case 0x03:
+			record.Title = data
+		case 0x04:
+			record.Username = data
+		case 0x05:
+			record.Notes = data
+		case 0x06:
+			record.Password = data
+		case 0x07:
+			record.CreateTime = data
+		case 0x08:
+			record.PasswordModTime = data
+		case 0x09:
+			record.AccessTime = data
+		case 0x0a: // password expiry time
+			continue
+		case 0x0c:
+			record.ModTime = data
+		case 0x0d:
+			record.URL = data
+		case 0x0e: //autotype
+			continue
+		case 0x0f: //password history
+			continue
+		case 0x10: //password policy
+			continue
+		case 0x11: //password expiry interval
+			continue
+		case 0x13: //double click action
+			continue
+		case 0x14: //email
+			continue
+		case 0x15: //protected entry
+			continue
+		case 0x16: //own symbol
+			continue
+		case 0x17: //shift double click action
+			continue
+		case 0x18: //password policy name
+			continue
+		case 0xff: //end
+			return fieldStart + fieldLength, nil
+		default:
+			return fieldStart, errors.New("Encountered unknown Header Field")
+		}
+		fieldStart += fieldLength
+	}
+	db.Records[record.Title] = record
+	return fieldStart, nil
 }
 
 func OpenPWSafe(dbPath string, passwd string) (DB, error) {
