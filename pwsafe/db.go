@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"golang.org/x/crypto/twofish"
 	"os"
 	"time"
@@ -94,19 +95,17 @@ func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		if fieldStart > len(decryptedDB) {
 			return 0, errors.New("No END field found in DB header")
 		}
-		var fieldLength int
-		buf := bytes.NewReader(decryptedDB[fieldStart : fieldStart+4])
-		_ = binary.Read(buf, binary.LittleEndian, &fieldLength)
+		fieldLength := byteToInt(decryptedDB[fieldStart : fieldStart+4])
+		btype := byteToInt(decryptedDB[fieldStart+4 : fieldStart+5])
 
-		// todo - review http://golang.org/pkg/bytes/
-		// I need to use a buffer to read the btype field and then conditionally read the data as string, timestamp, etc as needed.
-		btype := decryptedDB[fieldStart+4 : fieldStart+5]
-		data := decryptedDB[fieldStart+5 : fieldStart+fieldLength]
+		data := bytes.NewReader(decryptedDB[fieldStart+5 : fieldStart+fieldLength+5])
+		fmt.Println(btype, decryptedDB[fieldStart+4:fieldStart+5], fieldLength, decryptedDB[fieldStart:fieldStart+4], fieldStart)
+		fieldStart += fieldLength + 5
 		switch btype {
 		case 0x00: //version
-			db.Version = string(data)
+			_ = binary.Read(data, binary.LittleEndian, &db.Version)
 		case 0x01: //uuuid
-			db.UUID = data
+			_ = binary.Read(data, binary.LittleEndian, &db.UUID)
 		case 0x02: //preferences
 			continue
 		case 0x03: //tree
@@ -122,9 +121,9 @@ func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		case 0x08: //last save host
 			continue
 		case 0x09: //DB name
-			db.Name = data
+			_ = binary.Read(data, binary.LittleEndian, &db.Name)
 		case 0x0a: //description
-			db.Description = data
+			_ = binary.Read(data, binary.LittleEndian, &db.Description)
 		case 0x0b: //filters
 			continue
 		case 0x0f: //recently used
@@ -136,9 +135,8 @@ func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		case 0xff: //end
 			return fieldStart + fieldLength, nil
 		default:
-			return 0, errors.New("Encountered unknown Header Field")
+			return 0, errors.New("Encountered unknown Header Field " + string(btype))
 		}
-		fieldStart += fieldLength
 	}
 }
 
@@ -171,37 +169,35 @@ func (db PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 	fieldStart := 0
 	var record Record
 	for {
-		var fieldLength int
-		buf := bytes.NewReader(records[fieldStart : fieldStart+4])
-		_ = binary.Read(buf, binary.LittleEndian, &fieldLength)
-
-		btype := records[fieldStart+4 : fieldStart+5]
-		data := records[fieldStart+5 : fieldStart+fieldLength]
+		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
+		btype := byteToInt(records[fieldStart+4 : fieldStart+5])
+		data := bytes.NewReader(records[fieldStart+5 : fieldStart+fieldLength+5])
+		fieldStart += fieldLength + 5
 		switch btype {
 		case 0x01:
-			record.UUID = data
+			_ = binary.Read(data, binary.LittleEndian, &record.UUID)
 		case 0x02:
-			record.Group = data
+			_ = binary.Read(data, binary.LittleEndian, &record.Group)
 		case 0x03:
-			record.Title = data
+			_ = binary.Read(data, binary.LittleEndian, &record.Title)
 		case 0x04:
-			record.Username = data
+			_ = binary.Read(data, binary.LittleEndian, &record.Username)
 		case 0x05:
-			record.Notes = data
+			_ = binary.Read(data, binary.LittleEndian, &record.Notes)
 		case 0x06:
-			record.Password = data
+			_ = binary.Read(data, binary.LittleEndian, &record.Password)
 		case 0x07:
-			record.CreateTime = data
+			_ = binary.Read(data, binary.LittleEndian, &record.CreateTime)
 		case 0x08:
-			record.PasswordModTime = data
+			_ = binary.Read(data, binary.LittleEndian, &record.PasswordModTime)
 		case 0x09:
-			record.AccessTime = data
+			_ = binary.Read(data, binary.LittleEndian, &record.AccessTime)
 		case 0x0a: // password expiry time
 			continue
 		case 0x0c:
-			record.ModTime = data
+			_ = binary.Read(data, binary.LittleEndian, &record.ModTime)
 		case 0x0d:
-			record.URL = data
+			_ = binary.Read(data, binary.LittleEndian, &record.URL)
 		case 0x0e: //autotype
 			continue
 		case 0x0f: //password history
@@ -227,7 +223,6 @@ func (db PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 		default:
 			return fieldStart, errors.New("Encountered unknown Header Field")
 		}
-		fieldStart += fieldLength
 	}
 	db.Records[record.Title] = record
 	return fieldStart, nil
@@ -310,14 +305,14 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
 
 	//Parse the decrypted DB, first the header
-	hdrSize, err = db.ParseHeader(decryptedDB)
+	hdrSize, err := db.ParseHeader(decryptedDB)
 	if err != nil {
-		return db, errors.New("Error parsing the unencrypted header")
+		return db, errors.New("Error parsing the unencrypted header - " + err.Error())
 	}
 
-	recordSize, err = db.ParseRecords(decryptedDB[hdrSize:])
+	recordSize, err := db.ParseRecords(decryptedDB[hdrSize:])
 	if err != nil {
-		return db, errors.New("Error parsing the unencrypted records")
+		return db, errors.New("Error parsing the unencrypted records - " + err.Error())
 	}
 
 	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all db data until the EOF string
@@ -327,4 +322,15 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 	db.HMAC = decryptedDB[hdrSize+recordSize:]
 
 	return db, nil
+}
+
+func byteToInt(b []byte) int {
+	bint := uint32(uint32(b[0]))
+	for i := 1; i < len(b); i++ {
+		bint = bint | uint32(b[i]<<uint(i)*8)
+	}
+	//	buf := bytes.NewReader(b)
+	//	_ = binary.Read(buf, binary.LittleEndian, &bint)
+	//	bint, _ := binary.ReadUvarint(buf)
+	return int(bint)
 }
