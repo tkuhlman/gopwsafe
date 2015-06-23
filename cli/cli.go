@@ -41,7 +41,7 @@ CLILoop:
 		cmd := console.Text()
 		switch strings.ToLower(cmd) {
 		case "help", "h":
-			fmt.Println("Valid commands: help, exit, list, quit, save")
+			fmt.Println("Valid commands: help, exit, list, quit, save, show")
 		// Todo: Support ^d for quitting also
 		case "exit", "quit", "q":
 			break CLILoop
@@ -49,6 +49,10 @@ CLILoop:
 			fmt.Println(db.List())
 		case "save":
 			fmt.Println("Unimplemented")
+		case "show":
+			fmt.Println("\tWhich entry")
+			console.Scan()
+			fmt.Println(db.GetRecord(console.Text()))
 		default:
 			fmt.Printf("Unknown command %s, type 'help' for valid commands", cmd)
 		}
