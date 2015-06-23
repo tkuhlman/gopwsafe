@@ -4,11 +4,9 @@
 package pwsafe
 
 import (
-	"bytes"
 	"code.google.com/p/go-uuid/uuid"
 	"crypto/cipher"
 	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"golang.org/x/crypto/twofish"
@@ -98,7 +96,7 @@ func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		fieldLength := byteToInt(decryptedDB[fieldStart : fieldStart+4])
 		btype := byteToInt(decryptedDB[fieldStart+4 : fieldStart+5])
 
-		data := bytes.NewReader(decryptedDB[fieldStart+5 : fieldStart+fieldLength+5])
+		data := decryptedDB[fieldStart+5 : fieldStart+fieldLength+5]
 		fieldStart += fieldLength + 5
 		//The next field must start on a block boundary
 		blockmod := fieldStart % twofish.BlockSize
@@ -107,9 +105,9 @@ func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		}
 		switch btype {
 		case 0x00: //version
-			_ = binary.Read(data, binary.LittleEndian, &db.Version)
+			db.Version = string(data)
 		case 0x01: //uuuid
-			_ = binary.Read(data, binary.LittleEndian, &db.UUID)
+			db.UUID = data
 		case 0x02: //preferences
 			continue
 		case 0x03: //tree
@@ -125,9 +123,9 @@ func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		case 0x08: //last save host
 			continue
 		case 0x09: //DB name
-			_ = binary.Read(data, binary.LittleEndian, &db.Name)
+			db.Name = string(data)
 		case 0x0a: //description
-			_ = binary.Read(data, binary.LittleEndian, &db.Description)
+			db.Description = string(data)
 		case 0x0b: //filters
 			continue
 		case 0x0f: //recently used
@@ -151,7 +149,7 @@ func (db *PWSafeV3) ParseRecords(records []byte) (int, error) {
 	db.Records = make(map[string]Record)
 	for {
 		if recordStart+twofish.BlockSize+32 == len(records) { //The last 32 is the HMAC
-			if bytes.Equal(records[recordStart:recordStart+twofish.BlockSize], []byte("PWS3-EOFPWS3-EOF")) {
+			if string(records[recordStart:recordStart+twofish.BlockSize]) == "PWS3-EOFPWS3-EOF" {
 				return recordStart + twofish.BlockSize, nil
 			} else {
 				fmt.Println("Invalid EOF")
@@ -178,40 +176,38 @@ func (db *PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 	for {
 		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
 		btype := byteToInt(records[fieldStart+4 : fieldStart+5])
-		data := bytes.NewReader(records[fieldStart+5 : fieldStart+fieldLength+5])
+		data := records[fieldStart+5 : fieldStart+fieldLength+5]
 		fieldStart += fieldLength + 5
 		//The next field must start on a block boundary
 		blockmod := fieldStart % twofish.BlockSize
 		if blockmod != 0 {
 			fieldStart += twofish.BlockSize - blockmod
 		}
-		fmt.Println(btype)
 		switch btype {
 		case 0x01:
-			_ = binary.Read(data, binary.LittleEndian, &record.UUID)
+			record.UUID = data
 		case 0x02:
-			_ = binary.Read(data, binary.LittleEndian, &record.Group)
+			record.Group = string(data)
 		case 0x03:
-			_ = binary.Read(data, binary.LittleEndian, &record.Title)
-			fmt.Println("title", record.Title, "data", data)
+			record.Title = string(data)
 		case 0x04:
-			_ = binary.Read(data, binary.LittleEndian, &record.Username)
+			record.Username = string(data)
 		case 0x05:
-			_ = binary.Read(data, binary.LittleEndian, &record.Notes)
+			record.Notes = string(data)
 		case 0x06:
-			_ = binary.Read(data, binary.LittleEndian, &record.Password)
+			record.Password = string(data)
 		case 0x07:
-			_ = binary.Read(data, binary.LittleEndian, &record.CreateTime)
+			continue
 		case 0x08:
-			_ = binary.Read(data, binary.LittleEndian, &record.PasswordModTime)
+			continue
 		case 0x09:
-			_ = binary.Read(data, binary.LittleEndian, &record.AccessTime)
+			continue
 		case 0x0a: // password expiry time
 			continue
 		case 0x0c:
-			_ = binary.Read(data, binary.LittleEndian, &record.ModTime)
+			continue
 		case 0x0d:
-			_ = binary.Read(data, binary.LittleEndian, &record.URL)
+			record.URL = string(data)
 		case 0x0e: //autotype
 			continue
 		case 0x0f: //password history
@@ -328,7 +324,6 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 	if err != nil {
 		return db, errors.New("Error parsing the unencrypted records - " + err.Error())
 	}
-	fmt.Println(db.Records)
 
 	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all db data until the EOF string
 	if len(decryptedDB[hdrSize+recordSize:]) != 32 {
@@ -344,8 +339,5 @@ func byteToInt(b []byte) int {
 	for i := 1; i < len(b); i++ {
 		bint = bint | uint32(b[i]<<uint(i)*8)
 	}
-	//	buf := bytes.NewReader(b)
-	//	_ = binary.Read(buf, binary.LittleEndian, &bint)
-	//	bint, _ := binary.ReadUvarint(buf)
 	return int(bint)
 }
