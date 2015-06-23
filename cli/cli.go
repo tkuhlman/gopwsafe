@@ -46,7 +46,7 @@ CLILoop:
 		case "exit", "quit", "q":
 			break CLILoop
 		case "list":
-			db.List()
+			fmt.Println(db.List())
 		case "save":
 			fmt.Println("Unimplemented")
 		default:

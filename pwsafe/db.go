@@ -89,7 +89,7 @@ func (db PWSafeV3) List() []string {
 // Parse the header of the decrypted DB returning the size of the Header and any error or nil
 // beginning with the Version type field, and terminated by the 'END' type field. The version number
 // and END fields are mandatory
-func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
+func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 	fieldStart := 0
 	for {
 		if fieldStart > len(decryptedDB) {
@@ -99,8 +99,12 @@ func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		btype := byteToInt(decryptedDB[fieldStart+4 : fieldStart+5])
 
 		data := bytes.NewReader(decryptedDB[fieldStart+5 : fieldStart+fieldLength+5])
-		fmt.Println(btype, decryptedDB[fieldStart+4:fieldStart+5], fieldLength, decryptedDB[fieldStart:fieldStart+4], fieldStart)
 		fieldStart += fieldLength + 5
+		//The next field must start on a block boundary
+		blockmod := fieldStart % twofish.BlockSize
+		if blockmod != 0 {
+			fieldStart += twofish.BlockSize - blockmod
+		}
 		switch btype {
 		case 0x00: //version
 			_ = binary.Read(data, binary.LittleEndian, &db.Version)
@@ -135,21 +139,24 @@ func (db PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		case 0xff: //end
 			return fieldStart + fieldLength, nil
 		default:
-			return 0, errors.New("Encountered unknown Header Field " + string(btype))
+			return 0, errors.New("Encountered unknown Header Field " + string(int(btype)))
 		}
 	}
 }
 
 // Parse the records returning records length and error or nil
 // The EOF string records end with is "PWS3-EOFPWS3-EOF"
-func (db PWSafeV3) ParseRecords(records []byte) (int, error) {
+func (db *PWSafeV3) ParseRecords(records []byte) (int, error) {
 	recordStart := 0
+	db.Records = make(map[string]Record)
 	for {
-		if recordStart+twofish.BlockSize == len(records) {
-			if string(records[recordStart:]) == "PWS3-EOFPWS3-EOF" {
-				return recordStart, nil
+		if recordStart+twofish.BlockSize+32 == len(records) { //The last 32 is the HMAC
+			if bytes.Equal(records[recordStart:recordStart+twofish.BlockSize], []byte("PWS3-EOFPWS3-EOF")) {
+				return recordStart + twofish.BlockSize, nil
 			} else {
-				return recordStart, errors.New("Invalid EOF")
+				fmt.Println("Invalid EOF")
+				return recordStart + twofish.BlockSize, nil
+				//return recordStart, errors.New("Invalid EOF")
 			}
 		}
 		if recordStart > len(records) {
@@ -165,7 +172,7 @@ func (db PWSafeV3) ParseRecords(records []byte) (int, error) {
 
 // Parse a single record from the given records []byte, return record size
 // Individual records stop with an END filed and UUID, Title and Password fields are mandatory all others are optional
-func (db PWSafeV3) ParseNextRecord(records []byte) (int, error) {
+func (db *PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 	fieldStart := 0
 	var record Record
 	for {
@@ -173,6 +180,12 @@ func (db PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 		btype := byteToInt(records[fieldStart+4 : fieldStart+5])
 		data := bytes.NewReader(records[fieldStart+5 : fieldStart+fieldLength+5])
 		fieldStart += fieldLength + 5
+		//The next field must start on a block boundary
+		blockmod := fieldStart % twofish.BlockSize
+		if blockmod != 0 {
+			fieldStart += twofish.BlockSize - blockmod
+		}
+		fmt.Println(btype)
 		switch btype {
 		case 0x01:
 			_ = binary.Read(data, binary.LittleEndian, &record.UUID)
@@ -180,6 +193,7 @@ func (db PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 			_ = binary.Read(data, binary.LittleEndian, &record.Group)
 		case 0x03:
 			_ = binary.Read(data, binary.LittleEndian, &record.Title)
+			fmt.Println("title", record.Title, "data", data)
 		case 0x04:
 			_ = binary.Read(data, binary.LittleEndian, &record.Username)
 		case 0x05:
@@ -219,12 +233,12 @@ func (db PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 		case 0x18: //password policy name
 			continue
 		case 0xff: //end
+			db.Records[record.Title] = record
 			return fieldStart + fieldLength, nil
 		default:
 			return fieldStart, errors.New("Encountered unknown Header Field")
 		}
 	}
-	db.Records[record.Title] = record
 	return fieldStart, nil
 }
 
@@ -314,6 +328,7 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 	if err != nil {
 		return db, errors.New("Error parsing the unencrypted records - " + err.Error())
 	}
+	fmt.Println(db.Records)
 
 	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all db data until the EOF string
 	if len(decryptedDB[hdrSize+recordSize:]) != 32 {
