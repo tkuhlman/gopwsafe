@@ -340,9 +340,10 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 }
 
 func byteToInt(b []byte) int {
-	bint := uint32(uint32(b[0]))
+	bint := uint32(b[0])
 	for i := 1; i < len(b); i++ {
-		bint = bint | uint32(b[i]<<uint(i)*8)
+		shift := uint(i) * 8
+		bint = bint | uint32(b[i])<<shift
 	}
 	return int(bint)
 }

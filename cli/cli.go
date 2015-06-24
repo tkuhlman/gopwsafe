@@ -9,9 +9,9 @@ Options include:
 package cli
 
 import (
-	"../pwsafe"
 	"bufio"
 	"fmt"
+	"github.com/tkuhlman/gopwsafe/pwsafe"
 	"os"
 	"strings"
 )

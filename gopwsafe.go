@@ -3,9 +3,9 @@
 package main
 
 import (
-	"./cli"
 	"flag"
 	"fmt"
+	"github.com/tkuhlman/gopwsafe/cli"
 )
 
 func main() {
