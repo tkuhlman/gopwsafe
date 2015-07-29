@@ -27,7 +27,7 @@ Features:
 # Todo
 - Everything listed above in features needs finishing
 - pwsafe
-    - Write unit test
+    - Investigate adding coverage reports, see :GoCoverage
     - Finish implemenation of all record fields
     - Finish implementation of all header fields.
 - Add the ability to create a new empty password db.
@@ -41,3 +41,6 @@ Features:
     - diff based on particular fields, name, username, url, password
   - Automatic storage of old passwords.
 - Setup travis-ci, possibly readthedocs
+
+## Eventually
+- Look at gomobile would it be possible to write my code in such a way it can be used on Android and ios. See the utils talk slides for more details on gomobile.

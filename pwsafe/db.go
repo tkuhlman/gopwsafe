@@ -4,14 +4,15 @@
 package pwsafe
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"crypto/cipher"
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/twofish"
 	"os"
 	"time"
+
+	"code.google.com/p/go-uuid/uuid"
+	"golang.org/x/crypto/twofish"
 )
 
 type Record struct {
@@ -240,7 +241,6 @@ func (db *PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 			return fieldStart, errors.New("Encountered unknown Header Field")
 		}
 	}
-	return fieldStart, nil
 }
 
 func OpenPWSafe(dbPath string, passwd string) (DB, error) {
