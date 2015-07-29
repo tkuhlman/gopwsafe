@@ -1,9 +1,15 @@
 package pwsafe
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+/* The test databases simple.dat and three.dat were made using Loxodo (https://github.com/sommer/loxodo)
+Some other test dbs can be found at https://github.com/ronys/pypwsafe/tree/master/test_safes
+these all have the password 'bogus12345'
+*/
 
 func TestByteToInt(t *testing.T) {
 	var testData = []struct {

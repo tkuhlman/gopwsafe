@@ -7,7 +7,6 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"os"
 	"time"
 
@@ -143,7 +142,7 @@ func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 		case 0xff: //end
 			return fieldStart + fieldLength, nil
 		default:
-			return 0, errors.New("Encountered unknown Header Field " + string(int(btype)))
+			return 0, errors.New("Encountered unknown Header Field " + string(btype))
 		}
 	}
 }
@@ -153,25 +152,18 @@ func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 func (db *PWSafeV3) ParseRecords(records []byte) (int, error) {
 	recordStart := 0
 	db.Records = make(map[string]Record)
-	for {
-		if recordStart+twofish.BlockSize+32 == len(records) { //The last 32 is the HMAC
-			if string(records[recordStart:recordStart+twofish.BlockSize]) == "PWS3-EOFPWS3-EOF" {
-				return recordStart + twofish.BlockSize, nil
-			} else {
-				fmt.Println("Invalid EOF")
-				return recordStart + twofish.BlockSize, nil
-				//return recordStart, errors.New("Invalid EOF")
-			}
-		}
-		if recordStart > len(records) {
-			return recordStart, errors.New("No EOF found in records")
-		}
+	for recordStart < len(records) {
 		recordLength, err := db.ParseNextRecord(records[recordStart:])
 		if err != nil {
-			return recordStart, errors.New("Error parsing record")
+			return recordStart, errors.New("Error parsing record - " + err.Error())
 		}
 		recordStart += recordLength
 	}
+
+	if recordStart > len(records) {
+		return recordStart, errors.New("Encountered a record with invalid length")
+	}
+	return recordStart, nil
 }
 
 // Parse a single record from the given records []byte, return record size
@@ -222,6 +214,8 @@ func (db *PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 			continue
 		case 0x11: //password expiry interval
 			continue
+		case 0x12: //run command
+			continue
 		case 0x13: //double click action
 			continue
 		case 0x14: //email
@@ -238,7 +232,7 @@ func (db *PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 			db.Records[record.Title] = record
 			return fieldStart + fieldLength, nil
 		default:
-			return fieldStart, errors.New("Encountered unknown Header Field")
+			return fieldStart, errors.New("Encountered unknown Record Field type - " + string(btype))
 		}
 	}
 }
@@ -305,18 +299,34 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 	block, err := twofish.NewCipher(db.EncryptionKey)
 	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV)
 	finfo, _ := f.Stat()
-	remainingSize := int(finfo.Size() - 152)
-	encryptedDB := make([]byte, remainingSize)
+	encryptedSize := int(finfo.Size() - 152 - twofish.BlockSize - 32) //152 bytes in the headers, EOF and HMAC
+	encryptedDB := make([]byte, encryptedSize)
 	readSize, err = f.Read(encryptedDB)
-	if err != nil || readSize != remainingSize {
+	if err != nil || readSize != encryptedSize {
 		return db, errors.New("Error reading Encrypted Data")
 	}
-
 	if len(encryptedDB)%twofish.BlockSize != 0 {
-		return db, errors.New("Error, data size is not a multiple of the block size")
+		return db, errors.New("Error, encrypted data size is not a multiple of the block size")
 	}
-	decryptedDB := make([]byte, remainingSize)
 
+	eof := make([]byte, twofish.BlockSize)
+	readSize, err = f.Read(eof)
+	if err != nil || readSize != twofish.BlockSize {
+		return db, errors.New("Error reading EOF")
+	}
+	if string(eof) != "PWS3-EOFPWS3-EOF" {
+		return db, errors.New("Invalid EOF")
+	}
+
+	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all unencryped db data
+	hmac := make([]byte, 32)
+	readSize, err = f.Read(hmac)
+	if err != nil || readSize != 32 {
+		return db, errors.New("Error reading HMAC")
+	}
+	db.HMAC = hmac
+
+	decryptedDB := make([]byte, encryptedSize) // The EOF and HMAC are after the encrypted section
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
 
 	//Parse the decrypted DB, first the header
@@ -325,16 +335,10 @@ func OpenPWSafe(dbPath string, passwd string) (DB, error) {
 		return db, errors.New("Error parsing the unencrypted header - " + err.Error())
 	}
 
-	recordSize, err := db.ParseRecords(decryptedDB[hdrSize:])
+	_, err = db.ParseRecords(decryptedDB[hdrSize:])
 	if err != nil {
 		return db, errors.New("Error parsing the unencrypted records - " + err.Error())
 	}
-
-	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all db data until the EOF string
-	if len(decryptedDB[hdrSize+recordSize:]) != 32 {
-		return db, errors.New("Error reading HMAC value")
-	}
-	db.HMAC = decryptedDB[hdrSize+recordSize:]
 
 	return db, nil
 }
