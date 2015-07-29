@@ -11,9 +11,11 @@ package cli
 import (
 	"bufio"
 	"fmt"
-	"github.com/tkuhlman/gopwsafe/pwsafe"
 	"os"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
 func CLIInterface(dbFile string) int {
@@ -46,13 +48,15 @@ CLILoop:
 		case "exit", "quit", "q":
 			break CLILoop
 		case "list":
-			fmt.Println(db.List())
+			for _, item := range db.List() {
+				fmt.Printf("\"%v\"\n", item)
+			}
 		case "save":
 			fmt.Println("Unimplemented")
 		case "show":
 			fmt.Println("\tWhich entry")
 			console.Scan()
-			fmt.Println(db.GetRecord(console.Text()))
+			spew.Dump(db.GetRecord(console.Text()))
 		default:
 			fmt.Printf("Unknown command %s, type 'help' for valid commands", cmd)
 		}

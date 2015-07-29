@@ -82,7 +82,7 @@ func (db PWSafeV3) GetRecord(title string) Record {
 }
 
 func (db PWSafeV3) List() []string {
-	entries := make([]string, len(db.Records))
+	entries := make([]string, 0, len(db.Records))
 	for key := range db.Records {
 		entries = append(entries, key)
 	}
