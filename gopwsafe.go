@@ -4,7 +4,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
+
+	log "github.com/Sirupsen/logrus"
 	"github.com/tkuhlman/gopwsafe/cli"
 )
 
@@ -14,7 +15,7 @@ func main() {
 	flag.Parse()
 
 	if !*useCli {
-		fmt.Println("No gui interface yet implemented")
+		log.Error("No gui interface yet implemented")
 	}
 
 	cli.CLIInterface(*dbFile)

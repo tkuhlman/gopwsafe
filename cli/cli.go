@@ -14,6 +14,8 @@ import (
 	"os"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
@@ -32,7 +34,7 @@ func CLIInterface(dbFile string) int {
 	if err == nil {
 		fmt.Printf("Opened file %s, enter a command or 'help' for information", dbFile)
 	} else {
-		fmt.Printf("Error Opening file %s\n\t%s\n", dbFile, err)
+		log.WithFields(log.Fields{"File": dbFile, "Error": err}).Error("Error Opening file")
 		return 1
 	}
 
