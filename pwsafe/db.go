@@ -7,7 +7,7 @@ import (
 	"crypto/cipher"
 	"crypto/sha256"
 	"errors"
-	"os"
+	"io"
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -46,8 +46,11 @@ type PWSafeV3 struct {
 }
 
 type DB interface {
-	List() []string
+	//todo 	Encrypt(io.Writer) (int, err)
+	Decrypt(io.Reader, string) (int, error)
 	GetRecord(string) Record
+	List() []string
+	//	SearchTitles(string) []Record
 }
 
 // Using the db Salt and Iter along with the passwd calculate the stretch key
@@ -59,6 +62,113 @@ func (db *PWSafeV3) calculateStretchKey(passwd string) {
 		stretched = sha256.Sum256(stretched[:])
 	}
 	db.StretchedKey = stretched
+}
+
+func (db *PWSafeV3) Decrypt(reader io.Reader, passwd string) (int, error) {
+	var bytesRead int
+	// The TAG is 4 ascii characters, should be "PWS3"
+	tag := make([]byte, 4)
+	_, err := reader.Read(tag)
+	if err != nil || string(tag) != "PWS3" {
+		return bytesRead, errors.New("File is not a valid Password Safe v3 file")
+	}
+	bytesRead += 4
+
+	// Read the Salt
+	salt := make([]byte, 32)
+	readSize, err := reader.Read(salt)
+	if err != nil || readSize != 32 {
+		return bytesRead, errors.New("Error reading File, salt is invalid")
+	}
+	bytesRead += 32
+	db.Salt = salt
+
+	// Read iter
+	iter := make([]byte, 4)
+	readSize, err = reader.Read(iter)
+	if err != nil || readSize != 4 {
+		return bytesRead, errors.New("Error reading File, invalid iterations")
+	}
+	bytesRead += 4
+	db.Iter = uint32(uint32(iter[0]) | uint32(iter[1])<<8 | uint32(iter[2])<<16 | uint32(iter[3])<<24)
+
+	// Verify the password
+	db.calculateStretchKey(passwd)
+	readHash := make([]byte, sha256.Size)
+	var keyHash [sha256.Size]byte
+	readSize, err = reader.Read(readHash)
+	copy(keyHash[:], readHash)
+	if err != nil || readSize != sha256.Size || keyHash != sha256.Sum256(db.StretchedKey[:]) {
+		return bytesRead, errors.New("Invalid Password")
+	}
+
+	//extract the encryption and hmac keys
+	keyData := make([]byte, 64)
+	readSize, err = reader.Read(keyData)
+	if err != nil || readSize != 64 {
+		return bytesRead, errors.New("Error reading encryption/HMAC keys")
+	}
+	bytesRead += 64
+	db.extractKeys(keyData)
+
+	cbciv := make([]byte, 16)
+	readSize, err = reader.Read(cbciv)
+	if err != nil || readSize != 16 {
+		return bytesRead, errors.New("Error reading Initial CBC value")
+	}
+	bytesRead += 16
+	db.CBCIV = cbciv
+
+	// All following fields are encrypted with twofish in CBC mode until the EOF, find the EOF
+	encryptedDB := make([]byte, 0)
+	var encryptedSize int
+	for {
+		blockBytes := make([]byte, twofish.BlockSize)
+		readSize, err = reader.Read(blockBytes)
+		if err != nil || readSize != twofish.BlockSize {
+			return bytesRead, errors.New("Error reading Encrypted Data, possibly no EOF found")
+		}
+
+		if string(blockBytes) == "PWS3-EOFPWS3-EOF" {
+			bytesRead += twofish.BlockSize
+			break
+		} else {
+			encryptedSize += readSize
+			encryptedDB = append(encryptedDB, blockBytes...)
+		}
+	}
+	bytesRead += encryptedSize
+
+	if len(encryptedDB)%twofish.BlockSize != 0 {
+		return bytesRead, errors.New("Error, encrypted data size is not a multiple of the block size")
+	}
+
+	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all unencryped db data
+	hmac := make([]byte, 32)
+	readSize, err = reader.Read(hmac)
+	if err != nil || readSize != 32 {
+		return bytesRead, errors.New("Error reading HMAC")
+	}
+	bytesRead += 32
+	db.HMAC = hmac
+
+	block, err := twofish.NewCipher(db.EncryptionKey)
+	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV)
+	decryptedDB := make([]byte, encryptedSize) // The EOF and HMAC are after the encrypted section
+	decrypter.CryptBlocks(decryptedDB, encryptedDB)
+
+	//Parse the decrypted DB, first the header
+	hdrSize, err := db.parseHeader(decryptedDB)
+	if err != nil {
+		return bytesRead, errors.New("Error parsing the unencrypted header - " + err.Error())
+	}
+
+	_, err = db.parseRecords(decryptedDB[hdrSize:])
+	if err != nil {
+		return bytesRead, errors.New("Error parsing the unencrypted records - " + err.Error())
+	}
+
+	return bytesRead, nil
 }
 
 // Pull EncryptionKey and HMAC key from the 64byte keyData
@@ -92,7 +202,7 @@ func (db PWSafeV3) List() []string {
 // Parse the header of the decrypted DB returning the size of the Header and any error or nil
 // beginning with the Version type field, and terminated by the 'END' type field. The version number
 // and END fields are mandatory
-func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
+func (db *PWSafeV3) parseHeader(decryptedDB []byte) (int, error) {
 	fieldStart := 0
 	for {
 		if fieldStart > len(decryptedDB) {
@@ -149,11 +259,11 @@ func (db *PWSafeV3) ParseHeader(decryptedDB []byte) (int, error) {
 
 // Parse the records returning records length and error or nil
 // The EOF string records end with is "PWS3-EOFPWS3-EOF"
-func (db *PWSafeV3) ParseRecords(records []byte) (int, error) {
+func (db *PWSafeV3) parseRecords(records []byte) (int, error) {
 	recordStart := 0
 	db.Records = make(map[string]Record)
 	for recordStart < len(records) {
-		recordLength, err := db.ParseNextRecord(records[recordStart:])
+		recordLength, err := db.parseNextRecord(records[recordStart:])
 		if err != nil {
 			return recordStart, errors.New("Error parsing record - " + err.Error())
 		}
@@ -168,7 +278,7 @@ func (db *PWSafeV3) ParseRecords(records []byte) (int, error) {
 
 // Parse a single record from the given records []byte, return record size
 // Individual records stop with an END filed and UUID, Title and Password fields are mandatory all others are optional
-func (db *PWSafeV3) ParseNextRecord(records []byte) (int, error) {
+func (db *PWSafeV3) parseNextRecord(records []byte) (int, error) {
 	fieldStart := 0
 	var record Record
 	for {
@@ -235,112 +345,6 @@ func (db *PWSafeV3) ParseNextRecord(records []byte) (int, error) {
 			return fieldStart, errors.New("Encountered unknown Record Field type - " + string(btype))
 		}
 	}
-}
-
-func OpenPWSafe(dbPath string, passwd string) (DB, error) {
-	db := PWSafeV3{}
-
-	// Open the file
-	f, err := os.Open(dbPath)
-	if err != nil {
-		return db, err
-	}
-	defer f.Close()
-
-	// The TAG is 4 ascii characters, should be "PWS3"
-	tag := make([]byte, 4)
-	_, err = f.Read(tag)
-	if err != nil || string(tag) != "PWS3" {
-		return db, errors.New("File is not a valid Password Safe v3 file")
-	}
-
-	// Read the Salt
-	salt := make([]byte, 32)
-	readSize, err := f.Read(salt)
-	if err != nil || readSize != 32 {
-		return db, errors.New("Error reading File, salt is invalid")
-	}
-	db.Salt = salt
-
-	// Read iter
-	iter := make([]byte, 4)
-	readSize, err = f.Read(iter)
-	if err != nil || readSize != 4 {
-		return db, errors.New("Error reading File, invalid iterations")
-	}
-	db.Iter = uint32(uint32(iter[0]) | uint32(iter[1])<<8 | uint32(iter[2])<<16 | uint32(iter[3])<<24)
-
-	// Verify the password
-	db.calculateStretchKey(passwd)
-	readHash := make([]byte, sha256.Size)
-	var keyHash [sha256.Size]byte
-	readSize, err = f.Read(readHash)
-	copy(keyHash[:], readHash)
-	if err != nil || readSize != sha256.Size || keyHash != sha256.Sum256(db.StretchedKey[:]) {
-		return db, errors.New("Invalid Password")
-	}
-
-	//extract the encryption and hmac keys
-	keyData := make([]byte, 64)
-	readSize, err = f.Read(keyData)
-	if err != nil || readSize != 64 {
-		return db, errors.New("Error reading encryption/HMAC keys")
-	}
-	db.extractKeys(keyData)
-
-	cbciv := make([]byte, 16)
-	readSize, err = f.Read(cbciv)
-	if err != nil || readSize != 16 {
-		return db, errors.New("Error reading Initial CBC value")
-	}
-	db.CBCIV = cbciv
-
-	// All following fields are encrypted with twofish in CBC mode
-	block, err := twofish.NewCipher(db.EncryptionKey)
-	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV)
-	finfo, _ := f.Stat()
-	encryptedSize := int(finfo.Size() - 152 - twofish.BlockSize - 32) //152 bytes in the headers, EOF and HMAC
-	encryptedDB := make([]byte, encryptedSize)
-	readSize, err = f.Read(encryptedDB)
-	if err != nil || readSize != encryptedSize {
-		return db, errors.New("Error reading Encrypted Data")
-	}
-	if len(encryptedDB)%twofish.BlockSize != 0 {
-		return db, errors.New("Error, encrypted data size is not a multiple of the block size")
-	}
-
-	eof := make([]byte, twofish.BlockSize)
-	readSize, err = f.Read(eof)
-	if err != nil || readSize != twofish.BlockSize {
-		return db, errors.New("Error reading EOF")
-	}
-	if string(eof) != "PWS3-EOFPWS3-EOF" {
-		return db, errors.New("Invalid EOF")
-	}
-
-	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all unencryped db data
-	hmac := make([]byte, 32)
-	readSize, err = f.Read(hmac)
-	if err != nil || readSize != 32 {
-		return db, errors.New("Error reading HMAC")
-	}
-	db.HMAC = hmac
-
-	decryptedDB := make([]byte, encryptedSize) // The EOF and HMAC are after the encrypted section
-	decrypter.CryptBlocks(decryptedDB, encryptedDB)
-
-	//Parse the decrypted DB, first the header
-	hdrSize, err := db.ParseHeader(decryptedDB)
-	if err != nil {
-		return db, errors.New("Error parsing the unencrypted header - " + err.Error())
-	}
-
-	_, err = db.ParseRecords(decryptedDB[hdrSize:])
-	if err != nil {
-		return db, errors.New("Error parsing the unencrypted records - " + err.Error())
-	}
-
-	return db, nil
 }
 
 func byteToInt(b []byte) int {

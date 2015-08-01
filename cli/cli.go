@@ -30,7 +30,7 @@ func CLIInterface(dbFile string) int {
 	fmt.Print("Password:")
 	console.Scan()
 	passwd := console.Text()
-	db, err := pwsafe.OpenPWSafe(dbFile, passwd)
+	db, err := pwsafe.OpenPWSafeFile(dbFile, passwd)
 	if err == nil {
 		fmt.Printf("Opened file %s, enter a command or 'help' for information", dbFile)
 	} else {

@@ -41,10 +41,10 @@ func TestCalculateStretchKey(t *testing.T) {
 
 func TestSimpleDB(t *testing.T) {
 	// This test relies on the simple password db found at simple.dat
-	dbInterface, err := OpenPWSafe("./simple.dat", "password")
+	dbInterface, err := OpenPWSafeFile("./simple.dat", "password")
 	assert.Nil(t, err)
 
-	db := dbInterface.(PWSafeV3)
+	db := dbInterface.(*PWSafeV3)
 
 	assert.Equal(t, len(db.Records), 1)
 	record, exists := db.Records["Test entry"]
@@ -58,10 +58,10 @@ func TestSimpleDB(t *testing.T) {
 
 func TestThreeDB(t *testing.T) {
 	// This test relies on the password db found at three.dat
-	dbInterface, err := OpenPWSafe("./three.dat", "three3#;")
+	dbInterface, err := OpenPWSafeFile("./three.dat", "three3#;")
 	assert.Nil(t, err)
 
-	db := dbInterface.(PWSafeV3)
+	db := dbInterface.(*PWSafeV3)
 
 	assert.Equal(t, len(db.Records), 3)
 
