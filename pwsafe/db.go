@@ -48,9 +48,8 @@ type PWSafeV3 struct {
 type DB interface {
 	//todo 	Encrypt(io.Writer) (int, err)
 	Decrypt(io.Reader, string) (int, error)
-	GetRecord(string) Record
+	GetRecord(string) (Record, bool)
 	List() []string
-	//	SearchTitles(string) []Record
 }
 
 // Using the db Salt and Iter along with the passwd calculate the stretch key
@@ -187,8 +186,9 @@ func (db *PWSafeV3) extractKeys(keyData []byte) {
 	db.HMACKey = append(l1, l2...)
 }
 
-func (db PWSafeV3) GetRecord(title string) Record {
-	return db.Records[title]
+func (db PWSafeV3) GetRecord(title string) (Record, bool) {
+	r, prs := db.Records[title]
+	return r, prs
 }
 
 func (db PWSafeV3) List() []string {

@@ -58,7 +58,12 @@ CLILoop:
 		case "show":
 			fmt.Println("\tWhich entry")
 			console.Scan()
-			spew.Dump(db.GetRecord(console.Text()))
+			r, prs := db.GetRecord(console.Text())
+			if prs {
+				spew.Dump(r)
+			} else {
+				fmt.Println("Record not found")
+			}
 		default:
 			fmt.Printf("Unknown command %s, type 'help' for valid commands", cmd)
 		}
