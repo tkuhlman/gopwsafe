@@ -9,27 +9,21 @@ Options include:
 package cli
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
 
+	"github.com/Bowery/prompt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
 func CLIInterface(dbFile string) int {
-	console := bufio.NewScanner(os.Stdin)
 	if dbFile == "" {
-		fmt.Print("Please enter the path to the password database file to open:")
-		console.Scan()
-		dbFile = console.Text()
+		dbFile, _ = prompt.Basic("Please enter the path to the password database file to open:", true)
 	}
-	fmt.Print("Password:")
-	console.Scan()
-	passwd := console.Text()
+	passwd, _ := prompt.Password("Password:")
 	db, err := pwsafe.OpenPWSafeFile(dbFile, passwd)
 	if err == nil {
 		fmt.Printf("Opened file %s, enter a command or 'help' for information", dbFile)
@@ -38,11 +32,14 @@ func CLIInterface(dbFile string) int {
 		return 1
 	}
 
+	term, _ := prompt.NewTerminal()
+	defer term.Close()
 CLILoop:
 	for {
-		fmt.Print("\n> ")
-		console.Scan()
-		cmd := console.Text()
+		cmd, err := term.Basic("> ", false)
+		if err == prompt.ErrEOF || err == prompt.ErrCTRLC {
+			cmd = "exit"
+		}
 		switch strings.ToLower(cmd) {
 		case "help", "h":
 			fmt.Println("Valid commands: help, exit, list, quit, save, show")
@@ -56,16 +53,19 @@ CLILoop:
 		case "save":
 			fmt.Println("Unimplemented")
 		case "show":
-			fmt.Println("\tWhich entry")
-			console.Scan()
-			r, prs := db.GetRecord(console.Text())
+			entry, _ := prompt.Basic("Which entry: ", true)
+			r, prs := db.GetRecord(entry)
 			if prs {
+				// todo - the problem of closing the term is I loose history, but without it spew is mangled.
+				term.Close()
 				spew.Dump(r)
+				term, _ = prompt.NewTerminal()
+				defer term.Close()
 			} else {
 				fmt.Println("Record not found")
 			}
 		default:
-			fmt.Printf("Unknown command %s, type 'help' for valid commands", cmd)
+			fmt.Println("Unknown command %s, type 'help' for valid commands", cmd)
 		}
 	}
 	return 0
