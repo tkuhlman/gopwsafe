@@ -42,13 +42,22 @@ CLILoop:
 		}
 		switch strings.ToLower(cmd) {
 		case "help", "h":
-			fmt.Println("Valid commands: help, exit, list, quit, save, show")
+			fmt.Println("Valid commands: help, exit, groups, list, listgroup, quit, save, show")
 		// Todo: Support ^d for quitting also
 		case "exit", "quit", "q":
 			break CLILoop
+		case "groups":
+			for _, item := range db.Groups() {
+				fmt.Printf("\"%v\"\n\r", item)
+			}
 		case "list":
 			for _, item := range db.List() {
-				fmt.Printf("\"%v\"\n", item)
+				fmt.Printf("\"%v\"\n\r", item)
+			}
+		case "listgroup":
+			group, _ := prompt.Basic("Which group: ", false)
+			for _, item := range db.ListByGroup(group) {
+				fmt.Printf("\"%v\"\n\r", item)
 			}
 		case "save":
 			fmt.Println("Unimplemented")
@@ -65,7 +74,8 @@ CLILoop:
 				fmt.Println("Record not found")
 			}
 		default:
-			fmt.Println("Unknown command %s, type 'help' for valid commands", cmd)
+			h := fmt.Sprintf("Unknown command %s, type 'help' for valid commands", cmd)
+			fmt.Println(h)
 		}
 	}
 	return 0

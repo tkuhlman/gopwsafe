@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"io"
+	"sort"
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -49,7 +50,9 @@ type DB interface {
 	//todo 	Encrypt(io.Writer) (int, err)
 	Decrypt(io.Reader, string) (int, error)
 	GetRecord(string) (Record, bool)
+	Groups() []string
 	List() []string
+	ListByGroup(string) []string
 }
 
 // Using the db Salt and Iter along with the passwd calculate the stretch key
@@ -191,11 +194,36 @@ func (db PWSafeV3) GetRecord(title string) (Record, bool) {
 	return r, prs
 }
 
+func (db PWSafeV3) Groups() []string {
+	groups := make([]string, 0, len(db.Records))
+	groupSet := make(map[string]bool)
+	for _, value := range db.Records {
+		if _, prs := groupSet[value.Group]; !prs {
+			groupSet[value.Group] = true
+			groups = append(groups, value.Group)
+		}
+	}
+	sort.Strings(groups)
+	return groups
+}
+
 func (db PWSafeV3) List() []string {
 	entries := make([]string, 0, len(db.Records))
 	for key := range db.Records {
 		entries = append(entries, key)
 	}
+	sort.Strings(entries)
+	return entries
+}
+
+func (db PWSafeV3) ListByGroup(group string) []string {
+	entries := make([]string, 0, len(db.Records))
+	for key, value := range db.Records {
+		if value.Group == group {
+			entries = append(entries, key)
+		}
+	}
+	sort.Strings(entries)
 	return entries
 }
 
