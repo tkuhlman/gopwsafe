@@ -47,7 +47,7 @@ func TestSimpleDB(t *testing.T) {
 	db := dbInterface.(*PWSafeV3)
 
 	assert.Equal(t, len(db.Records), 1)
-	record, exists := db.Records["Test entry"]
+	record, exists := db.GetRecord("Test entry")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "test")
 	assert.Equal(t, record.Password, "password")
@@ -65,8 +65,21 @@ func TestThreeDB(t *testing.T) {
 
 	assert.Equal(t, len(db.Records), 3)
 
+	recordList := []string{"three entry 1", "three entry 2", "three entry 3"}
+	assert.Equal(t, recordList, db.List())
+
+	groupList := []string{"group 3", "group1", "group2"}
+	assert.Equal(t, groupList, db.Groups())
+
+	group3List := []string{"three entry 3"}
+	assert.Equal(t, group3List, db.ListByGroup("group 3"))
+	group2List := []string{"three entry 2"}
+	assert.Equal(t, group2List, db.ListByGroup("group2"))
+	group1List := []string{"three entry 1"}
+	assert.Equal(t, group1List, db.ListByGroup("group1"))
+
 	//record 1
-	record, exists := db.Records["three entry 1"]
+	record, exists := db.GetRecord("three entry 1")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three1_user")
 	assert.Equal(t, record.Password, "three1!@$%^&*()")
@@ -75,7 +88,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Notes, "three DB\r\nentry 1")
 
 	//record 2
-	record, exists = db.Records["three entry 2"]
+	record, exists = db.GetRecord("three entry 2")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three2_user")
 	assert.Equal(t, record.Password, "three2_-+=\\\\|][}{';:")
@@ -84,7 +97,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Notes, "three DB\r\nsecond entry")
 
 	//record 3
-	record, exists = db.Records["three entry 3"]
+	record, exists = db.GetRecord("three entry 3")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three3_user")
 	assert.Equal(t, record.Password, ",./<>?`~0")
