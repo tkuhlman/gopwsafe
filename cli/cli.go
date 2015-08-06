@@ -10,6 +10,7 @@ package cli
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -36,16 +37,34 @@ func CLIInterface(dbFile string) int {
 	defer term.Close()
 CLILoop:
 	for {
-		cmd, err := term.Basic("> ", false)
+		cmdStr, err := term.Basic("> ", false)
+		cmd := strings.SplitN(cmdStr, " ", 2)
 		if err == prompt.ErrEOF || err == prompt.ErrCTRLC {
-			cmd = "exit"
+			cmd = []string{"exit"}
 		}
-		switch strings.ToLower(cmd) {
+		switch strings.ToLower(cmd[0]) {
 		case "help", "h":
-			fmt.Println("Valid commands: help, exit, groups, list, listgroup, quit, save, show")
+			fmt.Println("Valid commands: help, exit, find, groups, list, listgroup, quit, save, show")
 		// Todo: Support ^d for quitting also
 		case "exit", "quit", "q":
 			break CLILoop
+		case "find":
+			if len(cmd) == 1 {
+				fmt.Println("Please specify a search string")
+				continue
+			}
+			records := db.List()
+			// Todo - figure out how to default case insensitive without hindering more complicated regexes
+			search, err := regexp.Compile("(?i)" + cmd[1])
+			if err != nil {
+				fmt.Println("Invalid regexp" + err.Error())
+				continue
+			}
+			for _, record := range records {
+				if search.MatchString(record) {
+					fmt.Println(record)
+				}
+			}
 		case "groups":
 			for _, item := range db.Groups() {
 				fmt.Printf("\"%v\"\n\r", item)
@@ -62,8 +81,12 @@ CLILoop:
 		case "save":
 			fmt.Println("Unimplemented")
 		case "show":
-			entry, _ := prompt.Basic("Which entry: ", true)
-			r, prs := db.GetRecord(entry)
+			if len(cmd) == 1 {
+				fmt.Println("Please specify a record title to show")
+				continue
+			}
+			// todo - I should handle quotes around a name
+			r, prs := db.GetRecord(cmd[1])
 			if prs {
 				// todo - the problem of closing the term is I loose history, but without it spew is mangled.
 				term.Close()

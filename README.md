@@ -9,7 +9,7 @@ The pwsafe package contains interfaces for reading/writing to Password Safe v3 d
 preference going to the gtk based gui library.
 
 The gui is implemented with the [go-gtk](https://github.com/mattn/go-gtk) library.
-The cli is implemented using the [prompt](https://github.com/Bowery/prompt) library
+The very basic cli is implemented using the [prompt](https://github.com/Bowery/prompt) library.
 
 The project has been largely tested and developed on OS X and Linux (Ubuntu).
 
@@ -27,20 +27,17 @@ Features:
 # Todo
 - Everything listed above in features needs finishing
 - pwsafe
-    - Investigate adding coverage reports, see :GoCoverage
     - Finish implemenation of all record fields
     - Finish implementation of all header fields.
 - Add the ability to create a new empty password db.
 - Add opening of more than one file at a time.
 - Keep list of recent files opened, do this in a way that it works for both interfaces.
-- Additional Features
-  - Edit of multiple entries at once for select fields, ie modify the group
-  - The ability copy/move entries from one open db to another.
-  - The ability to diff two different databases.
-    - Full diff
-    - diff based on particular fields, name, username, url, password
-  - Automatic storage of old passwords.
-- Setup travis-ci, possibly readthedocs
+- The ability copy/move entries from one open db to another.
+- Edit of multiple entries at once for select fields, ie modify the group
 
 ## Eventually
+- The ability to diff two different databases.
+  - Full diff
+  - diff based on particular fields, name, username, url, password
+- Automatic storage of old passwords.
 - Look at gomobile would it be possible to write my code in such a way it can be used on Android and ios. See the utils talk slides for more details on gomobile.
