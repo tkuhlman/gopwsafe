@@ -62,7 +62,7 @@ CLILoop:
 			}
 			for _, record := range records {
 				if search.MatchString(record) {
-					fmt.Println(record)
+					fmt.Printf("\"%v\"\n\r", record)
 				}
 			}
 		case "groups":
