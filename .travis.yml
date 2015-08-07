@@ -17,5 +17,5 @@ script:
     - go test -v -race ./...
     - go test -coverprofile=profile.cov ./pwsafe
 
-#after_script:
-#    - $HOME/gopath/bin/goveralls -coverprofile=profile.cov -service=travis-ci
+after_script:
+    - $HOME/gopath/bin/goveralls -coverprofile=profile.cov -service=travis-ci
