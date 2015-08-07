@@ -1,6 +1,7 @@
 # gopwsafe
 
-[![GoDoc](http://godoc.org/github.com/tkuhlman/gopwsafe?status.png)](http://godoc.org/github.com/tkuhlman/gopwsafe)
+[![GoDoc](https://godoc.org/github.com/tkuhlman/gopwsafe?status.svg)](https://godoc.org/github.com/tkuhlman/gopwsafe)
+[![Build Status](https://travis-ci.org/tkuhlman/gopwsafe.svg)](https://travis-ci.org/tkuhlman/gopwsafe)
 
 ** In Progress **
 
