@@ -1,5 +1,7 @@
 # gopwsafe
 
+[![GoDoc](http://godoc.org/github.com/tkuhlman/gopwsafe?status.png)](http://godoc.org/github.com/tkuhlman/gopwsafe)
+
 ** In Progress **
 
 A password safe written in go using  and implementing the [password safe](http://pwsafe.org/) version 3 database.

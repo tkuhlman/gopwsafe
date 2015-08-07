@@ -1,11 +1,3 @@
-/*
-
-* update the Readme with info on what I decide to use.
-Options include:
-	- termbox go - https://github.com/nsf/termbox-go - this could lead to a nice cli interface but may be overkill.
-	- just using bufio.ReadLine(),
-		- Add color to my output, https://github.com/aybabtme/rgbterm or https://github.com/alecthomas/colour
-*/
 package cli
 
 import (
