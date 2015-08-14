@@ -2,8 +2,9 @@ package pwsafe
 
 import "os"
 
+//OpenPWSafeFile Opens a password safe v3 file and decrypts with the supplied password
 func OpenPWSafeFile(dbPath string, passwd string) (DB, error) {
-	var db PWSafeV3
+	var db V3
 
 	// Open the file
 	f, err := os.Open(dbPath)

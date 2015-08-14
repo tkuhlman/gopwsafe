@@ -30,7 +30,7 @@ func TestByteToInt(t *testing.T) {
 }
 
 func TestCalculateStretchKey(t *testing.T) {
-	var db PWSafeV3
+	var db V3
 	db.Iter = 2048
 	db.Salt = []byte{224, 70, 145, 8, 59, 173, 47, 241, 203, 157, 83, 209, 22, 55, 151, 157, 96, 234, 194, 167, 175, 251, 199, 145, 7, 219, 203, 168, 6, 166, 238, 241}
 	expectedKey := [32]byte{243, 201, 143, 194, 139, 58, 186, 186, 133, 14, 238, 200, 139, 153, 45, 247, 215, 251, 24, 49, 28, 170, 157, 181, 21, 174, 129, 231, 234, 62, 51, 203}
@@ -44,7 +44,7 @@ func TestSimpleDB(t *testing.T) {
 	dbInterface, err := OpenPWSafeFile("./simple.dat", "password")
 	assert.Nil(t, err)
 
-	db := dbInterface.(*PWSafeV3)
+	db := dbInterface.(*V3)
 
 	assert.Equal(t, len(db.Records), 1)
 	record, exists := db.GetRecord("Test entry")
@@ -61,7 +61,7 @@ func TestThreeDB(t *testing.T) {
 	dbInterface, err := OpenPWSafeFile("./three.dat", "three3#;")
 	assert.Nil(t, err)
 
-	db := dbInterface.(*PWSafeV3)
+	db := dbInterface.(*V3)
 
 	assert.Equal(t, len(db.Records), 3)
 

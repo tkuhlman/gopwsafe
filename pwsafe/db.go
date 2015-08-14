@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/twofish"
 )
 
+//Record The primary type for password DB entries
 type Record struct {
 	AccessTime      time.Time
 	CreateTime      time.Time
@@ -29,7 +30,8 @@ type Record struct {
 	UUID            uuid.UUID
 }
 
-type PWSafeV3 struct {
+//V3 The type representing a password safe v3 database
+type V3 struct {
 	// Note not all of the Header information from the specification is implemented
 	Name          string
 	CBCIV         []byte //16 bytes - Random initial value for CBC
@@ -46,6 +48,7 @@ type PWSafeV3 struct {
 	Version       string
 }
 
+//DB The interface representing the core functionality availble for any password database
 type DB interface {
 	//todo 	Encrypt(io.Writer) (int, err)
 	Decrypt(io.Reader, string) (int, error)
@@ -56,7 +59,7 @@ type DB interface {
 }
 
 // Using the db Salt and Iter along with the passwd calculate the stretch key
-func (db *PWSafeV3) calculateStretchKey(passwd string) {
+func (db *V3) calculateStretchKey(passwd string) {
 	iterations := int(db.Iter)
 	salted := append([]byte(passwd), db.Salt...)
 	stretched := sha256.Sum256(salted)
@@ -66,7 +69,8 @@ func (db *PWSafeV3) calculateStretchKey(passwd string) {
 	db.StretchedKey = stretched
 }
 
-func (db *PWSafeV3) Decrypt(reader io.Reader, passwd string) (int, error) {
+//Decrypt Decrypts the data in the reader using the given password and populates the information into the db
+func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	var bytesRead int
 	// The TAG is 4 ascii characters, should be "PWS3"
 	tag := make([]byte, 4)
@@ -122,7 +126,7 @@ func (db *PWSafeV3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	db.CBCIV = cbciv
 
 	// All following fields are encrypted with twofish in CBC mode until the EOF, find the EOF
-	encryptedDB := make([]byte, 0)
+	var encryptedDB []byte
 	var encryptedSize int
 	for {
 		blockBytes := make([]byte, twofish.BlockSize)
@@ -174,7 +178,7 @@ func (db *PWSafeV3) Decrypt(reader io.Reader, passwd string) (int, error) {
 }
 
 // Pull EncryptionKey and HMAC key from the 64byte keyData
-func (db *PWSafeV3) extractKeys(keyData []byte) {
+func (db *V3) extractKeys(keyData []byte) {
 	c, _ := twofish.NewCipher(db.StretchedKey[:])
 	k1 := make([]byte, 16)
 	c.Decrypt(k1, keyData[:16])
@@ -189,12 +193,14 @@ func (db *PWSafeV3) extractKeys(keyData []byte) {
 	db.HMACKey = append(l1, l2...)
 }
 
-func (db PWSafeV3) GetRecord(title string) (Record, bool) {
+//GetRecord Returns a record from the db with the title matching the given String
+func (db V3) GetRecord(title string) (Record, bool) {
 	r, prs := db.Records[title]
 	return r, prs
 }
 
-func (db PWSafeV3) Groups() []string {
+//Groups Returns an slice of strings which match all groups used by records in the DB
+func (db V3) Groups() []string {
 	groups := make([]string, 0, len(db.Records))
 	groupSet := make(map[string]bool)
 	for _, value := range db.Records {
@@ -207,7 +213,8 @@ func (db PWSafeV3) Groups() []string {
 	return groups
 }
 
-func (db PWSafeV3) List() []string {
+//List Returns the titles of all the records in the db.
+func (db V3) List() []string {
 	entries := make([]string, 0, len(db.Records))
 	for key := range db.Records {
 		entries = append(entries, key)
@@ -216,7 +223,8 @@ func (db PWSafeV3) List() []string {
 	return entries
 }
 
-func (db PWSafeV3) ListByGroup(group string) []string {
+//ListByGroup Returns the list of record titles that have the given group.
+func (db V3) ListByGroup(group string) []string {
 	entries := make([]string, 0, len(db.Records))
 	for key, value := range db.Records {
 		if value.Group == group {
@@ -230,7 +238,7 @@ func (db PWSafeV3) ListByGroup(group string) []string {
 // Parse the header of the decrypted DB returning the size of the Header and any error or nil
 // beginning with the Version type field, and terminated by the 'END' type field. The version number
 // and END fields are mandatory
-func (db *PWSafeV3) parseHeader(decryptedDB []byte) (int, error) {
+func (db *V3) parseHeader(decryptedDB []byte) (int, error) {
 	fieldStart := 0
 	for {
 		if fieldStart > len(decryptedDB) {
@@ -287,7 +295,7 @@ func (db *PWSafeV3) parseHeader(decryptedDB []byte) (int, error) {
 
 // Parse the records returning records length and error or nil
 // The EOF string records end with is "PWS3-EOFPWS3-EOF"
-func (db *PWSafeV3) parseRecords(records []byte) (int, error) {
+func (db *V3) parseRecords(records []byte) (int, error) {
 	recordStart := 0
 	db.Records = make(map[string]Record)
 	for recordStart < len(records) {
@@ -306,7 +314,7 @@ func (db *PWSafeV3) parseRecords(records []byte) (int, error) {
 
 // Parse a single record from the given records []byte, return record size
 // Individual records stop with an END filed and UUID, Title and Password fields are mandatory all others are optional
-func (db *PWSafeV3) parseNextRecord(records []byte) (int, error) {
+func (db *V3) parseNextRecord(records []byte) (int, error) {
 	fieldStart := 0
 	var record Record
 	for {

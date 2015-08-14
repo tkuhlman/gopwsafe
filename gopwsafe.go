@@ -18,5 +18,5 @@ func main() {
 		log.Error("No gui interface yet implemented")
 	}
 
-	cli.CLIInterface(*dbFile)
+	cli.Start(*dbFile)
 }

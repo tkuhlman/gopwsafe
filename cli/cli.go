@@ -12,7 +12,8 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
-func CLIInterface(dbFile string) int {
+//Start A very basic command line interface for password safe v3 files
+func Start(dbFile string) int {
 	if dbFile == "" {
 		dbFile, _ = prompt.Basic("Please enter the path to the password database file to open:", true)
 	}
@@ -66,8 +67,11 @@ CLILoop:
 				fmt.Printf("\"%v\"\n\r", item)
 			}
 		case "listgroup":
-			group, _ := prompt.Basic("Which group: ", false)
-			for _, item := range db.ListByGroup(group) {
+			if len(cmd) == 1 {
+				fmt.Println("Please specify a group to show")
+				continue
+			}
+			for _, item := range db.ListByGroup(cmd[1]) {
 				fmt.Printf("\"%v\"\n\r", item)
 			}
 		case "save":
