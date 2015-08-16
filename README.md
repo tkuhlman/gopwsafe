@@ -13,7 +13,7 @@ Simply download and run, no install needed.
 The pwsafe package contains interfaces for reading/writing to Password Safe v3 databases. This package is utilized by both the gui and cli interfaces with the
 preference going to the gtk based gui library.
 
-The gui is implemented with the [go-gtk](https://github.com/mattn/go-gtk) library.
+The gui is implemented with the library [andlabs/ui](https://github.com/andlabs/ui)
 The very basic cli is implemented using the [prompt](https://github.com/Bowery/prompt) library.
 
 The project has been largely tested and developed on OS X and Linux (Ubuntu).

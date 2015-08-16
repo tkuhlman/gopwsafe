@@ -4,9 +4,10 @@ package main
 
 import (
 	"flag"
+	"os"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/tkuhlman/gopwsafe/cli"
+	"github.com/tkuhlman/gopwsafe/gui"
 )
 
 func main() {
@@ -14,9 +15,12 @@ func main() {
 	dbFile := flag.String("f", "", "Path of the password database to open.")
 	flag.Parse()
 
+	var exitCode int
 	if !*useCli {
-		log.Error("No gui interface yet implemented")
+		exitCode = gui.Start(*dbFile)
+	} else {
+		exitCode = cli.Start(*dbFile)
 	}
 
-	cli.Start(*dbFile)
+	os.Exit(exitCode)
 }
