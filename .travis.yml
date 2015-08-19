@@ -2,12 +2,12 @@ language: go
 go:
   - tip
 
-sudo: false
 matrix:
     fast_finish: true
 
 before_install:
-    - apt-get install build-essential
+    - sudo apt-get update
+    - sudo apt-get install build-essential
     - go get golang.org/x/tools/cmd/vet
     - go get golang.org/x/tools/cmd/cover
     - go get github.com/golang/lint/golint
