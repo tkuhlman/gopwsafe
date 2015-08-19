@@ -1,15 +1,12 @@
 package gui
 
 import (
-	"github.com/andlabs/ui"
 	"github.com/google/gxui"
 	"github.com/google/gxui/drivers/gl"
 	"github.com/google/gxui/gxfont"
 	"github.com/google/gxui/math"
 	"github.com/google/gxui/themes/light"
 )
-
-var window ui.Window
 
 func loginWindow(driver gxui.Driver) {
 	theme := light.CreateTheme(driver)
