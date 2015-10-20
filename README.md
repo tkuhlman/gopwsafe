@@ -16,7 +16,7 @@ preference going to the gtk based gui library.
 The gui is implemented with the library [google/gxui](https://github.com/google/gxui)
 The very basic cli is implemented using the [prompt](https://github.com/Bowery/prompt) library.
 
-The project has been largely tested and developed on OS X and Linux (Ubuntu).
+The project has been largely tested and developed on Linux (Ubuntu).
 
 # GTK GUI
 Features:
