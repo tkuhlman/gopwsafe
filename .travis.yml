@@ -1,5 +1,5 @@
 language: go
-dist: vivid
+dist: trusty
 go:
   - 1.5
 
@@ -7,6 +7,9 @@ matrix:
     fast_finish: true
 
 before_install:
+    - sudo apt-get update
+    - sudo apt-get install software-properties-common
+    - sudo apt-add-repository ppa:keithw/glfw3
     - sudo apt-get update
     - sudo apt-get install build-essential libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev mesa-common-dev libgl1-mesa-dev libxxf86vm-dev libglfw3-dev
     - go get golang.org/x/tools/cmd/vet
