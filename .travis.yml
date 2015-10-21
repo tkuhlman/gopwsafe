@@ -1,6 +1,6 @@
 language: go
 go:
-  - tip
+  - 1.5
 
 matrix:
     fast_finish: true

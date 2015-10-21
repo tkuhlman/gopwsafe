@@ -47,7 +47,9 @@ func loginWindow(driver gxui.Driver) {
 	passwdLabel.SetText("Password:")
 	layout.AddChild(passwdLabel)
 
-	//todo hide password possibly by using OnTextChanged handler + SetText
+	//todo hide password
+	//I am subscribed to this bug for this https://github.com/google/gxui/issues/119
+	// If needed I could consider possibly using OnTextChanged handler + SetText
 	passwordBox := theme.CreateTextBox()
 	passwordBox.SetPadding(math.Spacing{L: 10, T: 10, R: 10, B: 10})
 	passwordBox.SetMargin(math.Spacing{L: 10, T: 10, R: 10, B: 10})
@@ -68,6 +70,8 @@ func loginWindow(driver gxui.Driver) {
 			window.Close()
 		}
 	})
+
+	//todo I need a driver.Terminate to trigger when the login window is closed without the main window open
 
 	window.AddChild(layout)
 }
