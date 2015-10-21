@@ -59,24 +59,23 @@ func loginWindow(driver gxui.Driver) {
 	openButton := theme.CreateButton()
 	openButton.SetText("Open")
 	openButton.OnClick(func(gxui.MouseEvent) {
-		openDB(driver, pathBox.Text(), passwordBox.Text())
-		window.Close()
+		window.Hide()
+		openDB(driver, window, pathBox.Text(), passwordBox.Text())
 	})
 	layout.AddChild(openButton)
 
 	passwordBox.OnKeyDown(func(ev gxui.KeyboardEvent) {
 		if ev.Key == gxui.KeyEnter || ev.Key == gxui.KeyKpEnter {
-			openDB(driver, pathBox.Text(), passwordBox.Text())
-			window.Close()
+			window.Hide()
+			openDB(driver, window, pathBox.Text(), passwordBox.Text())
 		}
 	})
 
-	//todo I need a driver.Terminate to trigger when the login window is closed without the main window open
-
 	window.AddChild(layout)
+	window.OnClose(driver.Terminate)
 }
 
-func openDB(driver gxui.Driver, dbFile string, passwd string) {
+func openDB(driver gxui.Driver, previousWindow gxui.Window, dbFile string, passwd string) {
 	db, err := pwsafe.OpenPWSafeFile(dbFile, passwd)
 	if err != nil {
 		//todo ditch logging and instead pop up an error dialog
@@ -84,6 +83,7 @@ func openDB(driver gxui.Driver, dbFile string, passwd string) {
 		loginWindow(driver)
 		return
 	} else {
+		previousWindow.Show()
 		mainWindow(driver, db)
 	}
 }
