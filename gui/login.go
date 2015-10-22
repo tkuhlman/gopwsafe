@@ -6,7 +6,6 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 
 	"github.com/google/gxui"
-	"github.com/google/gxui/drivers/gl"
 	"github.com/google/gxui/gxfont"
 	"github.com/google/gxui/math"
 	"github.com/google/gxui/themes/light"
@@ -83,20 +82,4 @@ func openDB(driver gxui.Driver, previousWindow gxui.Window, dbFile string, passw
 		previousWindow.Show()
 		mainWindow(driver, db)
 	}
-}
-
-func mainWindow(driver gxui.Driver, db pwsafe.DB) {
-	theme := light.CreateTheme(driver)
-	window := theme.CreateWindow(500, 500, "GoPWSafe")
-	layout := theme.CreateLinearLayout()
-	layout.SetSizeMode(gxui.Fill)
-	layout.SetDirection(gxui.TopToBottom)
-	window.AddChild(layout)
-	window.OnClose(driver.Terminate)
-}
-
-//Start Begins execution of the gui
-func Start(dbFile string) int {
-	gl.StartDriver(loginWindow)
-	return 0
 }
