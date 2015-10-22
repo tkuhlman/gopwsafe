@@ -41,6 +41,7 @@ Features:
 - Edit of multiple entries at once for select fields, ie modify the group
 
 ## Eventually
+- Add a file selection tool for opening.
 - The ability to diff two different databases.
   - Full diff
   - diff based on particular fields, name, username, url, password

@@ -1,9 +1,9 @@
 package gui
 
 import (
-	"github.com/tkuhlman/gopwsafe/pwsafe"
+	"fmt"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/tkuhlman/gopwsafe/pwsafe"
 
 	"github.com/google/gxui"
 	"github.com/google/gxui/drivers/gl"
@@ -19,23 +19,20 @@ func loginWindow(driver gxui.Driver) {
 	if err != nil {
 		panic(err)
 	}
+	theme.SetDefaultFont(font)
 
-	window := theme.CreateWindow(380, 250, "GoPWSafe")
+	window := theme.CreateWindow(500, 300, "GoPWSafe")
 
-	//todo validate common keyboard shortcuts.
 	layout := theme.CreateLinearLayout()
 	layout.SetSizeMode(gxui.Fill)
 	layout.SetDirection(gxui.TopToBottom)
 	layout.SetHorizontalAlignment(gxui.AlignCenter)
-	layout.HorizontalAlignment().AlignCenter()
 
 	pathLabel := theme.CreateLabel()
-	pathLabel.SetFont(font)
 	pathLabel.SetText("Password DB path: changed")
 	layout.AddChild(pathLabel)
 
 	//todo add selectable entries from history
-	//todo add a file selection dialog box
 	pathBox := theme.CreateTextBox()
 	pathBox.SetDesiredWidth(math.MaxSize.W)
 	pathBox.SetPadding(math.Spacing{L: 10, T: 10, R: 10, B: 10})
@@ -43,7 +40,6 @@ func loginWindow(driver gxui.Driver) {
 	layout.AddChild(pathBox)
 
 	passwdLabel := theme.CreateLabel()
-	passwdLabel.SetFont(font)
 	passwdLabel.SetText("Password:")
 	layout.AddChild(passwdLabel)
 
@@ -72,15 +68,16 @@ func loginWindow(driver gxui.Driver) {
 	})
 
 	window.AddChild(layout)
+	window.SetFocus(pathBox)
 	window.OnClose(driver.Terminate)
 }
 
 func openDB(driver gxui.Driver, previousWindow gxui.Window, dbFile string, passwd string) {
 	db, err := pwsafe.OpenPWSafeFile(dbFile, passwd)
 	if err != nil {
-		//todo ditch logging and instead pop up an error dialog
-		log.WithFields(log.Fields{"File": dbFile, "Error": err}).Error("Error Opening file")
-		loginWindow(driver)
+		ErrorDialog(driver, fmt.Sprintf("Error Opening file %s\n%s", dbFile, err))
+		//todo figure out how to
+		previousWindow.Show()
 		return
 	} else {
 		previousWindow.Show()
