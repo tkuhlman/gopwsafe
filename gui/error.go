@@ -7,7 +7,7 @@ import (
 	"github.com/google/gxui/themes/light"
 )
 
-func ErrorDialog(driver gxui.Driver, msg string) {
+func errorDialog(driver gxui.Driver, msg string) {
 	theme := light.CreateTheme(driver)
 	// todo figure out how to resize based on the message size.
 	window := theme.CreateWindow(500, 250, "Error")
@@ -36,6 +36,6 @@ func ErrorDialog(driver gxui.Driver, msg string) {
 
 	window.AddChild(layout)
 	// todo be smarter about positioning
-	window.SetPosition(math.Point{1000, 1000})
+	window.SetPosition(math.Point{X: 1000, Y: 1000})
 	window.SetFocus(OKButton)
 }

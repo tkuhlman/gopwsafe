@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"github.com/tkuhlman/gopwsafe/config"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 
 	"github.com/google/gxui"
@@ -9,7 +10,7 @@ import (
 	"github.com/google/gxui/themes/light"
 )
 
-func mainWindow(driver gxui.Driver, db pwsafe.DB) {
+func mainWindow(driver gxui.Driver, db pwsafe.DB, conf config.PWSafeDBConfig) {
 	theme := light.CreateTheme(driver)
 	font, err := driver.CreateFont(gxfont.Default, 20)
 	if err != nil {
@@ -23,6 +24,7 @@ func mainWindow(driver gxui.Driver, db pwsafe.DB) {
 	window.AddChild(layout)
 	window.OnClose(driver.Terminate)
 
+	layout.AddChild(listEntry(theme, conf.GetPathHistory()[0]))
 	for _, item := range db.List() {
 		layout.AddChild(listEntry(theme, item))
 	}
@@ -36,6 +38,7 @@ func listEntry(theme gxui.Theme, name string) gxui.Label {
 
 //Start Begins execution of the gui
 func Start(dbFile string) int {
+	// todo ctrl-q should work for exit.
 	gl.StartDriver(loginWindow)
 	return 0
 }

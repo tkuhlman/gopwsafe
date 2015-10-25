@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 
+	"github.com/tkuhlman/gopwsafe/config"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 
 	"github.com/google/gxui"
@@ -12,6 +13,7 @@ import (
 )
 
 func loginWindow(driver gxui.Driver) {
+	conf := config.Load()
 	theme := light.CreateTheme(driver)
 
 	font, err := driver.CreateFont(gxfont.Default, 25)
@@ -31,11 +33,15 @@ func loginWindow(driver gxui.Driver) {
 	pathLabel.SetText("Password DB path: changed")
 	layout.AddChild(pathLabel)
 
-	//todo add selectable entries from history
 	pathBox := theme.CreateTextBox()
 	pathBox.SetDesiredWidth(math.MaxSize.W)
 	pathBox.SetPadding(math.Spacing{L: 10, T: 10, R: 10, B: 10})
 	pathBox.SetMargin(math.Spacing{L: 10, T: 10, R: 10, B: 10})
+	//todo look into textbox_controller to allow a selection list of mulitple options
+	hist := conf.GetPathHistory()
+	if len(hist) > 0 {
+		pathBox.SetText(hist[0])
+	}
 	layout.AddChild(pathBox)
 
 	passwdLabel := theme.CreateLabel()
@@ -55,14 +61,14 @@ func loginWindow(driver gxui.Driver) {
 	openButton.SetText("Open")
 	openButton.OnClick(func(gxui.MouseEvent) {
 		window.Hide()
-		openDB(driver, window, pathBox.Text(), passwordBox.Text())
+		openDB(driver, window, conf, pathBox.Text(), passwordBox.Text())
 	})
 	layout.AddChild(openButton)
 
 	passwordBox.OnKeyDown(func(ev gxui.KeyboardEvent) {
 		if ev.Key == gxui.KeyEnter || ev.Key == gxui.KeyKpEnter {
 			window.Hide()
-			openDB(driver, window, pathBox.Text(), passwordBox.Text())
+			openDB(driver, window, conf, pathBox.Text(), passwordBox.Text())
 		}
 	})
 
@@ -71,15 +77,18 @@ func loginWindow(driver gxui.Driver) {
 	window.OnClose(driver.Terminate)
 }
 
-func openDB(driver gxui.Driver, previousWindow gxui.Window, dbFile string, passwd string) {
+func openDB(driver gxui.Driver, previousWindow gxui.Window, conf config.PWSafeDBConfig, dbFile string, passwd string) {
 	db, err := pwsafe.OpenPWSafeFile(dbFile, passwd)
 	if err != nil {
-		ErrorDialog(driver, fmt.Sprintf("Error Opening file %s\n%s", dbFile, err))
-		//todo figure out how to
+		//todo figure out how to make the error dialog stay on top
+		errorDialog(driver, fmt.Sprintf("Error Opening file %s\n%s", dbFile, err))
 		previousWindow.Show()
 		return
-	} else {
-		previousWindow.Show()
-		mainWindow(driver, db)
 	}
+	//todo handle duplicates and handle only keeping a certain amount of history
+	err = conf.AddToPathHistory(dbFile)
+	if err != nil {
+		errorDialog(driver, fmt.Sprintf("Error adding %s to History\n%s", dbFile, err))
+	}
+	mainWindow(driver, db, conf)
 }
