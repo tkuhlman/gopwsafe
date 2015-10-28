@@ -1,44 +1,51 @@
 package gui
 
 import (
+	"fmt"
+
+	"github.com/mattn/go-gtk/glib"
+	"github.com/mattn/go-gtk/gtk"
 	"github.com/tkuhlman/gopwsafe/config"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
-
-	"github.com/google/gxui"
-	"github.com/google/gxui/drivers/gl"
-	"github.com/google/gxui/gxfont"
-	"github.com/google/gxui/themes/light"
 )
 
-func mainWindow(driver gxui.Driver, db pwsafe.DB, conf config.PWSafeDBConfig) {
-	theme := light.CreateTheme(driver)
-	font, err := driver.CreateFont(gxfont.Default, 20)
-	if err != nil {
-		panic(err)
-	}
-	theme.SetDefaultFont(font)
-	window := theme.CreateWindow(500, 500, "GoPWSafe")
-	layout := theme.CreateLinearLayout()
-	layout.SetSizeMode(gxui.Fill)
-	layout.SetDirection(gxui.TopToBottom)
-	window.AddChild(layout)
-	window.OnClose(driver.Terminate)
+// GUI docs
+// https://godoc.org/github.com/mattn/go-gtk
+// https://developer.gnome.org/gtk2/2.24/
 
-	layout.AddChild(listEntry(theme, conf.GetPathHistory()[0]))
+func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
+
+	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
+	window.SetPosition(gtk.WIN_POS_CENTER)
+	window.SetTitle("GoPWSafe")
+	window.Connect("destroy", func(ctx *glib.CallbackContext) {
+		gtk.MainQuit()
+	}, "Main Window")
+
+	swin := gtk.NewScrolledWindow(nil, nil)
+	swin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+	swin.SetShadowType(gtk.SHADOW_IN)
+	textview := gtk.NewTextView()
+	var start gtk.TextIter
+	buffer := textview.GetBuffer()
+	buffer.GetStartIter(&start)
+
 	for _, item := range db.List() {
-		layout.AddChild(listEntry(theme, item))
+		buffer.Insert(&start, fmt.Sprintf("%v\n%", item))
 	}
-}
+	swin.Add(textview)
+	window.Add(swin)
 
-func listEntry(theme gxui.Theme, name string) gxui.Label {
-	item := theme.CreateLabel()
-	item.SetText(name)
-	return item
+	// todo add a menu
+	window.SetSizeRequest(800, 800)
+	window.ShowAll()
 }
 
 //Start Begins execution of the gui
 func Start(dbFile string) int {
-	// todo ctrl-q should work for exit.
-	gl.StartDriver(loginWindow)
+	// todo ctrl-q should work for exit for all windows
+	gtk.Init(nil)
+	openWindow(dbFile)
+	gtk.Main()
 	return 0
 }
