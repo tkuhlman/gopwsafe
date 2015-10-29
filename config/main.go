@@ -10,7 +10,8 @@ import (
 
 // Config object defining the configuration for gopwsafe
 type Config struct {
-	History []string `yaml:",omitempty"`
+	History       []string `yaml:",omitempty"`
+	HistoryLength int
 }
 
 // PWSafeDBConfig An interface that defines various methods for interacting with the pwsafe configuration
@@ -20,9 +21,15 @@ type PWSafeDBConfig interface {
 	Save() error
 }
 
+// setDefaults sets configuration defaults
+func (conf *Config) setDefaults() {
+	conf.HistoryLength = 5
+}
+
 // Load the config from the standard location
 func Load() PWSafeDBConfig {
 	var conf Config
+	conf.setDefaults()
 	//todo Allow configuring a config file
 	configPath := os.Getenv("HOME") + "/.gopwsafe.yaml"
 
@@ -34,11 +41,10 @@ func Load() PWSafeDBConfig {
 	data, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))
-	} else {
-		err = yaml.Unmarshal(data, &conf)
-		if err != nil {
-			panic(fmt.Errorf("Fatal error config file: %s \n", err))
-		}
+	}
+	err = yaml.Unmarshal(data, &conf)
+	if err != nil {
+		panic(fmt.Errorf("Fatal error config file: %s \n", err))
 	}
 	return &conf
 }

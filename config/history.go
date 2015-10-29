@@ -9,8 +9,20 @@ func (conf Config) GetPathHistory() []string {
 
 //AddToPathHistory Add a db file path to the history
 func (conf *Config) AddToPathHistory(path string) error {
-	//todo handle duplicates and handle only keeping a certain amount of history
-	conf.History = append(conf.History, path)
+	newHistory := make([]string, 1)
+	newHistory[0] = path
+	// Add any unique already in the history
+	for _, entry := range conf.History {
+		if entry != path {
+			newHistory = append(newHistory, entry)
+		}
+	}
+
+	if len(newHistory) > conf.HistoryLength {
+		conf.History = newHistory[:conf.HistoryLength]
+	} else {
+		conf.History = newHistory
+	}
 	err := conf.Save()
 	if err != nil {
 		return err
