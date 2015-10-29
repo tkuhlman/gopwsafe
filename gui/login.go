@@ -60,7 +60,6 @@ func openWindow(dbFile string) {
 	passwordBox := gtk.NewEntry()
 	passwordBox.SetVisibility(false)
 	vbox.Add(passwordBox)
-	//todo DB should open after hitting enter
 
 	openButton := gtk.NewButtonWithLabel("Open")
 	openButton.Clicked(func() {
@@ -70,6 +69,10 @@ func openWindow(dbFile string) {
 
 	window.Add(vbox)
 	window.SetSizeRequest(500, 300)
+	//todo DB should open after hitting enter (rather than tab-enter)
+	// the way to do this is probably setting a default widget but none of my gui elements are a widget, perhaps I need a builder
+	// and builder.GetObject() and gtk.WidgetFromObject() in conjunction?
+	//window.SetDefault(openButton)
 	window.ShowAll()
 }
 
@@ -79,7 +82,6 @@ func openDB(previousWindow *gtk.Window, conf config.PWSafeDBConfig, dbFile strin
 		errorDialog(previousWindow, fmt.Sprintf("Error Opening file %s\n%s", dbFile, err))
 		return
 	}
-	//todo handle duplicates and handle only keeping a certain amount of history
 	err = conf.AddToPathHistory(dbFile)
 	if err != nil {
 		errorDialog(previousWindow, fmt.Sprintf("Error adding %s to History\n%s", dbFile, err))

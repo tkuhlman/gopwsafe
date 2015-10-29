@@ -1,7 +1,5 @@
 package config
 
-//todo implement and likely these will be methods of a config interface
-
 //GetPathHistory returns the recent DB paths that have been opened, if none returns [""]
 func (conf Config) GetPathHistory() []string {
 	return conf.History
