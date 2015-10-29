@@ -31,6 +31,7 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	buffer.GetStartIter(&start)
 
 	for _, item := range db.List() {
+		// todo make sure the default font doesn't do stupid things like mix up I l 1, etc
 		buffer.Insert(&start, fmt.Sprintf("%v\n%", item))
 	}
 	swin.Add(textview)

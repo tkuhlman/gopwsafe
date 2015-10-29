@@ -25,32 +25,34 @@ func openWindow(dbFile string) {
 
 	pathLabel := gtk.NewLabel("Password DB path: ")
 	vbox.Add(pathLabel)
-	pathBox := gtk.NewEntry()
-	if dbFile != "" {
-		pathBox.SetText(dbFile)
-	} else {
-		hist := conf.GetPathHistory()
-		if len(hist) > 0 {
-			pathBox.SetText(hist[0])
-		}
-	}
-	vbox.Add(pathBox)
 
-	chooserButton := gtk.NewButtonWithLabel("...")
-	chooserButton.Clicked(func() {
-		filechooserdialog := gtk.NewFileChooserDialog(
-			"Choose Password Safe file...",
-			chooserButton.GetTopLevelAsWindow(),
-			gtk.FILE_CHOOSER_ACTION_OPEN,
-			gtk.STOCK_OK,
-			gtk.RESPONSE_ACCEPT)
-		filechooserdialog.Response(func() {
-			pathBox.SetText(filechooserdialog.GetFilename())
-			filechooserdialog.Destroy()
-		})
-		filechooserdialog.Run()
+	pathBox := gtk.NewComboBoxTextWithEntry()
+	if dbFile != "" {
+		pathBox.AppendText(dbFile)
+	}
+	for _, entry := range conf.GetPathHistory() {
+		pathBox.AppendText(entry)
+	}
+	pathBox.AppendText("Choose a file")
+	pathBox.SetActive(0)
+	pathBox.Connect("changed", func() {
+		if pathBox.GetActiveText() == "Choose a file" {
+			filechooserdialog := gtk.NewFileChooserDialog(
+				"Choose Password Safe file...",
+				window,
+				gtk.FILE_CHOOSER_ACTION_OPEN,
+				gtk.STOCK_OK,
+				gtk.RESPONSE_ACCEPT)
+			filechooserdialog.Response(func() {
+				pathBox.PrependText(filechooserdialog.GetFilename())
+				//todo This triggers a bug in go-gtk causing a crash
+				//pathBox.SetActive(0)
+				filechooserdialog.Destroy()
+			})
+			filechooserdialog.Run()
+		}
 	})
-	vbox.Add(chooserButton)
+	vbox.Add(pathBox)
 
 	passwdLabel := gtk.NewLabel("Password: ")
 	vbox.Add(passwdLabel)
@@ -62,7 +64,7 @@ func openWindow(dbFile string) {
 
 	openButton := gtk.NewButtonWithLabel("Open")
 	openButton.Clicked(func() {
-		openDB(window, conf, pathBox.GetText(), passwordBox.GetText())
+		openDB(window, conf, pathBox.GetActiveText(), passwordBox.GetText())
 	})
 	vbox.Add(openButton)
 
