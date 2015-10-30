@@ -43,21 +43,21 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	updateRecords(db, recordBuffer, "")
 	recordFrame.Add(recordWin)
 
-	sbox := gtk.NewHBox(false, 1)
+	searchPaned := gtk.NewHPaned()
 	searchLabel := gtk.NewLabel("Search: ")
-	sbox.Add(searchLabel)
+	searchPaned.Pack1(searchLabel, false, false)
 	searchBox := gtk.NewEntry()
 	searchBox.Connect("changed", func() {
 		updateRecords(db, recordBuffer, searchBox.GetText())
 	})
-	sbox.Add(searchBox)
+	searchPaned.Pack2(searchBox, false, false)
 
 	//todo add a status bar that will be updated based on the recent actions performed
 
 	// layout
 	vbox := gtk.NewVBox(false, 1)
 	vbox.PackStart(menubar, false, false, 0)
-	vbox.Add(sbox)
+	vbox.Add(searchPaned)
 	vbox.Add(recordFrame)
 	window.Add(vbox)
 	window.SetSizeRequest(800, 800)
