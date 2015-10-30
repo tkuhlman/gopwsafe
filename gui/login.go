@@ -20,8 +20,6 @@ func openWindow(dbFile string) {
 	conf := config.Load()
 
 	vbox := gtk.NewVBox(false, 1)
-	menubar := gtk.NewMenuBar()
-	vbox.PackStart(menubar, false, false, 0)
 
 	pathLabel := gtk.NewLabel("Password DB path: ")
 	vbox.Add(pathLabel)
@@ -88,17 +86,4 @@ func openDB(previousWindow *gtk.Window, conf config.PWSafeDBConfig, dbFile strin
 	}
 	previousWindow.Hide()
 	mainWindow(db, conf)
-}
-
-func errorDialog(parent *gtk.Window, msg string) {
-	messagedialog := gtk.NewMessageDialog(
-		parent,
-		gtk.DIALOG_MODAL,
-		gtk.MESSAGE_INFO,
-		gtk.BUTTONS_OK,
-		msg)
-	messagedialog.Response(func() {
-		messagedialog.Destroy()
-	})
-	messagedialog.Run()
 }
