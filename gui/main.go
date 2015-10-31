@@ -26,10 +26,6 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 		gtk.MainQuit()
 	}, "Main Window")
 
-	// todo add a menu
-	// todo add and about dialog
-	menubar := gtk.NewMenuBar()
-
 	recordFrame := gtk.NewFrame("Records")
 	//todo Make into a tree view so I can easily distinguish multiple DBs, also use for grouping by pw group
 	//	recordTree := gtk.NewTreeView()
@@ -49,6 +45,7 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	searchBox := gtk.NewEntry()
 	searchBox.Connect("changed", func() {
 		updateRecords(db, recordBuffer, searchBox.GetText())
+		// todo look at GtkEntryCompletion to see if that is a better way to approach this, https://developer.gnome.org/gtk3/stable/GtkEntryCompletion.html
 	})
 	searchPaned.Pack2(searchBox, false, false)
 
@@ -56,8 +53,8 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 
 	// layout
 	vbox := gtk.NewVBox(false, 1)
-	vbox.PackStart(menubar, false, false, 0)
-	vbox.Add(searchPaned)
+	vbox.PackStart(standardMenuBar(window), false, false, 0)
+	vbox.PackStart(searchPaned, false, false, 0)
 	vbox.Add(recordFrame)
 	window.Add(vbox)
 	window.SetSizeRequest(800, 800)
@@ -79,9 +76,35 @@ func updateRecords(db pwsafe.DB, buffer *gtk.TextBuffer, search string) {
 	}
 }
 
+// Configures the standard menubar and keyboard shortcuts
+func standardMenuBar(window *gtk.Window) *gtk.Widget {
+	actionGroup := gtk.NewActionGroup("standard")
+	actionGroup.AddAction(gtk.NewAction("FileMenu", "File", "", ""))
+	fileQuit := gtk.NewAction("FileQuit", "", "", gtk.STOCK_QUIT)
+	fileQuit.Connect("activate", gtk.MainQuit)
+	actionGroup.AddActionWithAccel(fileQuit, "<control>q")
+
+	uiInfo := `
+<ui>
+  <menubar name='MenuBar'>
+    <menu action='FileMenu'>
+      <menuitem action='FileQuit' />
+    </menu>
+  </menubar>
+</ui>
+`
+	// todo add a popup menu, at least I think that is a context menu
+	uiManager := gtk.NewUIManager()
+	uiManager.AddUIFromString(uiInfo)
+	uiManager.InsertActionGroup(actionGroup, 0)
+	accelGroup := uiManager.GetAccelGroup()
+	window.AddAccelGroup(accelGroup)
+
+	return uiManager.GetWidget("/MenuBar")
+}
+
 //Start Begins execution of the gui
 func Start(dbFile string) int {
-	// todo ctrl-q should work for exit for all windows
 	gtk.Init(nil)
 	openWindow(dbFile)
 	gtk.Main()

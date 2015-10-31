@@ -19,10 +19,7 @@ func openWindow(dbFile string) {
 
 	conf := config.Load()
 
-	vbox := gtk.NewVBox(false, 1)
-
 	pathLabel := gtk.NewLabel("Password DB path: ")
-	vbox.Add(pathLabel)
 
 	pathBox := gtk.NewComboBoxTextWithEntry()
 	if dbFile != "" {
@@ -50,27 +47,32 @@ func openWindow(dbFile string) {
 			filechooserdialog.Run()
 		}
 	})
-	vbox.Add(pathBox)
 
 	passwdLabel := gtk.NewLabel("Password: ")
-	vbox.Add(passwdLabel)
 
 	passwordBox := gtk.NewEntry()
 	passwordBox.SetVisibility(false)
-	vbox.Add(passwordBox)
+	passwordBox.SetActivatesDefault(true)
 
 	openButton := gtk.NewButtonWithLabel("Open")
 	openButton.Clicked(func() {
 		openDB(window, conf, pathBox.GetActiveText(), passwordBox.GetText())
 	})
-	vbox.Add(openButton)
 
+	// I want enter in the passwordBox to work for opening the db but am unsure how to do it.
+	//window.SetDefault(openButton)
+
+	//layout
+	vbox := gtk.NewVBox(false, 1)
+	vbox.PackStart(standardMenuBar(window), false, false, 0)
+	vbox.Add(pathLabel)
+	vbox.Add(pathBox)
+	vbox.Add(passwdLabel)
+	vbox.Add(passwordBox)
+	vbox.Add(openButton)
 	window.Add(vbox)
 	window.SetSizeRequest(500, 300)
-	//todo DB should open after hitting enter (rather than tab-enter)
-	// the way to do this is probably setting a default widget but none of my gui elements are a widget, perhaps I need a builder
-	// and builder.GetObject() and gtk.WidgetFromObject() in conjunction?
-	//window.SetDefault(openButton)
+
 	window.ShowAll()
 }
 
