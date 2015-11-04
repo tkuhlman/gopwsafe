@@ -1,9 +1,9 @@
 package gui
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/mattn/go-gtk/gdkpixbuf"
 	"github.com/mattn/go-gtk/glib"
 	"github.com/mattn/go-gtk/gtk"
 	"github.com/tkuhlman/gopwsafe/config"
@@ -15,6 +15,7 @@ import (
 // https://developer.gnome.org/gtk-tutorial/stable/
 // https://developer.gnome.org/gtk2/2.24/
 
+//todo add multiple db support
 func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 
 	//todo revisit the structure of the gui code, splitting more out into functions and in general better organizing things.
@@ -27,25 +28,28 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	}, "Main Window")
 
 	recordFrame := gtk.NewFrame("Records")
-	//todo Make into a tree view so I can easily distinguish multiple DBs, also use for grouping by pw group
-	//	recordTree := gtk.NewTreeView()
 	recordWin := gtk.NewScrolledWindow(nil, nil)
 	recordWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 	recordWin.SetShadowType(gtk.SHADOW_IN)
-	recordTextView := gtk.NewTextView()
-	recordTextView.SetEditable(false)
-	recordWin.Add(recordTextView)
-	recordBuffer := recordTextView.GetBuffer()
-	updateRecords(db, recordBuffer, "")
 	recordFrame.Add(recordWin)
+	recordTree := gtk.NewTreeView()
+	recordWin.Add(recordTree)
+	recordStore := gtk.NewTreeStore(gdkpixbuf.GetType(), glib.G_TYPE_STRING)
+	recordTree.SetModel(recordStore.ToTreeModel())
+	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("", gtk.NewCellRendererPixbuf(), "pixbuf", 0))
+	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Name", gtk.NewCellRendererText(), "text", 1))
+
+	// todo make sure the default font doesn't do stupid things like mix up I l 1, etc
+	updateRecords(db, recordStore, "")
+	recordTree.ExpandAll()
 
 	searchPaned := gtk.NewHPaned()
 	searchLabel := gtk.NewLabel("Search: ")
 	searchPaned.Pack1(searchLabel, false, false)
 	searchBox := gtk.NewEntry()
 	searchBox.Connect("changed", func() {
-		updateRecords(db, recordBuffer, searchBox.GetText())
-		// todo look at GtkEntryCompletion to see if that is a better way to approach this, https://developer.gnome.org/gtk3/stable/GtkEntryCompletion.html
+		updateRecords(db, recordStore, searchBox.GetText())
+		recordTree.ExpandAll()
 	})
 	searchPaned.Pack2(searchBox, false, false)
 
@@ -61,17 +65,29 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	window.ShowAll()
 }
 
-func updateRecords(db pwsafe.DB, buffer *gtk.TextBuffer, search string) {
-	var end, start gtk.TextIter
-	buffer.GetStartIter(&start)
-	buffer.GetEndIter(&end)
-	buffer.Delete(&start, &end)
-	searchLower := strings.ToLower(search)
+func updateRecords(db pwsafe.DB, store *gtk.TreeStore, search string) {
+	store.Clear()
+	var dbRoot gtk.TreeIter
+	store.Append(&dbRoot, nil)
+	store.Set(&dbRoot, gtk.NewImage().RenderIcon(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_SMALL_TOOLBAR, "").GPixbuf, db.GetName())
 
-	for _, item := range db.List() {
-		// todo make sure the default font doesn't do stupid things like mix up I l 1, etc
-		if strings.Contains(strings.ToLower(item), searchLower) {
-			buffer.Insert(&start, fmt.Sprintf("%s\n", item))
+	searchLower := strings.ToLower(search)
+	for _, groupName := range db.Groups() {
+		matches := make([]string, 0)
+		for _, item := range db.ListByGroup(groupName) {
+			if strings.Contains(strings.ToLower(item), searchLower) {
+				matches = append(matches, item)
+			}
+		}
+		if len(matches) > 0 {
+			var group gtk.TreeIter
+			store.Append(&group, &dbRoot)
+			store.Set(&group, gtk.NewImage().RenderIcon(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_SMALL_TOOLBAR, "").GPixbuf, groupName)
+			for _, recordName := range matches {
+				var record gtk.TreeIter
+				store.Append(&record, &group)
+				store.Set(&record, gtk.NewImage().RenderIcon(gtk.STOCK_FILE, gtk.ICON_SIZE_SMALL_TOOLBAR, "").GPixbuf, recordName)
+			}
 		}
 	}
 }

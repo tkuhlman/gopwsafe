@@ -56,6 +56,7 @@ type DB interface {
 	Groups() []string
 	List() []string
 	ListByGroup(string) []string
+	GetName() string
 }
 
 // Using the db Salt and Iter along with the passwd calculate the stretch key
@@ -233,6 +234,11 @@ func (db V3) ListByGroup(group string) []string {
 	}
 	sort.Strings(entries)
 	return entries
+}
+
+// returns the database name
+func (db *V3) GetName() string {
+	return db.Name
 }
 
 // Parse the header of the decrypted DB returning the size of the Header and any error or nil
