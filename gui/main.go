@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/mattn/go-gtk/gdkpixbuf"
@@ -42,6 +43,30 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	// todo make sure the default font doesn't do stupid things like mix up I l 1, etc
 	updateRecords(db, recordStore, "")
 	recordTree.ExpandAll()
+	recordTree.Connect("row_activated", func() {
+		var path *gtk.TreePath
+		var column *gtk.TreeViewColumn
+		var iter gtk.TreeIter
+		var rowValue glib.GValue
+		model := recordStore.ToTreeModel()
+		recordTree.GetCursor(&path, &column)
+		model.GetIter(&iter, path)
+		model.GetValue(&iter, 1, &rowValue)
+
+		record, _ := db.GetRecord(rowValue.GetString())
+		mesg := fmt.Sprintf("%+v", record)
+		dialog := gtk.NewMessageDialog(
+			recordTree.GetTopLevelAsWindow(),
+			gtk.DIALOG_MODAL,
+			gtk.MESSAGE_INFO,
+			gtk.BUTTONS_OK,
+			mesg)
+		dialog.SetTitle(record.Title)
+		dialog.Response(func() {
+			dialog.Destroy()
+		})
+		dialog.Run()
+	})
 
 	searchPaned := gtk.NewHPaned()
 	searchLabel := gtk.NewLabel("Search: ")
@@ -73,7 +98,7 @@ func updateRecords(db pwsafe.DB, store *gtk.TreeStore, search string) {
 
 	searchLower := strings.ToLower(search)
 	for _, groupName := range db.Groups() {
-		matches := make([]string, 0)
+		var matches []string
 		for _, item := range db.ListByGroup(groupName) {
 			if strings.Contains(strings.ToLower(item), searchLower) {
 				matches = append(matches, item)

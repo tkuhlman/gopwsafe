@@ -236,7 +236,7 @@ func (db V3) ListByGroup(group string) []string {
 	return entries
 }
 
-// returns the database name
+// GetName returns the database name
 func (db *V3) GetName() string {
 	return db.Name
 }
