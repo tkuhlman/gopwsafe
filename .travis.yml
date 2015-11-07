@@ -8,10 +8,7 @@ matrix:
 
 before_install:
     - sudo apt-get update
-    - sudo apt-get install -y software-properties-common
-    - sudo apt-add-repository -y ppa:keithw/glfw3
-    - sudo apt-get update
-    - sudo apt-get install -y build-essential libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev mesa-common-dev libgl1-mesa-dev libxxf86vm-dev libglfw3-dev
+    - sudo apt-get install -y build-essential libgtk2.0-dev
     - go get golang.org/x/tools/cmd/vet
     - go get golang.org/x/tools/cmd/cover
     - go get github.com/golang/lint/golint

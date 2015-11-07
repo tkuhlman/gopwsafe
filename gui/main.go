@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/mattn/go-gtk/gdkpixbuf"
@@ -40,10 +39,10 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("", gtk.NewCellRendererPixbuf(), "pixbuf", 0))
 	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Name", gtk.NewCellRendererText(), "text", 1))
 
-	// todo make sure the default font doesn't do stupid things like mix up I l 1, etc
 	updateRecords(db, recordStore, "")
 	recordTree.ExpandAll()
 	recordTree.Connect("row_activated", func() {
+		// Find the record name for the row being activated
 		var path *gtk.TreePath
 		var column *gtk.TreeViewColumn
 		var iter gtk.TreeIter
@@ -54,18 +53,7 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 		model.GetValue(&iter, 1, &rowValue)
 
 		record, _ := db.GetRecord(rowValue.GetString())
-		mesg := fmt.Sprintf("%+v", record)
-		dialog := gtk.NewMessageDialog(
-			recordTree.GetTopLevelAsWindow(),
-			gtk.DIALOG_MODAL,
-			gtk.MESSAGE_INFO,
-			gtk.BUTTONS_OK,
-			mesg)
-		dialog.SetTitle(record.Title)
-		dialog.Response(func() {
-			dialog.Destroy()
-		})
-		dialog.Run()
+		recordWindow(&record)
 	})
 
 	searchPaned := gtk.NewHPaned()
