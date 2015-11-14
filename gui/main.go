@@ -43,6 +43,13 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 
 	updateRecords(db, recordStore, "")
 	recordTree.ExpandAll()
+
+	// Select the first record in the tree
+	treeSelection := recordTree.GetSelection()
+	firstEntryPath := gtk.NewTreePathFromString("0:0:0")
+	treeSelection.SetMode(gtk.SELECTION_SINGLE)
+	treeSelection.SelectPath(firstEntryPath)
+
 	recordTree.Connect("row_activated", func() {
 		recordWindow(getSelectedRecord(recordStore, recordTree, db))
 	})
@@ -54,6 +61,7 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 	searchBox.Connect("changed", func() {
 		updateRecords(db, recordStore, searchBox.GetText())
 		recordTree.ExpandAll()
+		treeSelection.SelectPath(firstEntryPath)
 	})
 	searchPaned.Pack2(searchBox, false, false)
 
@@ -72,14 +80,14 @@ func mainWindow(db pwsafe.DB, conf config.PWSafeDBConfig) {
 
 // return a db.Record matching the selected entry
 func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, db pwsafe.DB) *pwsafe.Record {
-	var path *gtk.TreePath
-	var column *gtk.TreeViewColumn
 	var iter gtk.TreeIter
 	var rowValue glib.GValue
+	selection := recordTree.GetSelection()
+	selection.GetSelected(&iter)
 	model := recordStore.ToTreeModel()
-	recordTree.GetCursor(&path, &column)
-	model.GetIter(&iter, path)
 	model.GetValue(&iter, 1, &rowValue)
+
+	// todo fail gracefully if a non-leaf is selected.
 
 	record, _ := db.GetRecord(rowValue.GetString())
 	/* todo rather than _ have success and check but then I need to pass in the gtk window also, altenatively return the status and check in the main function
@@ -154,6 +162,7 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
 	actionGroup := gtk.NewActionGroup("record")
 	actionGroup.AddAction(gtk.NewAction("RecordMenu", "Record", "", ""))
 
+	//todo all of the getSeletedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
 	copyUser := gtk.NewAction("CopyUsername", "Copy username to clipboard", "", "")
 	copyUser.Connect("activate", func() { clipboard.SetText(getSelectedRecord(recordStore, recordTree, db).Username) })
 	actionGroup.AddActionWithAccel(copyUser, "<control>u")
