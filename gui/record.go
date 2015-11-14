@@ -31,6 +31,8 @@ func recordWindow(record *pwsafe.Record) {
 
 	password := gtk.NewLabel("Passsord")
 	passwordValue := gtk.NewEntry()
+	// todo set up a way to make the password visible and then hide by default
+	//passwordBox.SetVisibility(false)
 	passwordValue.SetText(record.Password)
 
 	notesFrame := gtk.NewFrame("Notes")
@@ -79,25 +81,25 @@ func recordWindow(record *pwsafe.Record) {
 // Configures the record menubar and keyboard shortcuts
 func recordMenuBar(window *gtk.Window, record *pwsafe.Record) *gtk.Widget {
 	clipboard := gtk.NewClipboardGetForDisplay(gdk.DisplayGetDefault(), gdk.SELECTION_CLIPBOARD)
-	clipboard.SetText("helloworld")
 
 	actionGroup := gtk.NewActionGroup("record")
 	actionGroup.AddAction(gtk.NewAction("RecordMenu", "Record", "", ""))
 
-	copyUser := gtk.NewAction("CopyUsername", "", "", "Copy username to clipboard")
+	copyUser := gtk.NewAction("CopyUsername", "Copy username to clipboard", "", "")
 	copyUser.Connect("activate", func() { clipboard.SetText(record.Username) })
 	actionGroup.AddActionWithAccel(copyUser, "<control>u")
 
-	copyPassword := gtk.NewAction("CopyPassword", "", "", "Copy password to clipboard")
+	copyPassword := gtk.NewAction("CopyPassword", "Copy password to clipboard", "", "")
 	copyPassword.Connect("activate", func() { clipboard.SetText(record.Password) })
 	actionGroup.AddActionWithAccel(copyPassword, "<control>p")
 
-	openURL := gtk.NewAction("OpenURL", "", "", "Open URL")
+	openURL := gtk.NewAction("OpenURL", "Open URL", "", "")
 	// gtk-go hasn't yet implemented gtk_show_uri so using github.com/skratchdot/open-golang/open
+	// todo it opens the url but should switch to that app also.
 	openURL.Connect("activate", func() { open.Start(record.URL) })
 	actionGroup.AddActionWithAccel(openURL, "<control>o")
 
-	copyURL := gtk.NewAction("CopyURL", "", "", "Copy URL to clipboard")
+	copyURL := gtk.NewAction("CopyURL", "Copy URL to clipboard", "", "")
 	copyURL.Connect("activate", func() { clipboard.SetText(record.URL) })
 	actionGroup.AddActionWithAccel(copyURL, "<control>l")
 
