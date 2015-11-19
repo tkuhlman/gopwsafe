@@ -7,7 +7,7 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
-// todo make sure the default font doesn't do stupid things like mix up I l 1, etc
+// The default ubuntu font is okay but using something like hack would be better.
 func recordWindow(record *pwsafe.Record) {
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
 	window.SetPosition(gtk.WIN_POS_CENTER)
@@ -29,11 +29,14 @@ func recordWindow(record *pwsafe.Record) {
 	urlValue := gtk.NewEntry()
 	urlValue.SetText(record.URL)
 
-	password := gtk.NewLabel("Passsord")
+	password := gtk.NewLabel("Password")
 	passwordValue := gtk.NewEntry()
-	// todo set up a way to make the password visible and then hide by default
-	//passwordBox.SetVisibility(false)
+	passwordValue.SetVisibility(false)
 	passwordValue.SetText(record.Password)
+	showPassword := gtk.NewButtonWithLabel("show/hide")
+	showPassword.Clicked(func() {
+		passwordValue.SetVisibility(!passwordValue.GetVisibility())
+	})
 
 	notesFrame := gtk.NewFrame("Notes")
 	notesWin := gtk.NewScrolledWindow(nil, nil)
@@ -69,6 +72,7 @@ func recordWindow(record *pwsafe.Record) {
 	hbox = gtk.NewHBox(true, 1)
 	hbox.Add(password)
 	hbox.Add(passwordValue)
+	hbox.Add(showPassword)
 	vbox.PackStart(hbox, false, false, 0)
 
 	vbox.Add(notesFrame)
