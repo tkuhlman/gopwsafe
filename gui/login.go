@@ -9,15 +9,13 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
-func openWindow(dbFile string) {
+func openWindow(dbFile string, dbs *[]pwsafe.DB, conf config.PWSafeDBConfig, mainWindow *gtk.Window, recordStore *gtk.TreeStore) {
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
 	window.Connect("destroy", func(ctx *glib.CallbackContext) {
 		gtk.MainQuit()
 	}, "Open Window")
-
-	conf := config.Load()
 
 	pathLabel := gtk.NewLabel("Password DB path: ")
 
@@ -56,7 +54,21 @@ func openWindow(dbFile string) {
 
 	openButton := gtk.NewButtonWithLabel("Open")
 	openButton.Clicked(func() {
-		openDB(window, conf, pathBox.GetActiveText(), passwordBox.GetText())
+		toOpen := pathBox.GetActiveText()
+		db, err := pwsafe.OpenPWSafeFile(toOpen, passwordBox.GetText())
+		if err != nil {
+			errorDialog(window, fmt.Sprintf("Error Opening file %s\n%s", toOpen, err))
+			return
+		}
+		err = conf.AddToPathHistory(toOpen)
+		if err != nil {
+			errorDialog(window, fmt.Sprintf("Error adding %s to History\n%s", toOpen, err))
+		}
+		newdbs := append(*dbs, db)
+		*dbs = newdbs
+		updateRecords(*dbs, recordStore, "")
+		window.Hide()
+		mainWindow.ShowAll()
 	})
 
 	// I want enter in the passwordBox to work for opening the db but am unsure how to do it.
@@ -64,7 +76,7 @@ func openWindow(dbFile string) {
 
 	//layout
 	vbox := gtk.NewVBox(false, 1)
-	vbox.PackStart(standardMenuBar(window), false, false, 0)
+	vbox.PackStart(quitMenuBar(window), false, false, 0)
 	vbox.Add(pathLabel)
 	vbox.Add(pathBox)
 	vbox.Add(passwdLabel)
@@ -76,16 +88,28 @@ func openWindow(dbFile string) {
 	window.ShowAll()
 }
 
-func openDB(previousWindow *gtk.Window, conf config.PWSafeDBConfig, dbFile string, passwd string) {
-	db, err := pwsafe.OpenPWSafeFile(dbFile, passwd)
-	if err != nil {
-		errorDialog(previousWindow, fmt.Sprintf("Error Opening file %s\n%s", dbFile, err))
-		return
-	}
-	err = conf.AddToPathHistory(dbFile)
-	if err != nil {
-		errorDialog(previousWindow, fmt.Sprintf("Error adding %s to History\n%s", dbFile, err))
-	}
-	previousWindow.Hide()
-	mainWindow(db, conf)
+func quitMenuBar(window *gtk.Window) *gtk.Widget {
+	actionGroup := gtk.NewActionGroup("standard")
+	actionGroup.AddAction(gtk.NewAction("FileMenu", "File", "", ""))
+	fileQuit := gtk.NewAction("FileQuit", "", "", gtk.STOCK_QUIT)
+	fileQuit.Connect("activate", gtk.MainQuit)
+	actionGroup.AddActionWithAccel(fileQuit, "<control>q")
+
+	uiInfo := `
+<ui>
+  <menubar name='MenuBar'>
+    <menu action='FileMenu'>
+      <menuitem action='FileQuit' />
+    </menu>
+  </menubar>
+</ui>
+`
+	// todo add a popup menu, I think that is a context menu
+	uiManager := gtk.NewUIManager()
+	uiManager.AddUIFromString(uiInfo)
+	uiManager.InsertActionGroup(actionGroup, 0)
+	accelGroup := uiManager.GetAccelGroup()
+	window.AddAccelGroup(accelGroup)
+
+	return uiManager.GetWidget("/MenuBar")
 }

@@ -5,7 +5,7 @@
 [![Coverage Status](https://coveralls.io/repos/tkuhlman/gopwsafe/badge.svg?branch=master&service=github)](https://coveralls.io/github/tkuhlman/gopwsafe?branch=master)
 
 
-** In Progress **
+** In Progress - Currently Read Only **
 
 A password safe written in go using  and implementing the [password safe](http://pwsafe.org/) version 3 database.
 Simply download and run, no install needed.
@@ -30,13 +30,13 @@ Features:
 - V3 Password Safe Specification - http://sourceforge.net/p/passwordsafe/code/HEAD/tree/trunk/pwsafe/pwsafe/docs/formatV3.txt
 
 # Todo
-- Everything listed above in features needs finishing
 - pwsafe
     - Finish implemenation of all record fields
     - Finish implementation of all header fields.
+    - currently iti is all read only
 - Add the ability to create a new empty password db.
+- Copy doesn't time out and clear clipboard at this point
 - Add opening of more than one file at a time.
-- Keep list of recent files opened, do this in a way that it works for both interfaces.
 - The ability copy/move entries from one open db to another.
 - Edit of multiple entries at once for select fields, ie modify the group
 

@@ -50,7 +50,7 @@ func recordWindow(record *pwsafe.Record) {
 
 	//layout
 	vbox := gtk.NewVBox(false, 0)
-	vbox.PackStart(standardMenuBar(window), false, false, 0)
+	vbox.PackStart(quitMenuBar(window), false, false, 0)
 	vbox.PackStart(recordMenuBar(window, record), false, false, 0)
 
 	hbox := gtk.NewHBox(true, 1)
