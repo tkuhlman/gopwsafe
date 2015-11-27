@@ -42,17 +42,15 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("", gtk.NewCellRendererPixbuf(), "pixbuf", 0))
 	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Name", gtk.NewCellRendererText(), "text", 1))
 
-	updateRecords(dbs, recordStore, "")
+	updateRecords(&dbs, recordStore, "")
 	recordTree.ExpandAll()
 
-	// Select the first record in the tree
+	// Prepare to select the first record in the tree on update
 	treeSelection := recordTree.GetSelection()
-	firstEntryPath := gtk.NewTreePathFromString("0:0:0")
 	treeSelection.SetMode(gtk.SELECTION_SINGLE)
-	treeSelection.SelectPath(firstEntryPath)
 
 	recordTree.Connect("row_activated", func() {
-		recordWindow(getSelectedRecord(recordStore, recordTree, dbs))
+		recordWindow(getSelectedRecord(recordStore, recordTree, &dbs))
 	})
 
 	searchPaned := gtk.NewHPaned()
@@ -60,9 +58,15 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	searchPaned.Pack1(searchLabel, false, false)
 	searchBox := gtk.NewEntry()
 	searchBox.Connect("changed", func() {
-		updateRecords(dbs, recordStore, searchBox.GetText())
+		updateRecords(&dbs, recordStore, searchBox.GetText())
 		recordTree.ExpandAll()
-		treeSelection.SelectPath(firstEntryPath)
+		for i := range dbs {
+			firstEntryPath := gtk.NewTreePathFromString(strconv.Itoa(i) + ":0:0")
+			treeSelection.SelectPath(firstEntryPath)
+			if treeSelection.PathIsSelected(firstEntryPath) {
+				break
+			}
+		}
 	})
 	searchPaned.Pack2(searchBox, false, false)
 
@@ -71,7 +75,7 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	// layout
 	vbox := gtk.NewVBox(false, 1)
 	vbox.PackStart(mainMenuBar(window, &dbs, conf, recordStore), false, false, 0)
-	vbox.PackStart(selectedRecordMenuBar(window, recordStore, recordTree, dbs), false, false, 0)
+	vbox.PackStart(selectedRecordMenuBar(window, recordStore, recordTree, &dbs), false, false, 0)
 	vbox.PackStart(searchPaned, false, false, 0)
 	vbox.Add(recordFrame)
 	window.Add(vbox)
@@ -86,7 +90,7 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 }
 
 // return a db.Record matching the selected entry
-func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs []pwsafe.DB) *pwsafe.Record {
+func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]pwsafe.DB) *pwsafe.Record {
 	var iter gtk.TreeIter
 	var rowValue glib.GValue
 	selection := recordTree.GetSelection()
@@ -101,7 +105,7 @@ func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs
 		var record pwsafe.Record
 		return &record
 	}
-	db := dbs[activeDB]
+	db := (*dbs)[activeDB]
 
 	// todo fail gracefully if a non-leaf is selected.
 
@@ -114,9 +118,9 @@ func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs
 	return &record
 }
 
-func updateRecords(dbs []pwsafe.DB, store *gtk.TreeStore, search string) {
+func updateRecords(dbs *[]pwsafe.DB, store *gtk.TreeStore, search string) {
 	store.Clear()
-	for i, db := range dbs {
+	for i, db := range *dbs {
 		name := db.GetName()
 		if name == "" {
 			name = strconv.Itoa(i)
@@ -191,7 +195,7 @@ func mainMenuBar(window *gtk.Window, dbs *[]pwsafe.DB, conf config.PWSafeDBConfi
 // todo this is remarkably similar to the recordMenuBar in gui/record.go the difference being this
 // one doesn't get a record passed in but finds it from selection. I should think about how I could
 // clearly and idiomatically reduce the duplication.
-func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs []pwsafe.DB) *gtk.Widget {
+func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]pwsafe.DB) *gtk.Widget {
 	clipboard := gtk.NewClipboardGetForDisplay(gdk.DisplayGetDefault(), gdk.SELECTION_CLIPBOARD)
 
 	actionGroup := gtk.NewActionGroup("record")

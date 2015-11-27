@@ -66,7 +66,7 @@ func openWindow(dbFile string, dbs *[]pwsafe.DB, conf config.PWSafeDBConfig, mai
 		}
 		newdbs := append(*dbs, db)
 		*dbs = newdbs
-		updateRecords(*dbs, recordStore, "")
+		updateRecords(dbs, recordStore, "")
 		window.Hide()
 		mainWindow.ShowAll()
 	})
