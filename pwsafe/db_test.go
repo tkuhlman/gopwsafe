@@ -1,6 +1,7 @@
 package pwsafe
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,6 +47,7 @@ func TestSimpleDB(t *testing.T) {
 
 	db := dbInterface.(*V3)
 
+	assert.Equal(t, db.GetName(), "")
 	assert.Equal(t, len(db.Records), 1)
 	record, exists := db.GetRecord("Test entry")
 	assert.Equal(t, exists, true)
@@ -104,4 +106,16 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Group, "group 3")
 	assert.Equal(t, record.URL, "https://group3.com")
 	assert.Equal(t, record.Notes, "three DB\r\nentry 3\r\nlast one")
+}
+
+func TestInvalidFile(t *testing.T) {
+	_, err := OpenPWSafeFile("./db.go", "password")
+	assert.Equal(t, err, errors.New("File is not a valid Password Safe v3 file"))
+	_, err = OpenPWSafeFile("./notafile", "password")
+	assert.NotNil(t, err)
+}
+
+func TestBadPassword(t *testing.T) {
+	_, err := OpenPWSafeFile("./simple.dat", "badpass")
+	assert.Equal(t, err, errors.New("Invalid Password"))
 }

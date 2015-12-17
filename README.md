@@ -33,7 +33,7 @@ Features:
 - pwsafe
     - Finish implemenation of all record fields
     - Finish implementation of all header fields.
-    - currently iti is all read only
+    - currently it is all read only
 - Add the ability to create a new empty password db.
 - Copy doesn't time out and clear clipboard at this point
 - The ability copy/move entries from one open db to another.
