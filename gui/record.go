@@ -8,7 +8,7 @@ import (
 )
 
 // The default ubuntu font is okay but using something like hack would be better.
-func recordWindow(record *pwsafe.Record) {
+func recordWindow(db *pwsafe.DB, record *pwsafe.Record) {
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle(record.Title)
@@ -48,6 +48,34 @@ func recordWindow(record *pwsafe.Record) {
 	notesWin.Add(textView)
 	notesFrame.Add(notesWin)
 
+	okayButton := gtk.NewButtonWithLabel("Okay")
+	okayButton.Clicked(func() {
+		// Grab values
+		origName := record.Title
+		record.Title = titleValue.GetText()
+		record.Group = groupValue.GetText()
+		record.Username = userValue.GetText()
+		record.URL = urlValue.GetText()
+		record.Password = passwordValue.GetText()
+		var start, end gtk.TextIter
+		buffer.GetStartIter(&start)
+		buffer.GetEndIter(&end)
+		record.Notes = buffer.GetText(&start, &end, true)
+
+		// Update the record
+		if origName != record.Title { // The Record title has changed
+			(*db).DeleteRecord(origName)
+			// Todo, this invalidates the current search so a new run of updateRecords should be done, or at least it made obvious what is going on
+		}
+		//todo detect if there have been changes and only update if needed
+		(*db).SetRecord(*record)
+		window.Destroy()
+	})
+	cancelButton := gtk.NewButtonWithLabel("Cancel")
+	cancelButton.Clicked(func() {
+		window.Destroy()
+	})
+
 	//layout
 	vbox := gtk.NewVBox(false, 0)
 	vbox.PackStart(quitMenuBar(window), false, false, 0)
@@ -76,6 +104,10 @@ func recordWindow(record *pwsafe.Record) {
 	vbox.PackStart(hbox, false, false, 0)
 
 	vbox.Add(notesFrame)
+	hbox = gtk.NewHBox(true, 1)
+	hbox.Add(okayButton)
+	hbox.Add(cancelButton)
+	vbox.PackStart(hbox, false, false, 0)
 
 	window.Add(vbox)
 	window.SetSizeRequest(500, 500)

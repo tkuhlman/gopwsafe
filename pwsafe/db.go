@@ -52,11 +52,13 @@ type V3 struct {
 type DB interface {
 	//todo 	Encrypt(io.Writer) (int, err)
 	Decrypt(io.Reader, string) (int, error)
+	GetName() string
 	GetRecord(string) (Record, bool)
 	Groups() []string
 	List() []string
 	ListByGroup(string) []string
-	GetName() string
+	SetRecord(Record)
+	DeleteRecord(string)
 }
 
 // Using the db Salt and Iter along with the passwd calculate the stretch key
@@ -178,6 +180,11 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	return bytesRead, nil
 }
 
+//DeleteRecord Removes a record from the db
+func (db V3) DeleteRecord(title string) {
+	delete(db.Records, title)
+}
+
 // Pull EncryptionKey and HMAC key from the 64byte keyData
 func (db *V3) extractKeys(keyData []byte) {
 	c, _ := twofish.NewCipher(db.StretchedKey[:])
@@ -192,6 +199,11 @@ func (db *V3) extractKeys(keyData []byte) {
 	l2 := make([]byte, 16)
 	c.Decrypt(l2, keyData[48:])
 	db.HMACKey = append(l1, l2...)
+}
+
+// GetName returns the database name
+func (db *V3) GetName() string {
+	return db.Name
 }
 
 //GetRecord Returns a record from the db with the title matching the given String
@@ -236,9 +248,9 @@ func (db V3) ListByGroup(group string) []string {
 	return entries
 }
 
-// GetName returns the database name
-func (db *V3) GetName() string {
-	return db.Name
+//SetRecord Adds or updates a record in the db
+func (db V3) SetRecord(record Record) {
+	db.Records[record.Title] = record
 }
 
 // Parse the header of the decrypted DB returning the size of the Header and any error or nil
