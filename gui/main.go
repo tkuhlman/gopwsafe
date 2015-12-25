@@ -89,7 +89,7 @@ func mainWindow(dbs []*pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	}
 }
 
-// return a db.Record matching the selected entry
+// return a pwsafe.DB and pwsafe.Record matching the selected entry. If nothing is selected default to dbs[0] and an empty record
 func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]*pwsafe.DB) (*pwsafe.DB, *pwsafe.Record) {
 	var iter gtk.TreeIter
 	var rowValue glib.GValue
@@ -101,10 +101,9 @@ func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs
 	pathStr := path.String()
 	activeDB, err := strconv.Atoi(strings.Split(pathStr, ":")[0])
 	if err != nil {
-		//todo better failure might want to pop up an error dialog
+		db := (*dbs)[0] // Default to the first db if none is selected
 		var record pwsafe.Record
-		var db pwsafe.DB
-		return &db, &record
+		return db, &record
 	}
 	db := (*dbs)[activeDB]
 
@@ -206,7 +205,15 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
 	actionGroup := gtk.NewActionGroup("record")
 	actionGroup.AddAction(gtk.NewAction("RecordMenu", "Record", "", ""))
 
-	//todo all of the getSeletedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
+	newRecord := gtk.NewAction("NewRecord", "Add a new record to the selected db", "", "")
+	newRecord.Connect("activate", func() {
+		db, _ := getSelectedRecord(recordStore, recordTree, dbs)
+		var record pwsafe.Record
+		recordWindow(db, &record)
+	})
+	actionGroup.AddActionWithAccel(newRecord, "<control>n")
+
+	//todo all of the getSelectedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
 	copyUser := gtk.NewAction("CopyUsername", "Copy username to clipboard", "", "")
 	copyUser.Connect("activate", func() {
 		_, record := getSelectedRecord(recordStore, recordTree, dbs)
@@ -245,6 +252,7 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
 <ui>
   <menubar name='MenuBar'>
     <menu action='RecordMenu'>
+      <menuitem action='NewRecord' />
       <menuitem action='CopyUsername' />
       <menuitem action='CopyPassword' />
       <menuitem action='OpenURL' />
