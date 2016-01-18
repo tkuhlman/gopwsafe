@@ -219,6 +219,14 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
 	})
 	actionGroup.AddActionWithAccel(newRecord, "<control>n")
 
+	deleteRecord := gtk.NewAction("DeleteRecord", "Deleted the selected record", "", "")
+	deleteRecord.Connect("activate", func() {
+		db, record := getSelectedRecord(recordStore, recordTree, dbs)
+		//todo Pop up an are you sure dialog.
+		(*db).DeleteRecord(record.Title)
+	})
+	actionGroup.AddActionWithAccel(deleteRecord, "Delete")
+
 	//todo all of the getSelectedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
 	copyUser := gtk.NewAction("CopyUsername", "Copy username to clipboard", "", "")
 	copyUser.Connect("activate", func() {
@@ -255,6 +263,7 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
   <menubar name='MenuBar'>
     <menu action='RecordMenu'>
       <menuitem action='NewRecord' />
+      <menuitem action='DeleteRecord' />
       <menuitem action='CopyUsername' />
       <menuitem action='CopyPassword' />
       <menuitem action='OpenURL' />
