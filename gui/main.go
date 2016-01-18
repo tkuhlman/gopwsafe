@@ -70,6 +70,11 @@ func mainWindow(dbs []*pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	})
 	searchPaned.Pack2(searchBox, false, false)
 
+	// If the window regains focus, select the entire selection of the searchBox
+	window.Connect("focus-in-event", func() {
+		searchBox.SelectRegion(0, -1)
+	})
+
 	//todo add a status bar that will be updated based on the recent actions performed
 
 	// layout
@@ -163,6 +168,7 @@ func mainMenuBar(window *gtk.Window, dbs *[]*pwsafe.DB, conf config.PWSafeDBConf
 
 	//todo - I need a save option.
 
+	//todo, this doesn't actually work
 	//todo close the selected or pop up a dialog not just the last
 	closeDB := gtk.NewAction("CloseDB", "Close an open DB", "", "")
 	closeDB.Connect("activate", func() {
@@ -244,10 +250,6 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
 	})
 	actionGroup.AddActionWithAccel(copyURL, "<control>l")
 
-	closeWindow := gtk.NewAction("CloseWindow", "", "", gtk.STOCK_CLOSE)
-	closeWindow.Connect("activate", window.Destroy)
-	actionGroup.AddActionWithAccel(closeWindow, "<control>w")
-
 	uiInfo := `
 <ui>
   <menubar name='MenuBar'>
@@ -257,7 +259,6 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
       <menuitem action='CopyPassword' />
       <menuitem action='OpenURL' />
       <menuitem action='CopyURL' />
-      <menuitem action='CloseWindow' />
     </menu>
   </menubar>
 </ui>

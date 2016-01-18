@@ -55,6 +55,7 @@ func openWindow(dbFile string, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, ma
 	openButton := gtk.NewButtonWithLabel("Open")
 	openButton.Clicked(func() {
 		toOpen := pathBox.GetActiveText()
+		// todo make sure the dbFile is not already opened and in dbs
 		db, err := pwsafe.OpenPWSafeFile(toOpen, passwordBox.GetText())
 		if err != nil {
 			errorDialog(window, fmt.Sprintf("Error Opening file %s\n%s", toOpen, err))
