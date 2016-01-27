@@ -37,7 +37,7 @@ func TestCalculateStretchKey(t *testing.T) {
 	expectedKey := [32]byte{243, 201, 143, 194, 139, 58, 186, 186, 133, 14, 238, 200, 139, 153, 45, 247, 215, 251, 24, 49, 28, 170, 157, 181, 21, 174, 129, 231, 234, 62, 51, 203}
 
 	db.calculateStretchKey("password")
-	assert.Equal(t, db.StretchedKey, expectedKey)
+	assert.Equal(t, db.stretchedKey, expectedKey)
 }
 
 func TestSimpleDB(t *testing.T) {
