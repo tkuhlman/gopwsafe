@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -79,7 +80,7 @@ func mainWindow(dbs []*pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 
 	// layout
 	vbox := gtk.NewVBox(false, 1)
-	vbox.PackStart(mainMenuBar(window, &dbs, conf, recordStore), false, false, 0)
+	vbox.PackStart(mainMenuBar(window, &dbs, conf, recordStore, recordTree), false, false, 0)
 	vbox.PackStart(selectedRecordMenuBar(window, recordStore, recordTree, &dbs), false, false, 0)
 	vbox.PackStart(searchPaned, false, false, 0)
 	vbox.Add(recordFrame)
@@ -158,7 +159,7 @@ func updateRecords(dbs *[]*pwsafe.DB, store *gtk.TreeStore, search string) {
 
 //todo add a status bar and have it display messages like, copied username to clipboard, etc
 // Configures the main menubar and keyboard shortcuts
-func mainMenuBar(window *gtk.Window, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore) *gtk.Widget {
+func mainMenuBar(window *gtk.Window, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore, recordTree *gtk.TreeView) *gtk.Widget {
 	actionGroup := gtk.NewActionGroup("main")
 	actionGroup.AddAction(gtk.NewAction("FileMenu", "File", "", ""))
 
@@ -166,7 +167,16 @@ func mainMenuBar(window *gtk.Window, dbs *[]*pwsafe.DB, conf config.PWSafeDBConf
 	openDB.Connect("activate", func() { openWindow("", dbs, conf, window, recordStore) })
 	actionGroup.AddActionWithAccel(openDB, "<control>t")
 
-	//todo - I need a save option.
+	saveDB := gtk.NewAction("SaveDB", "Save a DB", "", "")
+	saveDB.Connect("activate", func() {
+		//todo make a save dialog where you can choose a new filename, etc
+		db, _ := getSelectedRecord(recordStore, recordTree, dbs)
+		err := pwsafe.WritePWSafeFile(db, "")
+		if err != nil {
+			errorDialog(window, fmt.Sprintf("Error Saving database to a file\n%s", err))
+		}
+	})
+	actionGroup.AddActionWithAccel(saveDB, "<control>s")
 
 	//todo, this doesn't actually work
 	//todo close the selected or pop up a dialog not just the last
@@ -186,6 +196,7 @@ func mainMenuBar(window *gtk.Window, dbs *[]*pwsafe.DB, conf config.PWSafeDBConf
   <menubar name='MenuBar'>
     <menu action='FileMenu'>
       <menuitem action='OpenDB' />
+      <menuitem action='SaveDB' />
       <menuitem action='CloseDB' />
       <menuitem action='FileQuit' />
     </menu>

@@ -36,21 +36,22 @@ type V3 struct {
 	Name          string
 	CBCIV         []byte //16 bytes - Random initial value for CBC
 	Description   string
-	EncryptionKey []byte //32 bytes
+	encryptionKey []byte //32 bytes
 	HMAC          []byte //32 bytes
 	HMACKey       []byte //32 bytes
 	Iter          uint32 //the number of iterations on the hash function to create the stretched key
 	LastSave      time.Time
+	LastSavePath  string
 	Records       map[string]Record //the key is the record title
 	Salt          []byte            // should be 32 bytes
 	UUID          uuid.UUID
-	StretchedKey  [sha256.Size]byte
+	stretchedKey  [sha256.Size]byte
 	Version       string
 }
 
 //DB The interface representing the core functionality availble for any password database
 type DB interface {
-	//todo 	Encrypt(io.Writer) (int, err)
+	Encrypt(io.Writer) (int, error)
 	Decrypt(io.Reader, string) (int, error)
 	GetName() string
 	GetRecord(string) (Record, bool)
@@ -69,7 +70,7 @@ func (db *V3) calculateStretchKey(passwd string) {
 	for i := 0; i < iterations; i++ {
 		stretched = sha256.Sum256(stretched[:])
 	}
-	db.StretchedKey = stretched
+	db.stretchedKey = stretched
 }
 
 //Decrypt Decrypts the data in the reader using the given password and populates the information into the db
@@ -107,7 +108,7 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	var keyHash [sha256.Size]byte
 	readSize, err = reader.Read(readHash)
 	copy(keyHash[:], readHash)
-	if err != nil || readSize != sha256.Size || keyHash != sha256.Sum256(db.StretchedKey[:]) {
+	if err != nil || readSize != sha256.Size || keyHash != sha256.Sum256(db.stretchedKey[:]) {
 		return bytesRead, errors.New("Invalid Password")
 	}
 
@@ -161,7 +162,7 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	bytesRead += 32
 	db.HMAC = hmac
 
-	block, err := twofish.NewCipher(db.EncryptionKey)
+	block, err := twofish.NewCipher(db.encryptionKey)
 	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV)
 	decryptedDB := make([]byte, encryptedSize) // The EOF and HMAC are after the encrypted section
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
@@ -180,19 +181,42 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	return bytesRead, nil
 }
 
+//Encrypt Encrypt the data in the db writing to the writer, returns bytesWritten or error
+func (db *V3) Encrypt(writer io.Writer) (int, error) {
+
+	var bytesWritten int
+
+	//db.stretchedKey is used to create a new encryptionKey
+
+	//todo - just a place holder
+	var encrypted []byte
+	//todo implement! until then fail now before writing something empty
+	return bytesWritten, errors.New("Not implmented")
+
+	//update the LastSave time in the DB
+	encryptedWritten, err := writer.Write(encrypted)
+	if err != nil {
+		return bytesWritten, err
+	}
+
+	bytesWritten += encryptedWritten
+
+	return bytesWritten, nil
+}
+
 //DeleteRecord Removes a record from the db
 func (db V3) DeleteRecord(title string) {
 	delete(db.Records, title)
 }
 
-// Pull EncryptionKey and HMAC key from the 64byte keyData
+// Pull encryptionKey and HMAC key from the 64byte keyData
 func (db *V3) extractKeys(keyData []byte) {
-	c, _ := twofish.NewCipher(db.StretchedKey[:])
+	c, _ := twofish.NewCipher(db.stretchedKey[:])
 	k1 := make([]byte, 16)
 	c.Decrypt(k1, keyData[:16])
 	k2 := make([]byte, 16)
 	c.Decrypt(k2, keyData[16:32])
-	db.EncryptionKey = append(k1, k2...)
+	db.encryptionKey = append(k1, k2...)
 
 	l1 := make([]byte, 16)
 	c.Decrypt(l1, keyData[32:48])
