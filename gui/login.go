@@ -9,21 +9,23 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
-func openDB(path string, password string, dbs *[]*pwsafe.DB, parent *gtk.Window, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore) {
+func openDB(path string, password string, dbs *[]*pwsafe.DB, parent *gtk.Window, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore) bool {
 
 	// todo make sure the dbFile is not already opened and in dbs
 	db, err := pwsafe.OpenPWSafeFile(path, password)
 	if err != nil {
 		errorDialog(parent, fmt.Sprintf("Error Opening file %s\n%s", path, err))
-		return
+		return false
 	}
 	err = conf.AddToPathHistory(path)
 	if err != nil {
 		errorDialog(parent, fmt.Sprintf("Error adding %s to History\n%s", path, err))
+		return false
 	}
 	newdbs := append(*dbs, &db)
 	*dbs = newdbs
 	updateRecords(dbs, recordStore, "")
+	return true
 }
 
 func openWindow(dbFile string, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, mainWindow *gtk.Window, recordStore *gtk.TreeStore) {
@@ -69,16 +71,20 @@ func openWindow(dbFile string, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, ma
 	passwordBox.SetVisibility(false)
 	// Pressing enter in the password box opens the db
 	passwordBox.Connect("activate", func() {
-		openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
-		window.Hide()
-		mainWindow.ShowAll()
+		opened := openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
+		if opened {
+			window.Hide()
+			mainWindow.ShowAll()
+		}
 	})
 
 	openButton := gtk.NewButtonWithLabel("Open")
 	openButton.Clicked(func() {
-		openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
-		window.Hide()
-		mainWindow.ShowAll()
+		opened := openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
+		if opened {
+			window.Hide()
+			mainWindow.ShowAll()
+		}
 	})
 
 	//layout
