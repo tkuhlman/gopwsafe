@@ -9,6 +9,23 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
+func openDB(path string, password string, dbs *[]*pwsafe.DB, parent *gtk.Window, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore) {
+
+	// todo make sure the dbFile is not already opened and in dbs
+	db, err := pwsafe.OpenPWSafeFile(path, password)
+	if err != nil {
+		errorDialog(parent, fmt.Sprintf("Error Opening file %s\n%s", path, err))
+		return
+	}
+	err = conf.AddToPathHistory(path)
+	if err != nil {
+		errorDialog(parent, fmt.Sprintf("Error adding %s to History\n%s", path, err))
+	}
+	newdbs := append(*dbs, &db)
+	*dbs = newdbs
+	updateRecords(dbs, recordStore, "")
+}
+
 func openWindow(dbFile string, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, mainWindow *gtk.Window, recordStore *gtk.TreeStore) {
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
 	window.SetPosition(gtk.WIN_POS_CENTER)
@@ -50,30 +67,19 @@ func openWindow(dbFile string, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, ma
 
 	passwordBox := gtk.NewEntry()
 	passwordBox.SetVisibility(false)
-	passwordBox.SetActivatesDefault(true)
-
-	openButton := gtk.NewButtonWithLabel("Open")
-	openButton.Clicked(func() {
-		toOpen := pathBox.GetActiveText()
-		// todo make sure the dbFile is not already opened and in dbs
-		db, err := pwsafe.OpenPWSafeFile(toOpen, passwordBox.GetText())
-		if err != nil {
-			errorDialog(window, fmt.Sprintf("Error Opening file %s\n%s", toOpen, err))
-			return
-		}
-		err = conf.AddToPathHistory(toOpen)
-		if err != nil {
-			errorDialog(window, fmt.Sprintf("Error adding %s to History\n%s", toOpen, err))
-		}
-		newdbs := append(*dbs, &db)
-		*dbs = newdbs
-		updateRecords(dbs, recordStore, "")
+	// Pressing enter in the password box opens the db
+	passwordBox.Connect("activate", func() {
+		openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
 		window.Hide()
 		mainWindow.ShowAll()
 	})
 
-	// I want enter in the passwordBox to work for opening the db but am unsure how to do it.
-	//window.SetDefault(openButton)
+	openButton := gtk.NewButtonWithLabel("Open")
+	openButton.Clicked(func() {
+		openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
+		window.Hide()
+		mainWindow.ShowAll()
+	})
 
 	//layout
 	vbox := gtk.NewVBox(false, 1)
