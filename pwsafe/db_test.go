@@ -47,7 +47,7 @@ func TestSimpleDB(t *testing.T) {
 
 	db := dbInterface.(*V3)
 
-	assert.Equal(t, db.GetName(), "")
+	assert.Equal(t, db.GetName(), "simple.dat")
 	assert.Equal(t, len(db.Records), 1)
 	record, exists := db.GetRecord("Test entry")
 	assert.Equal(t, exists, true)

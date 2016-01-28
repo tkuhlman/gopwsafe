@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"code.google.com/p/go-uuid/uuid"
@@ -225,8 +226,12 @@ func (db *V3) extractKeys(keyData []byte) {
 	db.HMACKey = append(l1, l2...)
 }
 
-// GetName returns the database name
+// GetName returns the database name or if unset the filename
 func (db *V3) GetName() string {
+	if db.Name == "" {
+		splits := strings.Split(db.LastSavePath, "/")
+		return splits[len(splits)-1]
+	}
 	return db.Name
 }
 
