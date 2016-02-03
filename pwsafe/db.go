@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
+	"github.com/pborman/uuid"
 	"golang.org/x/crypto/twofish"
 )
 
