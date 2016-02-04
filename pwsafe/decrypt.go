@@ -11,92 +11,78 @@ import (
 
 //Decrypt Decrypts the data in the reader using the given password and populates the information into the db
 func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
+	// read the entire encrypted db into memory
+	var rawDB []byte
 	var bytesRead int
+	for {
+		block := make([]byte, 256)
+		readLoop, err := reader.Read(block)
+		bytesRead += readLoop
+		if err != nil {
+			return bytesRead, err
+		}
+		rawDB = append(rawDB, block[:readLoop]...)
+		if readLoop != 256 {
+			break
+		}
+	}
+
+	if bytesRead < 200 {
+		return bytesRead, errors.New("DB file is smaller than minimum size")
+	}
+
 	// The TAG is 4 ascii characters, should be "PWS3"
-	tag := make([]byte, 4)
-	_, err := reader.Read(tag)
-	if err != nil || string(tag) != "PWS3" {
+	if string(rawDB[:4]) != "PWS3" {
 		return bytesRead, errors.New("File is not a valid Password Safe v3 file")
 	}
-	bytesRead += 4
+	pos := 4 // used to track the current position in the byte array representing the db.
 
 	// Read the Salt
-	salt := make([]byte, 32)
-	readSize, err := reader.Read(salt)
-	if err != nil || readSize != 32 {
-		return bytesRead, errors.New("Error reading File, salt is invalid")
-	}
-	bytesRead += 32
-	db.Salt = salt
+	db.Salt = rawDB[pos : pos+32]
+	pos += 32
 
 	// Read iter
-	iter := make([]byte, 4)
-	readSize, err = reader.Read(iter)
-	if err != nil || readSize != 4 {
-		return bytesRead, errors.New("Error reading File, invalid iterations")
-	}
-	bytesRead += 4
+	iter := rawDB[pos : pos+4]
 	db.Iter = uint32(uint32(iter[0]) | uint32(iter[1])<<8 | uint32(iter[2])<<16 | uint32(iter[3])<<24)
+	pos += 4
 
 	// Verify the password
 	db.calculateStretchKey(passwd)
-	readHash := make([]byte, sha256.Size)
 	var keyHash [sha256.Size]byte
-	readSize, err = reader.Read(readHash)
-	copy(keyHash[:], readHash)
-	if err != nil || readSize != sha256.Size || keyHash != sha256.Sum256(db.stretchedKey[:]) {
+	copy(keyHash[:], rawDB[pos:pos+sha256.Size])
+	pos += sha256.Size
+	if keyHash != sha256.Sum256(db.stretchedKey[:]) {
 		return bytesRead, errors.New("Invalid Password")
 	}
 
 	//extract the encryption and hmac keys
-	keyData := make([]byte, 64)
-	readSize, err = reader.Read(keyData)
-	if err != nil || readSize != 64 {
-		return bytesRead, errors.New("Error reading encryption/HMAC keys")
-	}
-	bytesRead += 64
-	db.extractKeys(keyData)
+	db.extractKeys(rawDB[pos : pos+64])
+	pos += 64
 
-	cbciv := make([]byte, 16)
-	readSize, err = reader.Read(cbciv)
-	if err != nil || readSize != 16 {
-		return bytesRead, errors.New("Error reading Initial CBC value")
-	}
-	bytesRead += 16
-	db.CBCIV = cbciv
+	db.CBCIV = rawDB[pos : pos+16]
+	pos += 16
 
 	// All following fields are encrypted with twofish in CBC mode until the EOF, find the EOF
 	var encryptedDB []byte
 	var encryptedSize int
 	for {
-		blockBytes := make([]byte, twofish.BlockSize)
-		readSize, err = reader.Read(blockBytes)
-		if err != nil || readSize != twofish.BlockSize {
-			return bytesRead, errors.New("Error reading Encrypted Data, possibly no EOF found")
+		if pos+twofish.BlockSize > bytesRead {
+			return bytesRead, errors.New("Invalid DB, no EOF found")
 		}
+		blockBytes := rawDB[pos : pos+twofish.BlockSize]
+		pos += twofish.BlockSize
 
 		if string(blockBytes) == "PWS3-EOFPWS3-EOF" {
-			bytesRead += twofish.BlockSize
 			break
 		} else {
-			encryptedSize += readSize
+			encryptedSize += twofish.BlockSize
 			encryptedDB = append(encryptedDB, blockBytes...)
 		}
 	}
-	bytesRead += encryptedSize
-
-	if len(encryptedDB)%twofish.BlockSize != 0 {
-		return bytesRead, errors.New("Error, encrypted data size is not a multiple of the block size")
-	}
 
 	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all unencryped db data
-	hmac := make([]byte, 32)
-	readSize, err = reader.Read(hmac)
-	if err != nil || readSize != 32 {
-		return bytesRead, errors.New("Error reading HMAC")
-	}
-	bytesRead += 32
-	db.HMAC = hmac
+	db.HMAC = rawDB[pos : pos+32]
+	pos += 32
 
 	block, err := twofish.NewCipher(db.encryptionKey)
 	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV)
