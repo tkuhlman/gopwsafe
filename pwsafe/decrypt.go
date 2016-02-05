@@ -38,12 +38,11 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	pos := 4 // used to track the current position in the byte array representing the db.
 
 	// Read the Salt
-	db.Salt = rawDB[pos : pos+32]
+	copy(db.Salt[:], rawDB[pos:pos+32])
 	pos += 32
 
 	// Read iter
-	iter := rawDB[pos : pos+4]
-	db.Iter = uint32(uint32(iter[0]) | uint32(iter[1])<<8 | uint32(iter[2])<<16 | uint32(iter[3])<<24)
+	db.Iter = uint32(byteToInt(rawDB[pos : pos+4]))
 	pos += 4
 
 	// Verify the password

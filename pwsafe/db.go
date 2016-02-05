@@ -41,7 +41,7 @@ type V3 struct {
 	LastSave      time.Time
 	LastSavePath  string
 	Records       map[string]Record //the key is the record title
-	Salt          []byte            // should be 32 bytes
+	Salt          [32]byte
 	UUID          uuid.UUID
 	stretchedKey  [sha256.Size]byte
 	Version       string
@@ -63,7 +63,7 @@ type DB interface {
 // Using the db Salt and Iter along with the passwd calculate the stretch key
 func (db *V3) calculateStretchKey(passwd string) {
 	iterations := int(db.Iter)
-	salted := append([]byte(passwd), db.Salt...)
+	salted := append([]byte(passwd), db.Salt[:]...)
 	stretched := sha256.Sum256(salted)
 	for i := 0; i < iterations; i++ {
 		stretched = sha256.Sum256(stretched[:])
