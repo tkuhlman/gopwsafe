@@ -32,11 +32,11 @@ type Record struct {
 type V3 struct {
 	// Note not all of the Header information from the specification is implemented
 	Name          string
-	CBCIV         []byte //16 bytes - Random initial value for CBC
+	CBCIV         [16]byte //Random initial value for CBC
 	Description   string
-	encryptionKey []byte //32 bytes
-	HMAC          []byte //32 bytes
-	HMACKey       []byte //32 bytes
+	encryptionKey [32]byte
+	HMAC          [32]byte
+	HMACKey       [32]byte
 	Iter          uint32 //the number of iterations on the hash function to create the stretched key
 	LastSave      time.Time
 	LastSavePath  string

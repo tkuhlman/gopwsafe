@@ -58,7 +58,7 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	db.extractKeys(rawDB[pos : pos+64])
 	pos += 64
 
-	db.CBCIV = rawDB[pos : pos+16]
+	copy(db.CBCIV[:], rawDB[pos:pos+16])
 	pos += 16
 
 	// All following fields are encrypted with twofish in CBC mode until the EOF, find the EOF
@@ -80,11 +80,11 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	}
 
 	// HMAC 32bytes keyed-hash MAC with SHA-256 as the hash function. Calculated over all unencryped db data
-	db.HMAC = rawDB[pos : pos+32]
+	copy(db.HMAC[:], rawDB[pos:pos+32])
 	pos += 32
 
-	block, err := twofish.NewCipher(db.encryptionKey)
-	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV)
+	block, err := twofish.NewCipher(db.encryptionKey[:])
+	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV[:])
 	decryptedDB := make([]byte, encryptedSize) // The EOF and HMAC are after the encrypted section
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
 
@@ -109,13 +109,13 @@ func (db *V3) extractKeys(keyData []byte) {
 	c.Decrypt(k1, keyData[:16])
 	k2 := make([]byte, 16)
 	c.Decrypt(k2, keyData[16:32])
-	db.encryptionKey = append(k1, k2...)
+	copy(db.encryptionKey[:], append(k1, k2...))
 
 	l1 := make([]byte, 16)
 	c.Decrypt(l1, keyData[32:48])
 	l2 := make([]byte, 16)
 	c.Decrypt(l2, keyData[48:])
-	db.HMACKey = append(l1, l2...)
+	copy(db.HMACKey[:], append(l1, l2...))
 }
 
 // Parse the header of the decrypted DB returning the size of the Header and any error or nil

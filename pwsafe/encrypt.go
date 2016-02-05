@@ -23,8 +23,8 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	for i := 0; i < 32; i += 8 {
 		var bytesRand [32]byte
 		binary.PutVarint(bytesRand[:], rand.Int63())
-		for j := 0; j < 8; j++ {
-			salt[i+j] = bytesRand[j]
+		for j, value := range bytesRand {
+			salt[i+j] = value
 		}
 	}
 	db.Salt = salt
