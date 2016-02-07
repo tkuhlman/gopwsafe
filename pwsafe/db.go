@@ -1,5 +1,5 @@
 // The database type for a Password Safe V3 database
-// The db specification - http://sourceforge.net/p/passwordsafe/code/HEAD/tree/trunk/pwsafe/pwsafe/docs/formatV3.txt
+// The db specification - https://github.com/pwsafe/pwsafe/blob/master/docs/formatV3.txt
 
 package pwsafe
 
