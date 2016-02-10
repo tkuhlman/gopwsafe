@@ -1,10 +1,9 @@
 package pwsafe
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"io"
-	"math/rand"
 	"time"
 
 	"golang.org/x/crypto/twofish"
@@ -21,7 +20,10 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	db.LastSave = time.Now()
 
 	// generate and write salt
-	copy(db.Salt[:], generateRandomBytes(32))
+	_, err := rand.Read(db.Salt[:])
+	if err != nil {
+		return 0, err
+	}
 
 	// Write iter
 	db.Iter = 86000
@@ -31,8 +33,14 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	dbBytes = append(dbBytes, stretchedSha[:]...)
 
 	// re-calculate, encrypt and write encryption key and hmac key
-	copy(db.encryptionKey[:], generateRandomBytes(32))
-	copy(db.HMACKey[:], generateRandomBytes(32))
+	_, err = rand.Read(db.encryptionKey[:])
+	if err != nil {
+		return 0, err
+	}
+	_, err = rand.Read(db.HMACKey[:])
+	if err != nil {
+		return 0, err
+	}
 	cipherTwoFish, _ := twofish.NewCipher(db.stretchedKey[:])
 	for _, block := range [][]byte{db.encryptionKey[:16], db.encryptionKey[16:], db.HMACKey[:16], db.HMACKey[16:]} {
 		encrypted := make([]byte, 16)
@@ -56,18 +64,4 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	return 0, nil
 	//bytesWritten, err : writer.Write(dbBrytes)
 	//return bytesWritten, err
-}
-
-//generateRandomBytes Generates []byte of random data the specified length
-// todo can this only operate in 8 bit increments? If so valid size%8 and fail appropriately.  I need some tests for it either way
-func generateRandomBytes(size int) []byte {
-	r := make([]byte, size)
-	bytesRand := make([]byte, 8)
-	for i := 0; i < size; i += 8 {
-		binary.PutVarint(bytesRand, rand.Int63())
-		for j, value := range bytesRand {
-			r[i+j] = value
-		}
-	}
-	return r
 }
