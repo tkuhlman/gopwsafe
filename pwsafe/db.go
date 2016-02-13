@@ -4,6 +4,7 @@
 package pwsafe
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"io"
 	"sort"
@@ -35,7 +36,7 @@ type V3 struct {
 	CBCIV         [16]byte //Random initial value for CBC
 	Description   string
 	encryptionKey [32]byte
-	HMAC          [32]byte
+	HMAC          [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
 	HMACKey       [32]byte
 	Iter          uint32 //the number of iterations on the hash function to create the stretched key
 	LastSave      time.Time
@@ -56,11 +57,20 @@ type DB interface {
 	Groups() []string
 	List() []string
 	ListByGroup(string) []string
+	//todo - set iter high maybe 86000, generate keys, etc. Likely this can share a lot from encrypt.go
+	//	NewDB(string) *DB
 	SetRecord(Record)
 	DeleteRecord(string)
 }
 
-// Using the db Salt and Iter along with the passwd calculate the stretch key
+//calculateHMAC calculate and set db.HMAC for the unencrypted data using HMACKey
+func (db *V3) calculateHMAC(unencrypted []byte) {
+	hmacHash := hmac.New(sha256.New, db.HMACKey[:])
+	hmacHash.Write(unencrypted)
+	copy(db.HMAC[:], hmacHash.Sum(nil))
+}
+
+//calculateStretchKey Using the db Salt and Iter along with the passwd calculate the stretch key
 func (db *V3) calculateStretchKey(passwd string) {
 	iterations := int(db.Iter)
 	salted := append([]byte(passwd), db.Salt[:]...)

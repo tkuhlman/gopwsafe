@@ -3,6 +3,7 @@ package pwsafe
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"io"
 	"time"
 
@@ -19,20 +20,23 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	//update the LastSave time in the DB
 	db.LastSave = time.Now()
 
-	// generate and write salt
+	// generate and add salt
 	_, err := rand.Read(db.Salt[:])
 	if err != nil {
 		return 0, err
 	}
+	dbBytes = append(dbBytes, db.Salt[:]...)
 
-	// Write iter
-	db.Iter = 86000
+	// Add iter - I can't change this without knowing the password as the stretchedkey will need recalculating.
+	iter := make([]byte, 4)
+	binary.LittleEndian.PutUint32(iter, db.Iter)
+	dbBytes = append(dbBytes, iter...)
 
 	// Add the stretchedKey
 	stretchedSha := sha256.Sum256(db.stretchedKey[:])
 	dbBytes = append(dbBytes, stretchedSha[:]...)
 
-	// re-calculate, encrypt and write encryption key and hmac key
+	// re-calculate, encrypt and add encryption key and hmac key
 	_, err = rand.Read(db.encryptionKey[:])
 	if err != nil {
 		return 0, err
@@ -41,27 +45,59 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	cipherTwoFish, _ := twofish.NewCipher(db.stretchedKey[:])
+	keyTwoFish, _ := twofish.NewCipher(db.stretchedKey[:])
 	for _, block := range [][]byte{db.encryptionKey[:16], db.encryptionKey[16:], db.HMACKey[:16], db.HMACKey[16:]} {
 		encrypted := make([]byte, 16)
-		cipherTwoFish.Encrypt(encrypted, block)
+		keyTwoFish.Encrypt(encrypted, block)
 		dbBytes = append(dbBytes, encrypted...)
 	}
 
-	//todo
-	// calculate and write cbc initial value
+	// calculate and add cbc initial value
+	_, err = rand.Read(db.CBCIV[:])
+	if err != nil {
+		return 0, err
+	}
+	dbBytes = append(dbBytes, db.CBCIV[:]...)
 
-	// todo
-	// write then encrypt the core of the db
+	// marshall the core db valudes
+	var unencryptedBytes []byte
+	headerBytes, headerValues := db.marshallHeader()
+	unencryptedBytes = append(unencryptedBytes, headerBytes...)
+	recordBytes, recordValues := db.marshallRecords()
+	unencryptedBytes = append(unencryptedBytes, recordBytes...)
+
+	// Calculate the HMAC
+	hmacBytes := append(headerValues, recordValues...)
+	db.calculateHMAC(hmacBytes)
+
 	// todo I should look into ways the byte mapping for types in the header as records can be expressed so I can reuse it for both encrypting and decrypting
 	//  ideally I add a field to the struct then to the byte mapping and both encrypt/decrypt both support it.
+	// encrypt and write the dbBlocks
+	dbTwoFish, _ := twofish.NewCipher(db.encryptionKey[:])
+	for i := 0; i < len(unencryptedBytes); i += 16 {
+		block := unencryptedBytes[i : i+16]
+		encrypted := make([]byte, 16)
+		dbTwoFish.Encrypt(encrypted, block)
+		dbBytes = append(dbBytes, encrypted...)
+	}
 
-	// todo
-	// Calculate and write hmac
+	// Add the EOF and HMAC
+	dbBytes = append(dbBytes, []byte("PWS3-EOFPWS3-EOF")...)
+	dbBytes = append(dbBytes, db.HMAC[:]...)
 
 	// Write out the db
 	// todo - skip the write until we have an actual valid db implemented
 	return 0, nil
 	//bytesWritten, err : writer.Write(dbBrytes)
 	//return bytesWritten, err
+}
+
+// marshallHeader return the binary format for the Header as specified in the spec and the header values used for hmac calculations
+func (db *V3) marshallHeader() ([]byte, []byte) {
+	return []byte("unimplemented"), []byte("unimplemented")
+}
+
+// marshallRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
+func (db *V3) marshallRecords() ([]byte, []byte) {
+	return []byte("unimplemented"), []byte("unimplemented")
 }
