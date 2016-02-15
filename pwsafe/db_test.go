@@ -40,82 +40,9 @@ func TestCalculateStretchKey(t *testing.T) {
 	assert.Equal(t, db.stretchedKey, expectedKey)
 }
 
-func TestSimpleDB(t *testing.T) {
-	// This test relies on the simple password db found at simple.dat
-	dbInterface, err := OpenPWSafeFile("./simple.dat", "password")
-	assert.Nil(t, err)
-
-	db := dbInterface.(*V3)
-
-	assert.Equal(t, db.GetName(), "simple.dat")
-	assert.Equal(t, len(db.Records), 1)
-	record, exists := db.GetRecord("Test entry")
-	assert.Equal(t, exists, true)
-	assert.Equal(t, record.Username, "test")
-	assert.Equal(t, record.Password, "password")
-	assert.Equal(t, record.Group, "test")
-	assert.Equal(t, record.URL, "http://test.com")
-	assert.Equal(t, record.Notes, "no notes")
-}
-
-func TestThreeDB(t *testing.T) {
-	// This test relies on the password db found at three.dat
-	dbInterface, err := OpenPWSafeFile("./three.dat", "three3#;")
-	assert.Nil(t, err)
-
-	db := dbInterface.(*V3)
-
-	assert.Equal(t, len(db.Records), 3)
-
-	recordList := []string{"three entry 1", "three entry 2", "three entry 3"}
-	assert.Equal(t, recordList, db.List())
-
-	groupList := []string{"group 3", "group1", "group2"}
-	assert.Equal(t, groupList, db.Groups())
-
-	group3List := []string{"three entry 3"}
-	assert.Equal(t, group3List, db.ListByGroup("group 3"))
-	group2List := []string{"three entry 2"}
-	assert.Equal(t, group2List, db.ListByGroup("group2"))
-	group1List := []string{"three entry 1"}
-	assert.Equal(t, group1List, db.ListByGroup("group1"))
-
-	//record 1
-	record, exists := db.GetRecord("three entry 1")
-	assert.Equal(t, exists, true)
-	assert.Equal(t, record.Username, "three1_user")
-	assert.Equal(t, record.Password, "three1!@$%^&*()")
-	assert.Equal(t, record.Group, "group1")
-	assert.Equal(t, record.URL, "http://group1.com")
-	assert.Equal(t, record.Notes, "three DB\r\nentry 1")
-
-	//record 2
-	record, exists = db.GetRecord("three entry 2")
-	assert.Equal(t, exists, true)
-	assert.Equal(t, record.Username, "three2_user")
-	assert.Equal(t, record.Password, "three2_-+=\\\\|][}{';:")
-	assert.Equal(t, record.Group, "group2")
-	assert.Equal(t, record.URL, "http://group2.com")
-	assert.Equal(t, record.Notes, "three DB\r\nsecond entry")
-
-	//record 3
-	record, exists = db.GetRecord("three entry 3")
-	assert.Equal(t, exists, true)
-	assert.Equal(t, record.Username, "three3_user")
-	assert.Equal(t, record.Password, ",./<>?`~0")
-	assert.Equal(t, record.Group, "group 3")
-	assert.Equal(t, record.URL, "https://group3.com")
-	assert.Equal(t, record.Notes, "three DB\r\nentry 3\r\nlast one")
-}
-
 func TestInvalidFile(t *testing.T) {
 	_, err := OpenPWSafeFile("./db.go", "password")
 	assert.Equal(t, err, errors.New("File is not a valid Password Safe v3 file"))
 	_, err = OpenPWSafeFile("./notafile", "password")
 	assert.NotNil(t, err)
-}
-
-func TestBadPassword(t *testing.T) {
-	_, err := OpenPWSafeFile("./simple.dat", "badpass")
-	assert.Equal(t, err, errors.New("Invalid Password"))
 }

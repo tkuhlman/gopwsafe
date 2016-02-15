@@ -163,6 +163,7 @@ func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
 		case 0x05: //who last save
 			continue
 		case 0x06: //last save timestamp
+			// todo db.LastSave = ??
 			continue
 		case 0x07: //last save user
 			continue
