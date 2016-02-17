@@ -5,6 +5,7 @@ package pwsafe
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"io"
 	"sort"
@@ -57,8 +58,8 @@ type DB interface {
 	Groups() []string
 	List() []string
 	ListByGroup(string) []string
-	//todo - set iter high maybe 86000, generate keys, etc. Likely this can share a lot from encrypt.go
-	//	NewDB(string) *DB
+	//todo	NewDB(string) *DB
+	SetPassword(string) error
 	SetRecord(Record)
 	DeleteRecord(string)
 }
@@ -135,6 +136,17 @@ func (db V3) ListByGroup(group string) []string {
 	}
 	sort.Strings(entries)
 	return entries
+}
+
+//SetPassword Sets the password that will be used to encrypt the file on next save
+func (db V3) SetPassword(pw string) error {
+	// First recalculate the Salt and set iter
+	db.Iter = 86000
+	if _, err := rand.Read(db.Salt[:]); err != nil {
+		return err
+	}
+	db.calculateStretchKey(pw)
+	return nil
 }
 
 //SetRecord Adds or updates a record in the db

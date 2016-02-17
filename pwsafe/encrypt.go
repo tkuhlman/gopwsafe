@@ -20,14 +20,9 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	//update the LastSave time in the DB
 	db.LastSave = time.Now()
 
-	// generate and add salt
-	_, err := rand.Read(db.Salt[:])
-	if err != nil {
-		return 0, err
-	}
+	// Add salt and iter neither of which can change without knowing the password as the stretchedkey will need recalculating.
+	// use db.SetPassword() to change the password
 	dbBytes = append(dbBytes, db.Salt[:]...)
-
-	// Add iter - I can't change this without knowing the password as the stretchedkey will need recalculating.
 	iter := make([]byte, 4)
 	binary.LittleEndian.PutUint32(iter, db.Iter)
 	dbBytes = append(dbBytes, iter...)
@@ -37,7 +32,7 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	dbBytes = append(dbBytes, stretchedSha[:]...)
 
 	// re-calculate, encrypt and add encryption key and hmac key
-	_, err = rand.Read(db.encryptionKey[:])
+	_, err := rand.Read(db.encryptionKey[:])
 	if err != nil {
 		return 0, err
 	}
@@ -66,12 +61,6 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	recordBytes, recordValues := db.marshallRecords()
 	unencryptedBytes = append(unencryptedBytes, recordBytes...)
 
-	// Calculate the HMAC
-	hmacBytes := append(headerValues, recordValues...)
-	db.calculateHMAC(hmacBytes)
-
-	// todo I should look into ways the byte mapping for types in the header as records can be expressed so I can reuse it for both encrypting and decrypting
-	//  ideally I add a field to the struct then to the byte mapping and both encrypt/decrypt both support it.
 	// encrypt and write the dbBlocks
 	dbTwoFish, _ := twofish.NewCipher(db.encryptionKey[:])
 	for i := 0; i < len(unencryptedBytes); i += 16 {
@@ -83,6 +72,8 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 
 	// Add the EOF and HMAC
 	dbBytes = append(dbBytes, []byte("PWS3-EOFPWS3-EOF")...)
+	hmacBytes := append(headerValues, recordValues...)
+	db.calculateHMAC(hmacBytes)
 	dbBytes = append(dbBytes, db.HMAC[:]...)
 
 	// Write out the db
@@ -94,6 +85,9 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 
 // marshallHeader return the binary format for the Header as specified in the spec and the header values used for hmac calculations
 func (db *V3) marshallHeader() ([]byte, []byte) {
+	// todo I should look into ways the byte mapping for types in the header as records can be expressed so I can reuse it for both encrypting and decrypting
+	//  ideally I add a field to the struct then to the byte mapping and both encrypt/decrypt both support it.
+	// Review marshalling/unmarshalling for something like json or xml with the struct tags
 	return []byte("unimplemented"), []byte("unimplemented")
 }
 
