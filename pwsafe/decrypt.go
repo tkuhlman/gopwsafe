@@ -4,9 +4,12 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 
+	"github.com/fatih/structs"
 	"golang.org/x/crypto/twofish"
 )
 
@@ -132,6 +135,18 @@ func (db *V3) extractKeys(keyData []byte) {
 // beginning with the Version type field, and terminated by the 'END' type field. The version number
 // and END fields are mandatory
 func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
+	fieldMap := make(map[byte]*structs.Field)
+	for _, field := range structs.Fields(db) {
+		fieldTypeStr := field.Tag("field")
+		fieldType, err := hex.DecodeString(fieldTypeStr)
+		if err != nil {
+			panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", field.Name(), err))
+		}
+		if len(fieldType) > 0 {
+			fieldMap[fieldType[0]] = field
+		}
+	}
+
 	fieldStart := 0
 	var hmacData []byte
 	for {
@@ -139,7 +154,7 @@ func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
 			return 0, hmacData, errors.New("No END field found in DB header")
 		}
 		fieldLength := byteToInt(decryptedDB[fieldStart : fieldStart+4])
-		btype := byteToInt(decryptedDB[fieldStart+4 : fieldStart+5])
+		btype := decryptedDB[fieldStart+4 : fieldStart+5][0]
 
 		data := decryptedDB[fieldStart+5 : fieldStart+fieldLength+5]
 		hmacData = append(hmacData, data...)
@@ -149,43 +164,16 @@ func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
 		if blockmod != 0 {
 			fieldStart += twofish.BlockSize - blockmod
 		}
-		switch btype {
-		case 0x00: //version
-			db.Version = string(data)
-		case 0x01: //uuuid
-			db.UUID = data
-		case 0x02: //preferences
-			continue
-		case 0x03: //tree
-			continue
-		case 0x04: //timestamp
-			continue
-		case 0x05: //who last save
-			continue
-		case 0x06: //last save timestamp
-			// todo db.LastSave = ??
-			continue
-		case 0x07: //last save user
-			continue
-		case 0x08: //last save host
-			continue
-		case 0x09: //DB name
-			db.Name = string(data)
-		case 0x0a: //description
-			db.Description = string(data)
-		case 0x0b: //filters
-			continue
-		case 0x0f: //recently used
-			continue
-		case 0x10: //password policy
-			continue
-		case 0x11: //Empty Groups
-			continue
-		case 0xff: //end
+
+		field, prs := fieldMap[btype]
+		if prs {
+			field.Set(data)
+		} else if btype == 0xff { //end
 			return fieldStart, hmacData, nil
-		default:
+		} else {
 			return 0, hmacData, errors.New("Encountered unknown Header Field " + string(btype))
 		}
+
 	}
 }
 

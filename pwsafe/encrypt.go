@@ -85,9 +85,20 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 
 // marshallHeader return the binary format for the Header as specified in the spec and the header values used for hmac calculations
 func (db *V3) marshallHeader() ([]byte, []byte) {
-	// todo I should look into ways the byte mapping for types in the header as records can be expressed so I can reuse it for both encrypting and decrypting
-	//  ideally I add a field to the struct then to the byte mapping and both encrypt/decrypt both support it.
-	// Review marshalling/unmarshalling for something like json or xml with the struct tags
+
+	//  ** Note the version field needs to be first
+
+	// ideas
+	//	st := reflect.TypeOf(db)
+	// for i < st.NumField()
+	//	field := st.Field(0)
+	//	btype := field.Tag.Get("field") //todo this is a hex string make it a byte.
+	//if btype == '' ; skip
+	// write field length
+	// write btype
+	// convert (if field.Kind == X; field.ValueOf)and write data - add data to the hmacValues
+	// if total written bytes doesn't match twofish.BlockSize fill remaining bytes with pseudo random values
+
 	return []byte("unimplemented"), []byte("unimplemented")
 }
 

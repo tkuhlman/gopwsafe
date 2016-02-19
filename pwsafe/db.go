@@ -32,21 +32,29 @@ type Record struct {
 
 //V3 The type representing a password safe v3 database
 type V3 struct {
-	// Note not all of the Header information from the specification is implemented
-	Name          string
-	CBCIV         [16]byte //Random initial value for CBC
-	Description   string
-	encryptionKey [32]byte
-	HMAC          [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
-	HMACKey       [32]byte
-	Iter          uint32 //the number of iterations on the hash function to create the stretched key
-	LastSave      time.Time
-	LastSavePath  string
-	Records       map[string]Record //the key is the record title
-	Salt          [32]byte
-	UUID          uuid.UUID
-	stretchedKey  [sha256.Size]byte
-	Version       string
+	CBCIV          [16]byte //Random initial value for CBC
+	Description    string   `field:"0a"`
+	emptyGroups    []string `field:"11"` //unimplemented
+	encryptionKey  [32]byte
+	filters        string   `field:"0b"` //unimplemented
+	HMAC           [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
+	HMACKey        [32]byte
+	Iter           uint32    //the number of iterations on the hash function to create the stretched key
+	LastSave       time.Time `field:"04"`
+	lastSaveBy     []byte    `field:"06"` //unimplemented
+	lastSaveHost   []byte    `field:"08"` //unimplemented
+	LastSavePath   string
+	lastSaveUser   []byte            `field:"07"` //unimplemented
+	Name           string            `field:"09"`
+	passwordPolicy string            `field:"10"` //unimplemented
+	preferences    string            `field:"02"` //unimplemented
+	Records        map[string]Record //the key is the record title
+	recentyUsed    string            `field:"0f"`
+	Salt           [32]byte
+	stretchedKey   [sha256.Size]byte
+	tree           string    `field:"03"` //unimplemented
+	UUID           uuid.UUID `field:"01"`
+	Version        string    `field:"00"`
 }
 
 //DB The interface representing the core functionality availble for any password database
