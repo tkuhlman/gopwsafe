@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/fatih/structs"
 	"golang.org/x/crypto/twofish"
@@ -131,12 +132,11 @@ func (db *V3) extractKeys(keyData []byte) {
 	copy(db.HMACKey[:], append(l1, l2...))
 }
 
-// Parse the header of the decrypted DB returning the size of the Header, a byte array for calculating hmac and any error or nil
-// beginning with the Version type field, and terminated by the 'END' type field. The version number
-// and END fields are mandatory
-func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
+// mapByFieldTag Return map[byte]*structs.Field for a struct where byte is the "field" struct tag converted to a byte
+// if field struct tag doesn't exist skip that field
+func mapByFieldTag(s interface{}) map[byte]*structs.Field {
 	fieldMap := make(map[byte]*structs.Field)
-	for _, field := range structs.Fields(db) {
+	for _, field := range structs.Fields(s) {
 		fieldTypeStr := field.Tag("field")
 		fieldType, err := hex.DecodeString(fieldTypeStr)
 		if err != nil {
@@ -146,8 +146,15 @@ func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
 			fieldMap[fieldType[0]] = field
 		}
 	}
+	return fieldMap
+}
 
+// Parse the header of the decrypted DB returning the size of the Header, a byte array for calculating hmac and any error or nil
+// beginning with the Version type field, and terminated by the 'END' type field. The version number
+// and END fields are mandatory
+func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
 	fieldStart := 0
+	dbFieldMap := mapByFieldTag(db)
 	var hmacData []byte
 	for {
 		if fieldStart > len(decryptedDB) {
@@ -165,9 +172,9 @@ func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
 			fieldStart += twofish.BlockSize - blockmod
 		}
 
-		field, prs := fieldMap[btype]
+		field, prs := dbFieldMap[btype]
 		if prs {
-			field.Set(data)
+			setField(field, data)
 		} else if btype == 0xff { //end
 			return fieldStart, hmacData, nil
 		} else {
@@ -201,12 +208,13 @@ func (db *V3) parseRecords(records []byte) (int, []byte, error) {
 // Parse a single record from the given records []byte, return record size, raw record Data and error/nil
 // Individual records stop with an END filed and UUID, Title and Password fields are mandatory all others are optional
 func (db *V3) parseNextRecord(records []byte) (int, []byte, error) {
-	fieldStart := 0
-	var record Record
+	record := &Record{}
 	var rdata []byte
+	fieldStart := 0
+	recordFieldMap := mapByFieldTag(record)
 	for {
 		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
-		btype := byteToInt(records[fieldStart+4 : fieldStart+5])
+		btype := records[fieldStart+4 : fieldStart+5][0]
 		data := records[fieldStart+5 : fieldStart+fieldLength+5]
 		rdata = append(rdata, data...)
 		fieldStart += fieldLength + 5
@@ -215,58 +223,37 @@ func (db *V3) parseNextRecord(records []byte) (int, []byte, error) {
 		if blockmod != 0 {
 			fieldStart += twofish.BlockSize - blockmod
 		}
-		switch btype {
-		case 0x01:
-			record.UUID = data
-		case 0x02:
-			record.Group = string(data)
-		case 0x03:
-			record.Title = string(data)
-		case 0x04:
-			record.Username = string(data)
-		case 0x05:
-			record.Notes = string(data)
-		case 0x06:
-			record.Password = string(data)
-		case 0x07:
-			continue
-		case 0x08:
-			continue
-		case 0x09:
-			continue
-		case 0x0a: // password expiry time
-			continue
-		case 0x0c:
-			continue
-		case 0x0d:
-			record.URL = string(data)
-		case 0x0e: //autotype
-			continue
-		case 0x0f: //password history
-			continue
-		case 0x10: //password policy
-			continue
-		case 0x11: //password expiry interval
-			continue
-		case 0x12: //run command
-			continue
-		case 0x13: //double click action
-			continue
-		case 0x14: //email
-			continue
-		case 0x15: //protected entry
-			continue
-		case 0x16: //own symbol
-			continue
-		case 0x17: //shift double click action
-			continue
-		case 0x18: //password policy name
-			continue
-		case 0xff: //end
-			db.Records[record.Title] = record
+
+		field, prs := recordFieldMap[btype]
+		if prs {
+			setField(field, data)
+		} else if btype == 0xff { //end
+			db.Records[record.Title] = *record
 			return fieldStart, rdata, nil
-		default:
-			return fieldStart, rdata, errors.New("Encountered unknown Record Field type - " + string(btype))
+		} else {
+			return fieldStart, rdata, fmt.Errorf("Encountered unknown Record Field type - %v", btype)
+		}
+	}
+}
+
+// setField Set the value of the Field with the proper conversion for its type
+func setField(field *structs.Field, data []byte) {
+	switch field.Kind().String() {
+	case "string":
+		err := field.Set(string(data))
+		if err != nil {
+			panic(err)
+		}
+		// case uuid.uuid  // this may not need to be specialy dealt with
+	case "struct": //time.Time shows as kind struct
+		err := field.Set(time.Unix(int64(byteToInt(data)), 0))
+		if err != nil {
+			panic(err)
+		}
+	default:
+		err := field.Set(data)
+		if err != nil {
+			panic(err)
 		}
 	}
 }

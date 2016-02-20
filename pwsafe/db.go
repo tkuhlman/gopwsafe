@@ -17,42 +17,53 @@ import (
 
 //Record The primary type for password DB entries
 type Record struct {
-	AccessTime      time.Time
-	CreateTime      time.Time
-	Group           string
-	ModTime         time.Time
-	Notes           string
-	Password        string
-	PasswordModTime string
-	Title           string
-	Username        string
-	URL             string
-	UUID            uuid.UUID
+	AccessTime             time.Time `field:"09"`
+	Autotype               string    `field:"0e"`
+	CreateTime             time.Time `field:"07"`
+	DoubleClickAction      [2]byte   `field:"13"`
+	Email                  string    `field:"14"`
+	Group                  string    `field:"02"`
+	ModTime                time.Time `field:"0c"`
+	Notes                  string    `field:"05"`
+	Password               string    `field:"06"`
+	PasswordExpiry         time.Time `field:"0a"`
+	PasswordExpiryInterval [4]byte   `field:"11"`
+	PasswordHistory        string    `field:"0f"`
+	PasswordModTime        string    `field:"08"`
+	PasswordPolicy         string    `field:"10"`
+	PasswordPolicyName     string    `field:"18"`
+	ProtectedEntry         byte      `field:"15"`
+	RunCommand             string    `field:"12"`
+	ShiftDoubleClickAction [2]byte   `field:"17"`
+	Title                  string    `field:"03"`
+	Username               string    `field:"04"`
+	URL                    string    `field:"0d"`
+	UUID                   uuid.UUID `field:"01"`
 }
 
 //V3 The type representing a password safe v3 database
 type V3 struct {
 	CBCIV          [16]byte //Random initial value for CBC
 	Description    string   `field:"0a"`
-	emptyGroups    []string `field:"11"` //unimplemented
+	EmptyGroups    []string `field:"11"`
 	encryptionKey  [32]byte
-	filters        string   `field:"0b"` //unimplemented
+	Filters        string   `field:"0b"`
 	HMAC           [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
 	HMACKey        [32]byte
 	Iter           uint32    //the number of iterations on the hash function to create the stretched key
 	LastSave       time.Time `field:"04"`
-	lastSaveBy     []byte    `field:"06"` //unimplemented
-	lastSaveHost   []byte    `field:"08"` //unimplemented
+	LastSaveBy     []byte    `field:"06"`
+	LastSaveHost   []byte    `field:"08"`
 	LastSavePath   string
-	lastSaveUser   []byte            `field:"07"` //unimplemented
+	LastSaveUser   []byte            `field:"07"`
 	Name           string            `field:"09"`
-	passwordPolicy string            `field:"10"` //unimplemented
-	preferences    string            `field:"02"` //unimplemented
+	PasswordPolicy string            `field:"10"`
+	Preferences    string            `field:"02"`
 	Records        map[string]Record //the key is the record title
-	recentyUsed    string            `field:"0f"`
+	RecentyUsed    string            `field:"0f"`
 	Salt           [32]byte
 	stretchedKey   [sha256.Size]byte
-	tree           string    `field:"03"` //unimplemented
+	Tree           string    `field:"03"`
 	UUID           uuid.UUID `field:"01"`
 	Version        string    `field:"00"`
 }
