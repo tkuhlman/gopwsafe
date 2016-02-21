@@ -54,11 +54,11 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	}
 	dbBytes = append(dbBytes, db.CBCIV[:]...)
 
-	// marshall the core db valudes
+	// marshal the core db valudes
 	var unencryptedBytes []byte
-	headerBytes, headerValues := db.marshallHeader()
+	headerBytes, headerValues := db.marshalHeader()
 	unencryptedBytes = append(unencryptedBytes, headerBytes...)
-	recordBytes, recordValues := db.marshallRecords()
+	recordBytes, recordValues := db.marshalRecords()
 	unencryptedBytes = append(unencryptedBytes, recordBytes...)
 
 	// encrypt and write the dbBlocks
@@ -83,10 +83,10 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	//return bytesWritten, err
 }
 
-// marshallHeader return the binary format for the Header as specified in the spec and the header values used for hmac calculations
-func (db *V3) marshallHeader() ([]byte, []byte) {
+// marshalHeader return the binary format for the Header as specified in the spec and the header values used for hmac calculations
+func (db *V3) marshalHeader() ([]byte, []byte) {
 
-	//  ** Note the version field needs to be first
+	//  ** Note the version field needs to be first and is required
 
 	// ideas
 	//	st := reflect.TypeOf(db)
@@ -102,7 +102,8 @@ func (db *V3) marshallHeader() ([]byte, []byte) {
 	return []byte("unimplemented"), []byte("unimplemented")
 }
 
-// marshallRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
-func (db *V3) marshallRecords() ([]byte, []byte) {
+// marshalRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
+func (db *V3) marshalRecords() ([]byte, []byte) {
 	return []byte("unimplemented"), []byte("unimplemented")
+	// for each record UUID, Title and Password fields are mandatory all others are optional
 }

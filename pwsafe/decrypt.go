@@ -95,13 +95,13 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 		return bytesRead, errors.New("Error unknown data after expected EOF")
 	}
 
-	//Parse the decrypted DB, first the header
-	hdrSize, headerHMACData, err := db.parseHeader(decryptedDB)
+	//UnMarshal the decrypted DB, first the header
+	hdrSize, headerHMACData, err := unmarshalRecord(decryptedDB, mapByFieldTag(db))
 	if err != nil {
 		return bytesRead, errors.New("Error parsing the unencrypted header - " + err.Error())
 	}
 
-	_, recordHMACData, err := db.parseRecords(decryptedDB[hdrSize:])
+	_, recordHMACData, err := db.unmarshalRecords(decryptedDB[hdrSize:])
 	if err != nil {
 		return bytesRead, errors.New("Error parsing the unencrypted records - " + err.Error())
 	}
@@ -149,93 +149,6 @@ func mapByFieldTag(s interface{}) map[byte]*structs.Field {
 	return fieldMap
 }
 
-// Parse the header of the decrypted DB returning the size of the Header, a byte array for calculating hmac and any error or nil
-// beginning with the Version type field, and terminated by the 'END' type field. The version number
-// and END fields are mandatory
-func (db *V3) parseHeader(decryptedDB []byte) (int, []byte, error) {
-	fieldStart := 0
-	dbFieldMap := mapByFieldTag(db)
-	var hmacData []byte
-	for {
-		if fieldStart > len(decryptedDB) {
-			return 0, hmacData, errors.New("No END field found in DB header")
-		}
-		fieldLength := byteToInt(decryptedDB[fieldStart : fieldStart+4])
-		btype := decryptedDB[fieldStart+4 : fieldStart+5][0]
-
-		data := decryptedDB[fieldStart+5 : fieldStart+fieldLength+5]
-		hmacData = append(hmacData, data...)
-		fieldStart += fieldLength + 5
-		//The next field must start on a block boundary
-		blockmod := fieldStart % twofish.BlockSize
-		if blockmod != 0 {
-			fieldStart += twofish.BlockSize - blockmod
-		}
-
-		field, prs := dbFieldMap[btype]
-		if prs {
-			setField(field, data)
-		} else if btype == 0xff { //end
-			return fieldStart, hmacData, nil
-		} else {
-			return 0, hmacData, errors.New("Encountered unknown Header Field " + string(btype))
-		}
-
-	}
-}
-
-// Parse the records returning records length, a byte array of data for hmac calculations and error or nil
-// The EOF string records end with is "PWS3-EOFPWS3-EOF"
-func (db *V3) parseRecords(records []byte) (int, []byte, error) {
-	recordStart := 0
-	var hmacData []byte
-	db.Records = make(map[string]Record)
-	for recordStart < len(records) {
-		recordLength, recordData, err := db.parseNextRecord(records[recordStart:])
-		if err != nil {
-			return recordStart, hmacData, errors.New("Error parsing record - " + err.Error())
-		}
-		hmacData = append(hmacData, recordData...)
-		recordStart += recordLength
-	}
-
-	if recordStart > len(records) {
-		return recordStart, hmacData, errors.New("Encountered a record with invalid length")
-	}
-	return recordStart, hmacData, nil
-}
-
-// Parse a single record from the given records []byte, return record size, raw record Data and error/nil
-// Individual records stop with an END filed and UUID, Title and Password fields are mandatory all others are optional
-func (db *V3) parseNextRecord(records []byte) (int, []byte, error) {
-	record := &Record{}
-	var rdata []byte
-	fieldStart := 0
-	recordFieldMap := mapByFieldTag(record)
-	for {
-		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
-		btype := records[fieldStart+4 : fieldStart+5][0]
-		data := records[fieldStart+5 : fieldStart+fieldLength+5]
-		rdata = append(rdata, data...)
-		fieldStart += fieldLength + 5
-		//The next field must start on a block boundary
-		blockmod := fieldStart % twofish.BlockSize
-		if blockmod != 0 {
-			fieldStart += twofish.BlockSize - blockmod
-		}
-
-		field, prs := recordFieldMap[btype]
-		if prs {
-			setField(field, data)
-		} else if btype == 0xff { //end
-			db.Records[record.Title] = *record
-			return fieldStart, rdata, nil
-		} else {
-			return fieldStart, rdata, fmt.Errorf("Encountered unknown Record Field type - %v", btype)
-		}
-	}
-}
-
 // setField Set the value of the Field with the proper conversion for its type
 func setField(field *structs.Field, data []byte) {
 	switch field.Kind().String() {
@@ -254,6 +167,62 @@ func setField(field *structs.Field, data []byte) {
 		err := field.Set(data)
 		if err != nil {
 			panic(err)
+		}
+	}
+}
+
+// UnMarshal the records returning records length, a byte array of data for hmac calculations and error or nil
+// The EOF string records end with is "PWS3-EOFPWS3-EOF"
+func (db *V3) unmarshalRecords(records []byte) (int, []byte, error) {
+	recordStart := 0
+	var hmacData []byte
+	db.Records = make(map[string]Record)
+	for recordStart < len(records) {
+		record := &Record{}
+		recordFieldMap := mapByFieldTag(record)
+		recordLength, recordData, err := unmarshalRecord(records[recordStart:], recordFieldMap)
+		db.Records[record.Title] = *record
+		if err != nil {
+			return recordStart, hmacData, errors.New("Error parsing record - " + err.Error())
+		}
+		hmacData = append(hmacData, recordData...)
+		recordStart += recordLength
+	}
+
+	if recordStart > len(records) {
+		return recordStart, hmacData, errors.New("Encountered a record with invalid length")
+	}
+	return recordStart, hmacData, nil
+}
+
+// UnMarshal a single record from the given records []byte, writing to fields in recordFieldMap, return record size, raw record Data and error/nil
+// Individual records stop with an END field
+// This function is used both to UnMarshal the header and individual records in the DB
+func unmarshalRecord(records []byte, recordFieldMap map[byte]*structs.Field) (int, []byte, error) {
+	var rdata []byte
+	fieldStart := 0
+	for {
+		if fieldStart > len(records) {
+			return 0, rdata, errors.New("No END field found when UnMarshaling")
+		}
+		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
+		btype := records[fieldStart+4 : fieldStart+5][0]
+		data := records[fieldStart+5 : fieldStart+fieldLength+5]
+		rdata = append(rdata, data...)
+		fieldStart += fieldLength + 5
+		//The next field must start on a block boundary
+		blockmod := fieldStart % twofish.BlockSize
+		if blockmod != 0 {
+			fieldStart += twofish.BlockSize - blockmod
+		}
+
+		field, prs := recordFieldMap[btype]
+		if prs {
+			setField(field, data)
+		} else if btype == 0xff { //end
+			return fieldStart, rdata, nil
+		} else {
+			return fieldStart, rdata, fmt.Errorf("Encountered unknown Record Field type - %v", btype)
 		}
 	}
 }
