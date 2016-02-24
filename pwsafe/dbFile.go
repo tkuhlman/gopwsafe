@@ -33,7 +33,7 @@ func WritePWSafeFile(db *DB, path string) error {
 		v3db.LastSavePath = path
 	}
 	// Open the file
-	f, err := os.Open(savePath)
+	f, err := os.Create(savePath)
 	if err != nil {
 		return err
 	}

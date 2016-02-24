@@ -65,19 +65,21 @@ type V3 struct {
 	stretchedKey   [sha256.Size]byte
 	Tree           string    `field:"03"`
 	UUID           uuid.UUID `field:"01"`
-	Version        string    `field:"00"`
+	Version        [2]byte   `field:"00"`
 }
 
 //DB The interface representing the core functionality availble for any password database
 type DB interface {
 	Encrypt(io.Writer) (int, error)
+	Equal(*DB) bool
 	Decrypt(io.Reader, string) (int, error)
 	GetName() string
 	GetRecord(string) (Record, bool)
 	Groups() []string
+	Identical(*DB) bool
 	List() []string
 	ListByGroup(string) []string
-	//todo	NewDB(string) *DB
+	//todo - Make sure to calculate initial UUID -	NewDB(string) *DB
 	SetPassword(string) error
 	SetRecord(Record)
 	DeleteRecord(string)

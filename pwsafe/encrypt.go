@@ -4,8 +4,14 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"io"
+	pseudoRand "math/rand"
 	"time"
+
+	"github.com/fatih/structs"
+	"github.com/pborman/uuid"
 
 	"golang.org/x/crypto/twofish"
 )
@@ -54,10 +60,16 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	}
 	dbBytes = append(dbBytes, db.CBCIV[:]...)
 
-	// marshal the core db valudes
+	// marshal the core db values
 	var unencryptedBytes []byte
-	headerBytes, headerValues := db.marshalHeader()
+	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
+	// Note the version field needs to be first and is required
+	ordered := structs.Fields(db)
+	headerFields := append(ordered[:len(ordered)-1], ordered[:len(ordered)]...)
+
+	headerBytes, headerValues := marshalRecord(headerFields)
 	unencryptedBytes = append(unencryptedBytes, headerBytes...)
+
 	recordBytes, recordValues := db.marshalRecords()
 	unencryptedBytes = append(unencryptedBytes, recordBytes...)
 
@@ -77,33 +89,95 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	dbBytes = append(dbBytes, db.HMAC[:]...)
 
 	// Write out the db
-	// todo - skip the write until we have an actual valid db implemented
-	return 0, nil
-	//bytesWritten, err : writer.Write(dbBrytes)
-	//return bytesWritten, err
+	bytesWritten, err := writer.Write(dbBytes)
+	return bytesWritten, err
 }
 
-// marshalHeader return the binary format for the Header as specified in the spec and the header values used for hmac calculations
-func (db *V3) marshalHeader() ([]byte, []byte) {
+// For the given field return the []byte representation of its data
+func getFieldBytes(field *structs.Field) (fbytes []byte) {
 
-	//  ** Note the version field needs to be first and is required
+	switch field.Kind().String() {
+	case "struct": //time.Time shows as kind struct
+		fbytes = intToBytes(int(field.Value().(time.Time).Unix()))
+	default:
+		fbytes = field.Value().([]byte)
+	}
+	return fbytes
+}
 
-	// ideas
-	//	st := reflect.TypeOf(db)
-	// for i < st.NumField()
-	//	field := st.Field(0)
-	//	btype := field.Tag.Get("field") //todo this is a hex string make it a byte.
-	//if btype == '' ; skip
-	// write field length
-	// write btype
-	// convert (if field.Kind == X; field.ValueOf)and write data - add data to the hmacValues
-	// if total written bytes doesn't match twofish.BlockSize fill remaining bytes with pseudo random values
+// intToBytes Converts an int to byte array
+func intToBytes(num int) []byte {
+	intBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(intBytes, uint32(num))
+	return intBytes
+}
 
-	return []byte("unimplemented"), []byte("unimplemented")
+// marshalHeader return the binary format for the record as specified in the spec and the header values used for hmac calculations
+// This function is used both to Marshal the header and individual records in the DB
+func marshalRecord(fields []*structs.Field) (record []byte, dataBytes []byte) {
+	for _, field := range fields {
+		fieldTypeStr := field.Tag("field")
+		if fieldTypeStr == "" || field.IsZero() {
+			continue
+		} else {
+			fieldType, err := hex.DecodeString(fieldTypeStr)
+			if err != nil {
+				panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", field.Name(), err))
+			}
+			dataBytes := getFieldBytes(field)
+
+			// Each record is the length, type and data
+			record = append(record, intToBytes(len(dataBytes))...)
+			record = append(record, fieldType[0])
+
+			// if total written bytes doesn't match twofish.BlockSize fill remaining bytes with pseudo random values
+			usedBlockSpace := (len(dataBytes) + 5) % twofish.BlockSize
+			if usedBlockSpace != 0 {
+				record = append(record, pseudoRandmonBytes(twofish.BlockSize-usedBlockSpace)...)
+			}
+		}
+
+		//finish with the end of record
+		record = append(record, []byte{0, 0, 0, 0}...)
+		record = append(record, '\xFF')
+		record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
+	}
+
+	return record, dataBytes
 }
 
 // marshalRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
-func (db *V3) marshalRecords() ([]byte, []byte) {
-	return []byte("unimplemented"), []byte("unimplemented")
-	// for each record UUID, Title and Password fields are mandatory all others are optional
+func (db *V3) marshalRecords() (records []byte, dataBytes []byte) {
+
+	for _, record := range db.Records {
+		recordStruct := structs.New(record)
+		// if uuid is not set calculate
+		if recordStruct.Field("UUID").IsZero() {
+			db.UUID = uuid.NewRandom()
+		}
+
+		// for each record UUID, Title and Password fields are mandatory all others are optional
+		if recordStruct.Field("Title").IsZero() || recordStruct.Field("Password").IsZero() {
+			//todo how should I handle this?
+			fmt.Println("Error: Title or Password is not set, invalid record")
+			continue
+		}
+
+		// finally call marshalRecord for this record
+		rBytes, hmacBytes := marshalRecord(structs.Fields(record))
+		records = append(records, rBytes...)
+		dataBytes = append(dataBytes, hmacBytes...)
+	}
+
+	return records, dataBytes
+}
+
+// Generate size bytes of pseudo random data
+func pseudoRandmonBytes(size int) (r []byte) {
+	bytesRand := make([]byte, 8)
+	for i := 0; i < size; i += 8 {
+		binary.PutVarint(bytesRand, pseudoRand.Int63())
+		r = append(r, bytesRand...)
+	}
+	return r[:size]
 }
