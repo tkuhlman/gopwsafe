@@ -30,6 +30,24 @@ func TestByteToInt(t *testing.T) {
 	}
 }
 
+func TestIntToByte(t *testing.T) {
+	var testData = []struct {
+		bytes []byte
+		value int
+	}{
+		{bytes: []byte{5, 0, 0, 0}, value: 5},
+		{bytes: []byte{5, 5, 0, 0}, value: 1285},
+		{bytes: []byte{5, 5, 5, 0}, value: 328965},
+		{bytes: []byte{5, 5, 5, 5}, value: 84215045},
+		{bytes: []byte{255, 255, 255, 255}, value: 4294967295},
+	}
+
+	for _, test := range testData {
+		derived := intToBytes(test.value)
+		assert.Equal(t, test.bytes, derived)
+	}
+}
+
 func TestCalculateStretchKey(t *testing.T) {
 	var db V3
 	db.Iter = 2048

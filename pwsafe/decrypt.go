@@ -157,12 +157,31 @@ func setField(field *structs.Field, data []byte) {
 		if err != nil {
 			panic(err)
 		}
-		// case uuid.uuid  // this may not need to be specialy dealt with
 	case "struct": //time.Time shows as kind struct
 		err := field.Set(time.Unix(int64(byteToInt(data)), 0))
 		if err != nil {
 			panic(err)
 		}
+	case "array":
+		switch len(data) {
+		case 2:
+			var farray [2]byte
+			copy(farray[:], data)
+			field.Set(farray)
+		case 4:
+			var farray [4]byte
+			copy(farray[:], data)
+			field.Set(farray)
+		case 16:
+			var farray [16]byte
+			copy(farray[:], data)
+			field.Set(farray)
+		case 32:
+			var farray [32]byte
+			copy(farray[:], data)
+			field.Set(farray)
+		}
+
 	default:
 		err := field.Set(data)
 		if err != nil {
@@ -207,6 +226,7 @@ func unmarshalRecord(records []byte, recordFieldMap map[byte]*structs.Field) (in
 		}
 		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
 		btype := records[fieldStart+4 : fieldStart+5][0]
+		fmt.Println("Type and fieldLength", btype, fieldLength)
 		data := records[fieldStart+5 : fieldStart+fieldLength+5]
 		rdata = append(rdata, data...)
 		fieldStart += fieldLength + 5

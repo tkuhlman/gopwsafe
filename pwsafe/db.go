@@ -11,8 +11,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/pborman/uuid"
 )
 
 //Record The primary type for password DB entries
@@ -38,7 +36,7 @@ type Record struct {
 	Title                  string    `field:"03"`
 	Username               string    `field:"04"`
 	URL                    string    `field:"0d"`
-	UUID                   uuid.UUID `field:"01"`
+	UUID                   [16]byte  `field:"01"`
 }
 
 //V3 The type representing a password safe v3 database
@@ -63,9 +61,9 @@ type V3 struct {
 	RecentyUsed    string            `field:"0f"`
 	Salt           [32]byte
 	stretchedKey   [sha256.Size]byte
-	Tree           string    `field:"03"`
-	UUID           uuid.UUID `field:"01"`
-	Version        [2]byte   `field:"00"`
+	Tree           string   `field:"03"`
+	UUID           [16]byte `field:"01"`
+	Version        [2]byte  `field:"00"`
 }
 
 //DB The interface representing the core functionality availble for any password database

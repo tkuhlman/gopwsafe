@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	pseudoRand "math/rand"
+	"reflect"
 	"time"
 
 	"github.com/fatih/structs"
@@ -29,15 +30,14 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	// Add salt and iter neither of which can change without knowing the password as the stretchedkey will need recalculating.
 	// use db.SetPassword() to change the password
 	dbBytes = append(dbBytes, db.Salt[:]...)
-	iter := make([]byte, 4)
-	binary.LittleEndian.PutUint32(iter, db.Iter)
-	dbBytes = append(dbBytes, iter...)
+	dbBytes = append(dbBytes, intToBytes(int(db.Iter))...)
 
-	// Add the stretchedKey
+	// Add the stretchedKey Hash
 	stretchedSha := sha256.Sum256(db.stretchedKey[:])
 	dbBytes = append(dbBytes, stretchedSha[:]...)
 
 	// re-calculate, encrypt and add encryption key and hmac key
+** I think there is a problem here writing the encrypted keys, turn into a method and then write tests against this and the extractKeys which I know works.
 	_, err := rand.Read(db.encryptionKey[:])
 	if err != nil {
 		return 0, err
@@ -65,7 +65,8 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
 	// Note the version field needs to be first and is required
 	ordered := structs.Fields(db)
-	headerFields := append(ordered[:len(ordered)-1], ordered[:len(ordered)]...)
+	//todo it is a bad assumption that version is the last item in the slice, fix so version is first
+	headerFields := append(ordered[:len(ordered)-2], ordered[len(ordered)-1])
 
 	headerBytes, headerValues := marshalRecord(headerFields)
 	unencryptedBytes = append(unencryptedBytes, headerBytes...)
@@ -97,8 +98,26 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 func getFieldBytes(field *structs.Field) (fbytes []byte) {
 
 	switch field.Kind().String() {
+	case "string":
+		fstring := field.Value().(string)
+		fbytes = []byte(fstring)
 	case "struct": //time.Time shows as kind struct
 		fbytes = intToBytes(int(field.Value().(time.Time).Unix()))
+	case "array":
+		switch reflect.ValueOf(field.Value()).Len() {
+		case 2:
+			farray := field.Value().([2]byte)
+			fbytes = farray[:]
+		case 4:
+			farray := field.Value().([4]byte)
+			fbytes = farray[:]
+		case 16:
+			farray := field.Value().([16]byte)
+			fbytes = farray[:]
+		case 32:
+			farray := field.Value().([32]byte)
+			fbytes = farray[:]
+		}
 	default:
 		fbytes = field.Value().([]byte)
 	}
@@ -121,12 +140,15 @@ func marshalRecord(fields []*structs.Field) (record []byte, dataBytes []byte) {
 			continue
 		} else {
 			fieldType, err := hex.DecodeString(fieldTypeStr)
+			fmt.Println("Field Name and Type", field.Name(), fieldType)
 			if err != nil {
 				panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", field.Name(), err))
 			}
 			dataBytes := getFieldBytes(field)
+			fmt.Println("Field Data", dataBytes)
 
 			// Each record is the length, type and data
+			fmt.Println("Field Length and bytes", len(dataBytes), intToBytes(len(dataBytes)))
 			record = append(record, intToBytes(len(dataBytes))...)
 			record = append(record, fieldType[0])
 
@@ -153,7 +175,7 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte) {
 		recordStruct := structs.New(record)
 		// if uuid is not set calculate
 		if recordStruct.Field("UUID").IsZero() {
-			db.UUID = uuid.NewRandom()
+			db.UUID = [16]byte(uuid.NewRandom().Array())
 		}
 
 		// for each record UUID, Title and Password fields are mandatory all others are optional
@@ -174,8 +196,9 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte) {
 
 // Generate size bytes of pseudo random data
 func pseudoRandmonBytes(size int) (r []byte) {
-	bytesRand := make([]byte, 8)
 	for i := 0; i < size; i += 8 {
+		//todo this is giving a pance if bytesRand is size 8 I need to figure out exactly what is going wrong.
+		bytesRand := make([]byte, 16)
 		binary.PutVarint(bytesRand, pseudoRand.Int63())
 		r = append(r, bytesRand...)
 	}
