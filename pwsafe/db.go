@@ -158,7 +158,7 @@ func (db V3) ListByGroup(group string) []string {
 }
 
 //SetPassword Sets the password that will be used to encrypt the file on next save
-func (db V3) SetPassword(pw string) error {
+func (db *V3) SetPassword(pw string) error {
 	// First recalculate the Salt and set iter
 	db.Iter = 86000
 	if _, err := rand.Read(db.Salt[:]); err != nil {

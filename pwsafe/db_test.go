@@ -48,14 +48,24 @@ func TestIntToByte(t *testing.T) {
 	}
 }
 
-func TestCalculateStretchKey(t *testing.T) {
+func TestKeys(t *testing.T) {
 	var db V3
 	db.Iter = 2048
 	db.Salt = [32]byte{224, 70, 145, 8, 59, 173, 47, 241, 203, 157, 83, 209, 22, 55, 151, 157, 96, 234, 194, 167, 175, 251, 199, 145, 7, 219, 203, 168, 6, 166, 238, 241}
 	expectedKey := [32]byte{243, 201, 143, 194, 139, 58, 186, 186, 133, 14, 238, 200, 139, 153, 45, 247, 215, 251, 24, 49, 28, 170, 157, 181, 21, 174, 129, 231, 234, 62, 51, 203}
 
+	// tests the stretchedKey
 	db.calculateStretchKey("password")
 	assert.Equal(t, db.stretchedKey, expectedKey)
+
+	encryptedKeys := db.refreshEncryptedKeys()
+	createdEncryptionKey := db.encryptionKey
+	createdHMACKey := db.HMACKey
+
+	// extract the keys from the encrypted bytes and compare to the original
+	db.extractKeys(encryptedKeys)
+	assert.Equal(t, createdEncryptionKey, db.encryptionKey)
+	assert.Equal(t, createdHMACKey, db.HMACKey)
 }
 
 func TestInvalidFile(t *testing.T) {

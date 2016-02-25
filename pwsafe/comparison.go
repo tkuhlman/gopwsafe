@@ -16,14 +16,13 @@ func (db *V3) Equal(other *DB) bool {
 	if len(db.List()) != len((*other).List()) {
 		return false
 	}
-	// todo start an interface for Record and add an Equal method, direct comparison fails because of the UUID, alternatively store UUID as a string
-	//	for _, title := range db.List() {
-	//		dbRecord, _ := db.GetRecord(title)
-	//		otherRecord, _ := (*other).GetRecord(title)
-	//		if dbRecord != otherRecord {
-	//			return false
-	//		}
-	//	}
+	for _, title := range db.List() {
+		dbRecord, _ := db.GetRecord(title)
+		otherRecord, _ := (*other).GetRecord(title)
+		if dbRecord != otherRecord {
+			return false
+		}
+	}
 	return true
 }
 

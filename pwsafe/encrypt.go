@@ -32,29 +32,13 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	dbBytes = append(dbBytes, db.Salt[:]...)
 	dbBytes = append(dbBytes, intToBytes(int(db.Iter))...)
 
-	// Add the stretchedKey Hash
+	// Add the stretchedKey Hash and refresh the encryption keys adding them encrypted
 	stretchedSha := sha256.Sum256(db.stretchedKey[:])
 	dbBytes = append(dbBytes, stretchedSha[:]...)
-
-	// re-calculate, encrypt and add encryption key and hmac key
-** I think there is a problem here writing the encrypted keys, turn into a method and then write tests against this and the extractKeys which I know works.
-	_, err := rand.Read(db.encryptionKey[:])
-	if err != nil {
-		return 0, err
-	}
-	_, err = rand.Read(db.HMACKey[:])
-	if err != nil {
-		return 0, err
-	}
-	keyTwoFish, _ := twofish.NewCipher(db.stretchedKey[:])
-	for _, block := range [][]byte{db.encryptionKey[:16], db.encryptionKey[16:], db.HMACKey[:16], db.HMACKey[16:]} {
-		encrypted := make([]byte, 16)
-		keyTwoFish.Encrypt(encrypted, block)
-		dbBytes = append(dbBytes, encrypted...)
-	}
+	dbBytes = append(dbBytes, db.refreshEncryptedKeys()...)
 
 	// calculate and add cbc initial value
-	_, err = rand.Read(db.CBCIV[:])
+	_, err := rand.Read(db.CBCIV[:])
 	if err != nil {
 		return 0, err
 	}
@@ -203,4 +187,24 @@ func pseudoRandmonBytes(size int) (r []byte) {
 		r = append(r, bytesRand...)
 	}
 	return r[:size]
+}
+
+// re-calculate and add to the db new encryption key and hmac key then encrypt with and return the encrypted bytes
+func (db *V3) refreshEncryptedKeys() []byte {
+	var encryptedBytes []byte
+	_, err := rand.Read(db.encryptionKey[:])
+	if err != nil {
+		panic(err)
+	}
+	_, err = rand.Read(db.HMACKey[:])
+	if err != nil {
+		panic(err)
+	}
+	keyTwoFish, _ := twofish.NewCipher(db.stretchedKey[:])
+	for _, block := range [][]byte{db.encryptionKey[:16], db.encryptionKey[16:], db.HMACKey[:16], db.HMACKey[16:]} {
+		encrypted := make([]byte, 16)
+		keyTwoFish.Encrypt(encrypted, block)
+		encryptedBytes = append(encryptedBytes, encrypted...)
+	}
+	return encryptedBytes
 }
