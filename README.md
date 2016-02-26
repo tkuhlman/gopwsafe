@@ -5,8 +5,6 @@
 [![Coverage Status](https://coveralls.io/repos/tkuhlman/gopwsafe/badge.svg?branch=master&service=github)](https://coveralls.io/github/tkuhlman/gopwsafe?branch=master)
 
 
-** Alpha - 0.1.0 release is Read Only **
-
 A password safe written in go using  and implementing the [password safe](http://pwsafe.org/) version 3 database.
 Simply download and run, no install needed.
 
@@ -23,8 +21,7 @@ Features:
 - The ability to have multiple windows open with different databases in each is a key feature that many other Password Safe implementations don't have.
 - Simple database search.
 - Tree representation based on db and group.
-- Copy/Paste shortcuts with timeout on pasting of sensitive fields.
-- Shortcut key to open user preferred browser.
+- Keyboard shortcuts, for copy/paste, opening url in a browser, etc.
 
 # References
 - V3 Password Safe Specification - http://sourceforge.net/p/passwordsafe/code/HEAD/tree/trunk/pwsafe/pwsafe/docs/formatV3.txt
@@ -34,15 +31,15 @@ Features:
 - pwsafe
     - Finish implemenation of all record fields
     - Finish implementation of all header fields.
-- Copy doesn't time out and clear clipboard at this point
+- Add a timeout to clear the clipboard a minute or so after copying a password.
 - The ability copy/move entries from one open db to another.
-- Edit of multiple entries at once for select fields, ie modify the group
 - Prompt on exit if there are unsaved changes.
 
 ## Eventually
+- Automatic storage of old passwords.
 - Add a file selection tool for opening.
 - The ability to diff two different databases.
   - Full diff
   - diff based on particular fields, name, username, url, password
-- Automatic storage of old passwords.
+- Edit of multiple entries at once for select fields, ie modify the group
 - Look at gomobile would it be possible to write my code in such a way it can be used on Android and ios. See the utils talk slides for more details on gomobile.
