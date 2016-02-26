@@ -101,9 +101,6 @@ func getFieldBytes(field *structs.Field) (fbytes []byte) {
 		case 16:
 			farray := field.Value().([16]byte)
 			fbytes = farray[:]
-		case 32:
-			farray := field.Value().([32]byte)
-			fbytes = farray[:]
 		}
 	default:
 		fbytes = field.Value().([]byte)

@@ -176,10 +176,6 @@ func setField(field *structs.Field, data []byte) {
 			var farray [16]byte
 			copy(farray[:], data)
 			field.Set(farray)
-		case 32:
-			var farray [32]byte
-			copy(farray[:], data)
-			field.Set(farray)
 		}
 
 	default:
