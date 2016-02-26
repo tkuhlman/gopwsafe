@@ -1,6 +1,7 @@
 package pwsafe
 
 import (
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -48,9 +49,10 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	var unencryptedBytes []byte
 	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
 	// Note the version field needs to be first and is required
-	ordered := structs.Fields(db)
+	headerFields := structs.Fields(db)
 	//todo it is a bad assumption that version is the last item in the slice, fix so version is first
-	headerFields := append(ordered[:len(ordered)-2], ordered[len(ordered)-1])
+	//ordered := structs.Fields(db)
+	//headerFields := append(ordered[:len(ordered)-2], ordered[len(ordered)-1])
 
 	headerBytes, headerValues := marshalRecord(headerFields)
 	unencryptedBytes = append(unencryptedBytes, headerBytes...)
@@ -60,10 +62,11 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 
 	// encrypt and write the dbBlocks
 	dbTwoFish, _ := twofish.NewCipher(db.encryptionKey[:])
-	for i := 0; i < len(unencryptedBytes); i += 16 {
-		block := unencryptedBytes[i : i+16]
-		encrypted := make([]byte, 16)
-		dbTwoFish.Encrypt(encrypted, block)
+	cbcTwoFish := cipher.NewCBCEncrypter(dbTwoFish, db.CBCIV[:])
+	for i := 0; i < len(unencryptedBytes); i += twofish.BlockSize {
+		block := unencryptedBytes[i : i+twofish.BlockSize]
+		encrypted := make([]byte, twofish.BlockSize)
+		cbcTwoFish.CryptBlocks(encrypted, block)
 		dbBytes = append(dbBytes, encrypted...)
 	}
 
@@ -124,17 +127,17 @@ func marshalRecord(fields []*structs.Field) (record []byte, dataBytes []byte) {
 			continue
 		} else {
 			fieldType, err := hex.DecodeString(fieldTypeStr)
-			fmt.Println("Field Name and Type", field.Name(), fieldType)
 			if err != nil {
 				panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", field.Name(), err))
 			}
 			dataBytes := getFieldBytes(field)
-			fmt.Println("Field Data", dataBytes)
 
 			// Each record is the length, type and data
-			fmt.Println("Field Length and bytes", len(dataBytes), intToBytes(len(dataBytes)))
 			record = append(record, intToBytes(len(dataBytes))...)
 			record = append(record, fieldType[0])
+
+			// Add in the data
+			record = append(record, dataBytes...)
 
 			// if total written bytes doesn't match twofish.BlockSize fill remaining bytes with pseudo random values
 			usedBlockSpace := (len(dataBytes) + 5) % twofish.BlockSize
@@ -142,12 +145,12 @@ func marshalRecord(fields []*structs.Field) (record []byte, dataBytes []byte) {
 				record = append(record, pseudoRandmonBytes(twofish.BlockSize-usedBlockSpace)...)
 			}
 		}
-
-		//finish with the end of record
-		record = append(record, []byte{0, 0, 0, 0}...)
-		record = append(record, '\xFF')
-		record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
 	}
+
+	//finish with the end of record
+	record = append(record, []byte{0, 0, 0, 0}...)
+	record = append(record, '\xFF')
+	record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
 
 	return record, dataBytes
 }

@@ -226,7 +226,6 @@ func unmarshalRecord(records []byte, recordFieldMap map[byte]*structs.Field) (in
 		}
 		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
 		btype := records[fieldStart+4 : fieldStart+5][0]
-		fmt.Println("Type and fieldLength", btype, fieldLength)
 		data := records[fieldStart+5 : fieldStart+fieldLength+5]
 		rdata = append(rdata, data...)
 		fieldStart += fieldLength + 5
