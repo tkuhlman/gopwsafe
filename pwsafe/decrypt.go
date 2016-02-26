@@ -55,7 +55,7 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	var keyHash [sha256.Size]byte
 	copy(keyHash[:], rawDB[pos:pos+sha256.Size])
 	pos += sha256.Size
-	if keyHash != sha256.Sum256(db.stretchedKey[:]) {
+	if keyHash != sha256.Sum256(db.StretchedKey[:]) {
 		return bytesRead, errors.New("Invalid Password")
 	}
 
@@ -84,7 +84,7 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 		}
 	}
 
-	block, err := twofish.NewCipher(db.encryptionKey[:])
+	block, err := twofish.NewCipher(db.EncryptionKey[:])
 	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV[:])
 	decryptedDB := make([]byte, encryptedSize) // The EOF and HMAC are after the encrypted section
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
@@ -118,12 +118,12 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 
 // Pull encryptionKey and HMAC key from the 64byte keyData
 func (db *V3) extractKeys(keyData []byte) {
-	c, _ := twofish.NewCipher(db.stretchedKey[:])
+	c, _ := twofish.NewCipher(db.StretchedKey[:])
 	k1 := make([]byte, 16)
 	c.Decrypt(k1, keyData[:16])
 	k2 := make([]byte, 16)
 	c.Decrypt(k2, keyData[16:32])
-	copy(db.encryptionKey[:], append(k1, k2...))
+	copy(db.EncryptionKey[:], append(k1, k2...))
 
 	l1 := make([]byte, 16)
 	c.Decrypt(l1, keyData[32:48])

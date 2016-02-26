@@ -56,15 +56,15 @@ func TestKeys(t *testing.T) {
 
 	// tests the stretchedKey
 	db.calculateStretchKey("password")
-	assert.Equal(t, db.stretchedKey, expectedKey)
+	assert.Equal(t, db.StretchedKey, expectedKey)
 
 	encryptedKeys := db.refreshEncryptedKeys()
-	createdEncryptionKey := db.encryptionKey
+	createdEncryptionKey := db.EncryptionKey
 	createdHMACKey := db.HMACKey
 
 	// extract the keys from the encrypted bytes and compare to the original
 	db.extractKeys(encryptedKeys)
-	assert.Equal(t, createdEncryptionKey, db.encryptionKey)
+	assert.Equal(t, createdEncryptionKey, db.EncryptionKey)
 	assert.Equal(t, createdHMACKey, db.HMACKey)
 }
 

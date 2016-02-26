@@ -34,7 +34,7 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	dbBytes = append(dbBytes, intToBytes(int(db.Iter))...)
 
 	// Add the stretchedKey Hash and refresh the encryption keys adding them encrypted
-	stretchedSha := sha256.Sum256(db.stretchedKey[:])
+	stretchedSha := sha256.Sum256(db.StretchedKey[:])
 	dbBytes = append(dbBytes, stretchedSha[:]...)
 	dbBytes = append(dbBytes, db.refreshEncryptedKeys()...)
 
@@ -61,7 +61,7 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 	unencryptedBytes = append(unencryptedBytes, recordBytes...)
 
 	// encrypt and write the dbBlocks
-	dbTwoFish, _ := twofish.NewCipher(db.encryptionKey[:])
+	dbTwoFish, _ := twofish.NewCipher(db.EncryptionKey[:])
 	cbcTwoFish := cipher.NewCBCEncrypter(dbTwoFish, db.CBCIV[:])
 	for i := 0; i < len(unencryptedBytes); i += twofish.BlockSize {
 		block := unencryptedBytes[i : i+twofish.BlockSize]
@@ -120,7 +120,7 @@ func intToBytes(num int) []byte {
 
 // marshalHeader return the binary format for the record as specified in the spec and the header values used for hmac calculations
 // This function is used both to Marshal the header and individual records in the DB
-func marshalRecord(fields []*structs.Field) (record []byte, dataBytes []byte) {
+func marshalRecord(fields []*structs.Field) (record []byte, totalDataBytes []byte) {
 	for _, field := range fields {
 		fieldTypeStr := field.Tag("field")
 		if fieldTypeStr == "" || field.IsZero() {
@@ -131,6 +131,7 @@ func marshalRecord(fields []*structs.Field) (record []byte, dataBytes []byte) {
 				panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", field.Name(), err))
 			}
 			dataBytes := getFieldBytes(field)
+			totalDataBytes = append(totalDataBytes, dataBytes...)
 
 			// Each record is the length, type and data
 			record = append(record, intToBytes(len(dataBytes))...)
@@ -152,7 +153,7 @@ func marshalRecord(fields []*structs.Field) (record []byte, dataBytes []byte) {
 	record = append(record, '\xFF')
 	record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
 
-	return record, dataBytes
+	return record, totalDataBytes
 }
 
 // marshalRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
@@ -195,7 +196,7 @@ func pseudoRandmonBytes(size int) (r []byte) {
 // re-calculate and add to the db new encryption key and hmac key then encrypt with and return the encrypted bytes
 func (db *V3) refreshEncryptedKeys() []byte {
 	var encryptedBytes []byte
-	_, err := rand.Read(db.encryptionKey[:])
+	_, err := rand.Read(db.EncryptionKey[:])
 	if err != nil {
 		panic(err)
 	}
@@ -203,8 +204,8 @@ func (db *V3) refreshEncryptedKeys() []byte {
 	if err != nil {
 		panic(err)
 	}
-	keyTwoFish, _ := twofish.NewCipher(db.stretchedKey[:])
-	for _, block := range [][]byte{db.encryptionKey[:16], db.encryptionKey[16:], db.HMACKey[:16], db.HMACKey[16:]} {
+	keyTwoFish, _ := twofish.NewCipher(db.StretchedKey[:])
+	for _, block := range [][]byte{db.EncryptionKey[:16], db.EncryptionKey[16:], db.HMACKey[:16], db.HMACKey[16:]} {
 		encrypted := make([]byte, 16)
 		keyTwoFish.Encrypt(encrypted, block)
 		encryptedBytes = append(encryptedBytes, encrypted...)

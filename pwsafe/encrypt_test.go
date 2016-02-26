@@ -19,7 +19,9 @@ func TestSaveSimpleDB(t *testing.T) {
 	dest, err := OpenPWSafeFile("./test_dbs/simple-copy.dat", "passwordcopy")
 	assert.Nil(t, err)
 
-	assert.Equal(t, true, source.Identical(&dest))
+	equal, err := source.Identical(&dest)
+	assert.Nil(t, err)
+	assert.Equal(t, true, equal)
 
 	// Reopen the original and verify keys have changed but content is the same
 	orig, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
@@ -27,6 +29,9 @@ func TestSaveSimpleDB(t *testing.T) {
 
 	// I expect the stretchedkey, salt, encryption key, hmac key and CBCIV to have changed
 	// iter changes also but won't necessarily always
-	assert.Equal(t, true, orig.Equal(&dest))
-	assert.Equal(t, false, source.Identical(&dest))
+	equal, err = orig.Equal(&dest)
+	assert.Nil(t, err)
+	assert.Equal(t, true, equal)
+	identical, _ := orig.Identical(&dest)
+	assert.Equal(t, false, identical)
 }

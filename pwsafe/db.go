@@ -44,7 +44,7 @@ type V3 struct {
 	CBCIV          [16]byte //Random initial value for CBC
 	Description    string   `field:"0a"`
 	EmptyGroups    []string `field:"11"`
-	encryptionKey  [32]byte
+	EncryptionKey  [32]byte
 	Filters        string   `field:"0b"`
 	HMAC           [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
 	HMACKey        [32]byte
@@ -60,7 +60,7 @@ type V3 struct {
 	Records        map[string]Record //the key is the record title
 	RecentyUsed    string            `field:"0f"`
 	Salt           [32]byte
-	stretchedKey   [sha256.Size]byte
+	StretchedKey   [sha256.Size]byte
 	Tree           string   `field:"03"`
 	UUID           [16]byte `field:"01"`
 	Version        [2]byte  `field:"00"`
@@ -69,12 +69,12 @@ type V3 struct {
 //DB The interface representing the core functionality availble for any password database
 type DB interface {
 	Encrypt(io.Writer) (int, error)
-	Equal(*DB) bool
+	Equal(*DB) (bool, error)
 	Decrypt(io.Reader, string) (int, error)
 	GetName() string
 	GetRecord(string) (Record, bool)
 	Groups() []string
-	Identical(*DB) bool
+	Identical(*DB) (bool, error)
 	List() []string
 	ListByGroup(string) []string
 	//todo - Make sure to calculate initial UUID -	NewDB(string) *DB
@@ -98,7 +98,7 @@ func (db *V3) calculateStretchKey(passwd string) {
 	for i := 0; i < iterations; i++ {
 		stretched = sha256.Sum256(stretched[:])
 	}
-	db.stretchedKey = stretched
+	db.StretchedKey = stretched
 }
 
 //DeleteRecord Removes a record from the db
