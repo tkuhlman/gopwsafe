@@ -24,7 +24,7 @@ Features:
 - Keyboard shortcuts, for copy/paste, opening url in a browser, etc.
 
 # References
-- V3 Password Safe Specification - http://sourceforge.net/p/passwordsafe/code/HEAD/tree/trunk/pwsafe/pwsafe/docs/formatV3.txt
+- V3 Password Safe Specification - https://github.com/pwsafe/pwsafe/blob/master/docs/formatV3.txt
 
 # Todo
 - Add the ability to create a new empty password db.
