@@ -19,7 +19,7 @@ import (
 // https://developer.gnome.org/gtk-tutorial/stable/
 // https://developer.gnome.org/gtk2/2.24/
 
-func mainWindow(dbs []*pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
+func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 
 	//todo revisit the structure of the gui code, splitting more out into functions and in general better organizing things.
 
@@ -96,7 +96,7 @@ func mainWindow(dbs []*pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 }
 
 // return a pwsafe.DB and pwsafe.Record matching the selected entry. If nothing is selected default to dbs[0] and an empty record
-func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]*pwsafe.DB) (*pwsafe.DB, *pwsafe.Record) {
+func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]pwsafe.DB) (pwsafe.DB, *pwsafe.Record) {
 	var iter gtk.TreeIter
 	var rowValue glib.GValue
 	selection := recordTree.GetSelection()
@@ -115,7 +115,7 @@ func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs
 
 	// todo fail gracefully if a non-leaf is selected.
 
-	record, _ := (*db).GetRecord(rowValue.GetString())
+	record, _ := db.GetRecord(rowValue.GetString())
 	/* todo rather than _ have success and check but then I need to pass in the gtk window also, altenatively return the status and check in the main function
 	if !success {
 		errorDialog(window, "Error retrieving record.")
@@ -124,10 +124,10 @@ func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs
 	return db, &record
 }
 
-func updateRecords(dbs *[]*pwsafe.DB, store *gtk.TreeStore, search string) {
+func updateRecords(dbs *[]pwsafe.DB, store *gtk.TreeStore, search string) {
 	store.Clear()
 	for i, db := range *dbs {
-		name := (*db).GetName()
+		name := db.GetName()
 		if name == "" {
 			name = strconv.Itoa(i)
 		}
@@ -136,9 +136,9 @@ func updateRecords(dbs *[]*pwsafe.DB, store *gtk.TreeStore, search string) {
 		store.Set(&dbRoot, gtk.NewImage().RenderIcon(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_SMALL_TOOLBAR, "").GPixbuf, name)
 
 		searchLower := strings.ToLower(search)
-		for _, groupName := range (*db).Groups() {
+		for _, groupName := range db.Groups() {
 			var matches []string
-			for _, item := range (*db).ListByGroup(groupName) {
+			for _, item := range db.ListByGroup(groupName) {
 				if strings.Contains(strings.ToLower(item), searchLower) {
 					matches = append(matches, item)
 				}
@@ -159,7 +159,7 @@ func updateRecords(dbs *[]*pwsafe.DB, store *gtk.TreeStore, search string) {
 
 //todo add a status bar and have it display messages like, copied username to clipboard, etc
 // Configures the main menubar and keyboard shortcuts
-func mainMenuBar(window *gtk.Window, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore, recordTree *gtk.TreeView) *gtk.Widget {
+func mainMenuBar(window *gtk.Window, dbs *[]pwsafe.DB, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore, recordTree *gtk.TreeView) *gtk.Widget {
 	actionGroup := gtk.NewActionGroup("main")
 	actionGroup.AddAction(gtk.NewAction("FileMenu", "File", "", ""))
 
@@ -216,7 +216,7 @@ func mainMenuBar(window *gtk.Window, dbs *[]*pwsafe.DB, conf config.PWSafeDBConf
 // todo this is remarkably similar to the recordMenuBar in gui/record.go the difference being this
 // one doesn't get a record passed in but finds it from selection. I should think about how I could
 // clearly and idiomatically reduce the duplication.
-func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]*pwsafe.DB) *gtk.Widget {
+func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]pwsafe.DB) *gtk.Widget {
 	clipboard := gtk.NewClipboardGetForDisplay(gdk.DisplayGetDefault(), gdk.SELECTION_CLIPBOARD)
 
 	actionGroup := gtk.NewActionGroup("record")
@@ -234,7 +234,7 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
 	deleteRecord.Connect("activate", func() {
 		db, record := getSelectedRecord(recordStore, recordTree, dbs)
 		//todo Pop up an are you sure dialog.
-		(*db).DeleteRecord(record.Title)
+		db.DeleteRecord(record.Title)
 	})
 	actionGroup.AddActionWithAccel(deleteRecord, "Delete")
 
@@ -296,7 +296,7 @@ func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recor
 //Start Begins execution of the gui
 func Start(dbFile string) int {
 	gtk.Init(nil)
-	var dbs []*pwsafe.DB
+	var dbs []pwsafe.DB
 	conf := config.Load()
 	mainWindow(dbs, conf, dbFile)
 	gtk.Main()

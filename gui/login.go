@@ -9,7 +9,7 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
-func openDB(path string, password string, dbs *[]*pwsafe.DB, parent *gtk.Window, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore) bool {
+func openDB(path string, password string, dbs *[]pwsafe.DB, parent *gtk.Window, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore) bool {
 
 	// todo make sure the dbFile is not already opened and in dbs
 	db, err := pwsafe.OpenPWSafeFile(path, password)
@@ -22,13 +22,13 @@ func openDB(path string, password string, dbs *[]*pwsafe.DB, parent *gtk.Window,
 		errorDialog(parent, fmt.Sprintf("Error adding %s to History\n%s", path, err))
 		return false
 	}
-	newdbs := append(*dbs, &db)
+	newdbs := append(*dbs, db)
 	*dbs = newdbs
 	updateRecords(dbs, recordStore, "")
 	return true
 }
 
-func openWindow(dbFile string, dbs *[]*pwsafe.DB, conf config.PWSafeDBConfig, mainWindow *gtk.Window, recordStore *gtk.TreeStore) {
+func openWindow(dbFile string, dbs *[]pwsafe.DB, conf config.PWSafeDBConfig, mainWindow *gtk.Window, recordStore *gtk.TreeStore) {
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")

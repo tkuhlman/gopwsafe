@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pborman/uuid"
 )
 
 //Record The primary type for password DB entries
@@ -77,7 +79,6 @@ type DB interface {
 	Identical(*DB) (bool, error)
 	List() []string
 	ListByGroup(string) []string
-	//todo - Make sure to calculate initial UUID -	NewDB(string) *DB
 	SetPassword(string) error
 	SetRecord(Record)
 	DeleteRecord(string)
@@ -143,6 +144,21 @@ func (db V3) List() []string {
 	}
 	sort.Strings(entries)
 	return entries
+}
+
+// NewV3 - create and initialize a new pwsafe.V3 db
+func NewV3(name, password string) *V3 {
+	var db V3
+	db.Name = name
+	// create the initial UUID
+	db.UUID = [16]byte(uuid.NewRandom().Array())
+	// Set the DB version
+	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
+	db.Records = make(map[string]Record, 0)
+
+	// Set the password
+	db.SetPassword(password)
+	return &db
 }
 
 //ListByGroup Returns the list of record titles that have the given group.

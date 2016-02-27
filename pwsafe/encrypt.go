@@ -159,6 +159,8 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte) {
 	for _, record := range db.Records {
 		recordStruct := structs.New(record)
 		// if uuid is not set calculate
+		//todo I should assume the UUID is set. I do for new dbs but don't check on reading from disk, I
+		// should check it is unique also when opening more than one in the gui
 		if recordStruct.Field("UUID").IsZero() {
 			db.UUID = [16]byte(uuid.NewRandom().Array())
 		}
@@ -182,7 +184,6 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte) {
 // Generate size bytes of pseudo random data
 func pseudoRandmonBytes(size int) (r []byte) {
 	for i := 0; i < size; i += 8 {
-		//todo this is giving a pance if bytesRand is size 8 I need to figure out exactly what is going wrong.
 		bytesRand := make([]byte, 16)
 		binary.PutVarint(bytesRand, pseudoRand.Int63())
 		r = append(r, bytesRand...)

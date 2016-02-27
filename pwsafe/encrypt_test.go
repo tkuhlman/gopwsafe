@@ -14,7 +14,7 @@ func TestSaveSimpleDB(t *testing.T) {
 
 	//Set a new password, save a copy, open it and compare with the source
 	source.SetPassword("passwordcopy")
-	err = WritePWSafeFile(&source, "./test_dbs/simple-copy.dat")
+	err = WritePWSafeFile(source, "./test_dbs/simple-copy.dat")
 	assert.Nil(t, err)
 	dest, err := OpenPWSafeFile("./test_dbs/simple-copy.dat", "passwordcopy")
 	assert.Nil(t, err)
@@ -34,4 +34,29 @@ func TestSaveSimpleDB(t *testing.T) {
 	assert.Equal(t, true, equal)
 	identical, _ := orig.Identical(&dest)
 	assert.Equal(t, false, identical)
+}
+
+// TestNewV3 test creating a new DB, saving it to a file and loading it
+func TestNewV3(t *testing.T) {
+	newDB := NewV3("", "password")
+	var record Record
+	record.Title = "Test entry"
+	record.Username = "test"
+	record.Password = "password"
+	record.Group = "test"
+	record.URL = "http://test.com"
+	record.Notes = "no notes"
+	newDB.SetRecord(record)
+
+	err := WritePWSafeFile(newDB, "./test_dbs/simple-new.dat")
+	assert.Nil(t, err)
+
+	readNew, err := OpenPWSafeFile("./test_dbs/simple-new.dat", "password")
+	assert.Nil(t, err)
+	orig, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	assert.Nil(t, err)
+
+	equal, err := orig.Equal(&readNew)
+	assert.Nil(t, err)
+	assert.Equal(t, true, equal)
 }

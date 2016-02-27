@@ -8,7 +8,7 @@ import (
 )
 
 // The default ubuntu font is okay but using something like hack would be better.
-func recordWindow(db *pwsafe.DB, record *pwsafe.Record) {
+func recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle(record.Title)
@@ -64,11 +64,11 @@ func recordWindow(db *pwsafe.DB, record *pwsafe.Record) {
 
 		// Update the record
 		if origName != record.Title { // The Record title has changed
-			(*db).DeleteRecord(origName)
+			db.DeleteRecord(origName)
 			// Todo, this invalidates the current search so a new run of updateRecords should be done, or at least it made obvious what is going on
 		}
 		//todo detect if there have been changes and only update if needed
-		(*db).SetRecord(*record)
+		db.SetRecord(*record)
 		window.Destroy()
 	})
 	cancelButton := gtk.NewButtonWithLabel("Cancel")
