@@ -71,12 +71,12 @@ type V3 struct {
 //DB The interface representing the core functionality availble for any password database
 type DB interface {
 	Encrypt(io.Writer) (int, error)
-	Equal(*DB) (bool, error)
+	Equal(DB) (bool, error)
 	Decrypt(io.Reader, string) (int, error)
 	GetName() string
 	GetRecord(string) (Record, bool)
 	Groups() []string
-	Identical(*DB) (bool, error)
+	Identical(DB) (bool, error)
 	List() []string
 	ListByGroup(string) []string
 	SetPassword(string) error
