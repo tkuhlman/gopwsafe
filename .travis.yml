@@ -9,7 +9,6 @@ matrix:
 before_install:
     - sudo apt-get update
     - sudo apt-get install -y build-essential libgtk2.0-dev
-    - go get golang.org/x/tools/cmd/vet
     - go get golang.org/x/tools/cmd/cover
     - go get github.com/golang/lint/golint
     - go get github.com/mattn/goveralls
