@@ -43,3 +43,5 @@ Features:
   - diff based on particular fields, name, username, url, password
 - Edit of multiple entries at once for select fields, ie modify the group
 - Look at gomobile would it be possible to write my code in such a way it can be used on Android and ios. See the utils talk slides for more details on gomobile.
+- GTK3 with the gui built via Glade would be great or even better a native Go UI libary. Go is just missing a complete enough
+  implementation in either regard, but if one does surface I should investigate.
