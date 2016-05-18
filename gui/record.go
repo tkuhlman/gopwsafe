@@ -1,6 +1,8 @@
 package gui
 
 import (
+	"time"
+
 	"github.com/mattn/go-gtk/gdk"
 	"github.com/mattn/go-gtk/gtk"
 	"github.com/skratchdot/open-golang/open"
@@ -38,6 +40,9 @@ func recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 		passwordValue.SetVisibility(!passwordValue.GetVisibility())
 	})
 
+	modTime := gtk.NewLabel("Last Modification")
+	modValue := gtk.NewLabel(record.ModTime.Format(time.UnixDate))
+
 	notesFrame := gtk.NewFrame("Notes")
 	notesWin := gtk.NewScrolledWindow(nil, nil)
 	notesWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -67,7 +72,6 @@ func recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 			db.DeleteRecord(origName)
 			// Todo, this invalidates the current search so a new run of updateRecords should be done, or at least it made obvious what is going on
 		}
-		//todo detect if there have been changes and only update if needed
 		db.SetRecord(*record)
 		window.Destroy()
 	})
@@ -101,6 +105,10 @@ func recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	hbox.Add(password)
 	hbox.Add(passwordValue)
 	hbox.Add(showPassword)
+	vbox.PackStart(hbox, false, false, 0)
+	hbox = gtk.NewHBox(true, 1)
+	hbox.Add(modTime)
+	hbox.Add(modValue)
 	vbox.PackStart(hbox, false, false, 0)
 
 	vbox.Add(notesFrame)

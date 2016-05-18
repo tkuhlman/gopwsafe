@@ -50,7 +50,8 @@ type V3 struct {
 	Filters        string   `field:"0b"`
 	HMAC           [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
 	HMACKey        [32]byte
-	Iter           uint32    //the number of iterations on the hash function to create the stretched key
+	Iter           uint32 //the number of iterations on the hash function to create the stretched key
+	LastMod        time.Time
 	LastSave       time.Time `field:"04"`
 	LastSaveBy     []byte    `field:"06"`
 	LastSaveHost   []byte    `field:"08"`
@@ -105,6 +106,7 @@ func (db *V3) calculateStretchKey(passwd string) {
 //DeleteRecord Removes a record from the db
 func (db V3) DeleteRecord(title string) {
 	delete(db.Records, title)
+	db.LastMod = time.Now()
 }
 
 // GetName returns the database name or if unset the filename
@@ -181,12 +183,18 @@ func (db *V3) SetPassword(pw string) error {
 		return err
 	}
 	db.calculateStretchKey(pw)
+	db.LastMod = time.Now()
 	return nil
 }
 
 //SetRecord Adds or updates a record in the db
 func (db V3) SetRecord(record Record) {
+	//todo detect if there have been changes and only update if needed
+	//todo update the records mod time, etc
+	// todo add checking of db and record times to the tests
+	// todo add checking of db times to equal method
 	db.Records[record.Title] = record
+	db.LastMod = time.Now()
 }
 
 func byteToInt(b []byte) int {

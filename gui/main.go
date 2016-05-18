@@ -27,6 +27,7 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
 	window.Connect("destroy", func(ctx *glib.CallbackContext) {
+		//todo check each db if db.LastMod >= max of the records ModTime
 		gtk.MainQuit()
 	}, "Main Window")
 
