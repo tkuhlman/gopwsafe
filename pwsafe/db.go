@@ -80,6 +80,7 @@ type DB interface {
 	Identical(DB) (bool, error)
 	List() []string
 	ListByGroup(string) []string
+	NeedsSave() bool
 	SetPassword(string) error
 	SetRecord(Record)
 	DeleteRecord(string)
@@ -148,6 +149,12 @@ func (db V3) List() []string {
 	return entries
 }
 
+//Returns true if the db has unsaved modifiations
+func (db V3) NeedsSave() bool {
+	return db.LastSave.Before(db.LastMod)
+	//todo add a test for this method.
+}
+
 // NewV3 - create and initialize a new pwsafe.V3 db
 func NewV3(name, password string) *V3 {
 	var db V3
@@ -189,12 +196,25 @@ func (db *V3) SetPassword(pw string) error {
 
 //SetRecord Adds or updates a record in the db
 func (db V3) SetRecord(record Record) {
-	//todo detect if there have been changes and only update if needed
-	//todo update the records mod time, etc
-	// todo add checking of db and record times to the tests
-	// todo add checking of db times to equal method
+	now := time.Now()
+	//detect if there have been changes and only update if needed
+	oldRecord, prs := db.GetRecord(record.Title)
+	if prs {
+		equal, _ := recordsEqual(oldRecord, record, false)
+		if equal {
+			return
+		}
+	} else {
+		record.CreateTime = now
+	}
+
+	if record.UUID == [16]byte{} {
+		record.UUID = [16]byte(uuid.NewRandom().Array())
+	}
+	record.ModTime = now
 	db.Records[record.Title] = record
-	db.LastMod = time.Now()
+	db.LastMod = now
+	// todo add checking of db and record times to the tests
 }
 
 func byteToInt(b []byte) int {

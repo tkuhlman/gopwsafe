@@ -27,7 +27,13 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
 	window.Connect("destroy", func(ctx *glib.CallbackContext) {
-		//todo check each db if db.LastMod >= max of the records ModTime
+		// Check if any dbs need to be saved
+		for _, db := range dbs {
+			if db.NeedsSave() {
+				//todo I need a save dialog
+				errorDialog(window, fmt.Sprintf("Unsaved changes for db %v", db.GetName()))
+			}
+		}
 		gtk.MainQuit()
 	}, "Main Window")
 

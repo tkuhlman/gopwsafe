@@ -23,21 +23,36 @@ func (db *V3) Equal(other DB) (bool, error) {
 	}
 
 	// compare records
-	skipRecordFields := map[string]bool{"AccessTime": true, "CreateTime": true, "ModTime": true, "UUID": true}
 	if len(db.List()) != len(other.List()) {
 		return false, fmt.Errorf("record lengths don't match, %v != %v", len(db.List()), len(other.List()))
 	}
 	for _, title := range db.List() {
 		dbRecord, _ := db.GetRecord(title)
 		otherRecord, _ := other.GetRecord(title)
-		otherFields := structs.New(otherRecord)
-		for _, field := range mapByFieldTag(dbRecord) {
-			if _, skip := skipRecordFields[field.Name()]; skip {
-				continue
-			}
-			if !reflect.DeepEqual(field.Value(), otherFields.Field(field.Name()).Value()) {
-				return false, fmt.Errorf("Records don't match, %v != %v", dbRecord, otherRecord)
-			}
+		equal, err := recordsEqual(dbRecord, otherRecord, true)
+		if !equal {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// compare two records returning true if they are the same, optionally skip comparison of create/mod times
+// always skip UUID comparison
+func recordsEqual(record, otherRecord Record, skipTimes bool) (bool, error) {
+	skipRecordFields := map[string]bool{"UUID": true}
+	if skipTimes {
+		for k, v := range map[string]bool{"AccessTime": true, "CreateTime": true, "ModTime": true, "UUID": true} {
+			skipRecordFields[k] = v
+		}
+	}
+	otherFields := structs.New(otherRecord)
+	for _, field := range mapByFieldTag(record) {
+		if _, skip := skipRecordFields[field.Name()]; skip {
+			continue
+		}
+		if !reflect.DeepEqual(field.Value(), otherFields.Field(field.Name()).Value()) {
+			return false, fmt.Errorf("Records don't match, %v != %v", record, otherRecord)
 		}
 	}
 	return true, nil
