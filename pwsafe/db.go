@@ -105,7 +105,7 @@ func (db *V3) calculateStretchKey(passwd string) {
 }
 
 //DeleteRecord Removes a record from the db
-func (db V3) DeleteRecord(title string) {
+func (db *V3) DeleteRecord(title string) {
 	delete(db.Records, title)
 	db.LastMod = time.Now()
 }
@@ -149,10 +149,9 @@ func (db V3) List() []string {
 	return entries
 }
 
-//Returns true if the db has unsaved modifiations
+// NeedsSave Returns true if the db has unsaved modifiations
 func (db V3) NeedsSave() bool {
 	return db.LastSave.Before(db.LastMod)
-	//todo add a test for this method.
 }
 
 // NewV3 - create and initialize a new pwsafe.V3 db
@@ -195,7 +194,7 @@ func (db *V3) SetPassword(pw string) error {
 }
 
 //SetRecord Adds or updates a record in the db
-func (db V3) SetRecord(record Record) {
+func (db *V3) SetRecord(record Record) {
 	now := time.Now()
 	//detect if there have been changes and only update if needed
 	oldRecord, prs := db.GetRecord(record.Title)

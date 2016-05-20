@@ -79,8 +79,53 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Group, "group 3")
 	assert.Equal(t, record.URL, "https://group3.com")
 	assert.Equal(t, record.Notes, "three DB\r\nentry 3\r\nlast one")
+
 }
 
+func TestDBModifications(t *testing.T) {
+	// This test relies on the simple password db found at ./test_db/simple.dat
+	dbInterface, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	assert.Nil(t, err)
+	db := dbInterface.(*V3)
+
+	//No modifications yet
+	assert.Equal(t, false, db.NeedsSave())
+
+	//test Delete
+	record, exists := db.GetRecord("Test entry")
+	assert.Equal(t, true, exists)
+	db.DeleteRecord("Test entry")
+	record, exists = db.GetRecord("Test entry")
+	assert.Equal(t, false, exists)
+	assert.Equal(t, true, db.NeedsSave())
+
+	//reload the db and test password change
+	dbInterface, err = OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	assert.Nil(t, err)
+	db = dbInterface.(*V3)
+
+	assert.Equal(t, false, db.NeedsSave())
+	err = db.SetPassword("newpass")
+	assert.Nil(t, err)
+	assert.Equal(t, true, db.NeedsSave())
+
+	//reload the db and test modifying a record
+	dbInterface, err = OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	assert.Nil(t, err)
+	db = dbInterface.(*V3)
+
+	assert.Equal(t, false, db.NeedsSave())
+	record, exists = db.GetRecord("Test entry")
+	assert.Equal(t, true, exists)
+	startTime := record.ModTime
+	record.Username = "newuser"
+	db.SetRecord(record)
+	record, exists = db.GetRecord("Test entry")
+	assert.Equal(t, true, exists)
+	assert.NotEqual(t, startTime, record.ModTime)
+	assert.Equal(t, true, db.NeedsSave())
+
+}
 func TestBadPassword(t *testing.T) {
 	_, err := OpenPWSafeFile("./test_dbs/simple.dat", "badpass")
 	assert.Equal(t, err, errors.New("Invalid Password"))
