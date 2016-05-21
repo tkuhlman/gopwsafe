@@ -28,13 +28,20 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	window.SetTitle("GoPWSafe")
 	window.Connect("destroy", func(ctx *glib.CallbackContext) {
 		// Check if any dbs need to be saved
+		skipQuit := false
 		for _, db := range dbs {
 			if db.NeedsSave() {
-				//todo I need a save dialog
 				errorDialog(window, fmt.Sprintf("Unsaved changes for db %v", db.GetName()))
+				propertiesWindow(db)
+				skipQuit = true
 			}
 		}
-		gtk.MainQuit()
+		if skipQuit {
+			window.ShowAll()
+			// todo this doesn't work so you are left windowless and without exiting.
+		} else {
+			gtk.MainQuit()
+		}
 	}, "Main Window")
 
 	recordFrame := gtk.NewFrame("Records")
@@ -174,14 +181,19 @@ func mainMenuBar(window *gtk.Window, dbs *[]pwsafe.DB, conf config.PWSafeDBConfi
 	openDB.Connect("activate", func() { openWindow("", dbs, conf, window, recordStore) })
 	actionGroup.AddActionWithAccel(openDB, "<control>t")
 
-	saveDB := gtk.NewAction("SaveDB", "Save a DB", "", "")
+	newDB := gtk.NewAction("NewDB", "Create a new DB", "", "")
+	newDB.Connect("activate", func() {
+		db := pwsafe.NewV3("", "")
+		propertiesWindow(db)
+		newdbs := append(*dbs, db)
+		dbs = &newdbs
+	})
+	actionGroup.AddActionWithAccel(newDB, "")
+
+	saveDB := gtk.NewAction("SaveDB", "DB Properties/Save a DB", "", "")
 	saveDB.Connect("activate", func() {
-		//todo make a save dialog where you can choose a new filename, etc
 		db, _ := getSelectedRecord(recordStore, recordTree, dbs)
-		err := pwsafe.WritePWSafeFile(db, "")
-		if err != nil {
-			errorDialog(window, fmt.Sprintf("Error Saving database to a file\n%s", err))
-		}
+		propertiesWindow(db)
 	})
 	actionGroup.AddActionWithAccel(saveDB, "<control>s")
 
@@ -203,6 +215,7 @@ func mainMenuBar(window *gtk.Window, dbs *[]pwsafe.DB, conf config.PWSafeDBConfi
   <menubar name='MenuBar'>
     <menu action='FileMenu'>
       <menuitem action='OpenDB' />
+      <menuitem action='NewDB' />
       <menuitem action='SaveDB' />
       <menuitem action='CloseDB' />
       <menuitem action='FileQuit' />

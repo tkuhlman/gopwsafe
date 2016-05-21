@@ -108,10 +108,18 @@ func quitMenuBar(window *gtk.Window) *gtk.Widget {
 	fileQuit.Connect("activate", gtk.MainQuit)
 	actionGroup.AddActionWithAccel(fileQuit, "<control>q")
 
+	newDB := gtk.NewAction("NewDB", "Create a new DB", "", "")
+	newDB.Connect("activate", func() {
+		db := pwsafe.NewV3("", "")
+		propertiesWindow(db)
+	})
+	actionGroup.AddActionWithAccel(newDB, "")
+
 	uiInfo := `
 <ui>
   <menubar name='MenuBar'>
     <menu action='FileMenu'>
+      <menuitem action='NewDB' />
       <menuitem action='FileQuit' />
     </menu>
   </menubar>
