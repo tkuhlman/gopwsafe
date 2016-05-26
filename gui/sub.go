@@ -65,12 +65,16 @@ func propertiesWindow(db pwsafe.DB) {
 			errorDialog(window, fmt.Sprintf("Error Saving database to a file\n%s", err))
 		}
 		window.Destroy()
+		gtk.MainQuit()
 	})
 	cancelButton := gtk.NewButtonWithLabel("Cancel")
 	cancelButton.Clicked(func() {
 		//todo if this is a new DB that was cancelled it will still show in the list
 		window.Destroy()
+		gtk.MainQuit()
 	})
+
+	window.Connect("destroy", gtk.MainQuit)
 
 	//layout
 	vbox := gtk.NewVBox(false, 0)
@@ -100,4 +104,5 @@ func propertiesWindow(db pwsafe.DB) {
 	window.Add(vbox)
 	window.SetSizeRequest(500, 200)
 	window.ShowAll()
+	gtk.Main()
 }

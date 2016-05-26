@@ -28,21 +28,14 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 	window.SetTitle("GoPWSafe")
 	window.Connect("destroy", func(ctx *glib.CallbackContext) {
 		// Check if any dbs need to be saved
-		skipQuit := false
 		for _, db := range dbs {
 			if db.NeedsSave() {
 				errorDialog(window, fmt.Sprintf("Unsaved changes for db %v", db.GetName()))
 				propertiesWindow(db)
-				skipQuit = true
 			}
 		}
-		if skipQuit {
-			window.ShowAll()
-			// todo this doesn't work so you are left windowless and without exiting.
-		} else {
-			gtk.MainQuit()
-		}
-	}, "Main Window")
+		gtk.MainQuit()
+	})
 
 	recordFrame := gtk.NewFrame("Records")
 	recordWin := gtk.NewScrolledWindow(nil, nil)
@@ -199,6 +192,7 @@ func mainMenuBar(window *gtk.Window, dbs *[]pwsafe.DB, conf config.PWSafeDBConfi
 
 	//todo, this doesn't actually work
 	//todo close the selected or pop up a dialog not just the last
+	//todo do the check on unsaved changes also.
 	closeDB := gtk.NewAction("CloseDB", "Close an open DB", "", "")
 	closeDB.Connect("activate", func() {
 		dbsValue := (*dbs)[:len(*dbs)-1]
