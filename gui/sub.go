@@ -4,6 +4,7 @@ package gui
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 
@@ -38,11 +39,28 @@ func propertiesWindow(db pwsafe.DB) {
 	savePathValue := gtk.NewEntry()
 	savePathValue.SetText(v3db.LastSavePath)
 
+	saveTime := gtk.NewLabel(fmt.Sprintf("Last Save at %v", v3db.LastSave.Format(time.RFC3339)))
+
+	descriptionFrame := gtk.NewFrame("Description")
+	descriptionWin := gtk.NewScrolledWindow(nil, nil)
+	descriptionWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+	descriptionWin.SetShadowType(gtk.SHADOW_IN)
+	textView := gtk.NewTextView()
+	buffer := textView.GetBuffer()
+	buffer.SetText(v3db.Description)
+	descriptionWin.Add(textView)
+	descriptionFrame.Add(descriptionWin)
+
 	saveButton := gtk.NewButtonWithLabel("Save")
 	saveButton.Clicked(func() {
 		v3db.Name = nameValue.GetText()
 
-		err := pwsafe.WritePWSafeFile(db, "")
+		var start, end gtk.TextIter
+		buffer.GetStartIter(&start)
+		buffer.GetEndIter(&end)
+		v3db.Description = buffer.GetText(&start, &end, true)
+
+		err := pwsafe.WritePWSafeFile(db, savePathValue.GetText())
 		if err != nil {
 			errorDialog(window, fmt.Sprintf("Error Saving database to a file\n%s", err))
 		}
@@ -69,11 +87,17 @@ func propertiesWindow(db pwsafe.DB) {
 	vbox.PackStart(hbox, false, false, 0)
 
 	hbox = gtk.NewHBox(true, 1)
+	hbox.Add(saveTime)
+	vbox.PackStart(hbox, false, false, 0)
+
+	vbox.Add(descriptionFrame)
+
+	hbox = gtk.NewHBox(true, 1)
 	hbox.Add(saveButton)
 	hbox.Add(cancelButton)
 	vbox.PackStart(hbox, false, false, 0)
 
 	window.Add(vbox)
-	window.SetSizeRequest(500, 500)
+	window.SetSizeRequest(500, 200)
 	window.ShowAll()
 }
