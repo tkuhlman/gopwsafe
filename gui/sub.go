@@ -41,6 +41,14 @@ func propertiesWindow(db pwsafe.DB) {
 
 	saveTime := gtk.NewLabel(fmt.Sprintf("Last Save at %v", v3db.LastSave.Format(time.RFC3339)))
 
+	passwordLabel := gtk.NewLabel("New Password")
+	passwordValue := gtk.NewEntry()
+	passwordValue.SetVisibility(false)
+
+	password2Label := gtk.NewLabel("Repeated New Password")
+	password2Value := gtk.NewEntry()
+	password2Value.SetVisibility(false)
+
 	descriptionFrame := gtk.NewFrame("Description")
 	descriptionWin := gtk.NewScrolledWindow(nil, nil)
 	descriptionWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -52,6 +60,7 @@ func propertiesWindow(db pwsafe.DB) {
 	descriptionFrame.Add(descriptionWin)
 
 	saveButton := gtk.NewButtonWithLabel("Save")
+	// todo it would be nice if pressing enter in an field activated this.
 	saveButton.Clicked(func() {
 		v3db.Name = nameValue.GetText()
 
@@ -59,6 +68,17 @@ func propertiesWindow(db pwsafe.DB) {
 		buffer.GetStartIter(&start)
 		buffer.GetEndIter(&end)
 		v3db.Description = buffer.GetText(&start, &end, true)
+
+		pw := passwordValue.GetText()
+		if pw != "" {
+			pw2 := password2Value.GetText()
+			if pw != pw2 {
+				errorDialog(window, "Error Passwords don't match")
+			} else if err := db.SetPassword(pw); err != nil {
+				errorDialog(window, fmt.Sprintf("Error Updating password\n%s", err))
+			}
+
+		}
 
 		err := pwsafe.WritePWSafeFile(db, savePathValue.GetText())
 		if err != nil {
@@ -92,6 +112,16 @@ func propertiesWindow(db pwsafe.DB) {
 
 	hbox = gtk.NewHBox(true, 1)
 	hbox.Add(saveTime)
+	vbox.PackStart(hbox, false, false, 0)
+
+	hbox = gtk.NewHBox(true, 1)
+	hbox.Add(passwordLabel)
+	hbox.Add(passwordValue)
+	vbox.PackStart(hbox, false, false, 0)
+
+	hbox = gtk.NewHBox(true, 1)
+	hbox.Add(password2Label)
+	hbox.Add(password2Value)
 	vbox.PackStart(hbox, false, false, 0)
 
 	vbox.Add(descriptionFrame)
