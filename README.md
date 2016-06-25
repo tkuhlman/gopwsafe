@@ -34,3 +34,32 @@ Features:
   - Full diff
   - diff based on particular fields, name, username, url, password
 - Edit of multiple entries at once for select fields, ie modify the group
+
+# Building
+
+The go-gtk project is dependent on gtk2 and so that must be installed to build.
+On linux this is straight forward for example for Ubuntu:
+
+    sudo apt-get install -y build-essential libgtk2.0-dev
+
+Then simply go get this package:
+
+    go get github.com/tkuhlman/gopwsafe
+
+## Building for a Mac
+
+On a mac getting the basic gtk dependencies is a bit more involved.
+To install the dependencies you can use [brew](http://brew.sh) and as noted [here](https://github.com/mattn/go-gtk/issues/165) these
+are the basic steps.
+
+    $ brew install go
+    $ brew install  brew install cairo pixman fontconfig freetype libpng gtksourceview
+    $ go get github.com/mattn/go-gtk
+    # Ensure they can be found by exporting the PKG_CONFIG_PATH.
+    $ export PKG_CONFIG_PATH=":/usr/local/opt/cairo/lib/pkgconfig:/usr/local/opt/pixman/lib/pkgconfig:/usr/local/opt/fontconfig/lib/pkgconfig:/usr/local/opt/freetype/lib/pkgconfig:/usr/local/opt/libpng/lib/pkgconfig:/usr/X11/lib/pkgconfig:/usr/local/opt/gtksourceview/lib/pkgconfig:${PKG_CONFIG_PATH}"
+    $ cd $GOPATH/src/github.com/mattn/go-gtk
+    $ make all
+
+Lastly just build the gopwsafe as normal for go.
+
+    go get github.com/tkuhlman/gopwsafe
