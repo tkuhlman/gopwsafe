@@ -1,7 +1,7 @@
 language: go
 dist: trusty
 go:
-  - 1.5
+  - 1.6
 
 matrix:
     fast_finish: true
