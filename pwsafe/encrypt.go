@@ -85,6 +85,8 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 func getFieldBytes(field *structs.Field) (fbytes []byte) {
 
 	switch field.Kind().String() {
+	// switch field.Kind()
+	// case reflect.
 	case "string":
 		fstring := field.Value().(string)
 		fbytes = []byte(fstring)

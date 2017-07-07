@@ -69,7 +69,7 @@ type V3 struct {
 	Version        [2]byte  `field:"00"`
 }
 
-//DB The interface representing the core functionality availble for any password database
+//DB The interface representing the core functionality available for any password database
 type DB interface {
 	Encrypt(io.Writer) (int, error)
 	Equal(DB) (bool, error)
@@ -216,6 +216,7 @@ func (db *V3) SetRecord(record Record) {
 	// todo add checking of db and record times to the tests
 }
 
+// TODO I may be able to replaces this with, binary.BigEndian.Uint32 or similar
 func byteToInt(b []byte) int {
 	bint := uint32(b[0])
 	for i := 1; i < len(b); i++ {
