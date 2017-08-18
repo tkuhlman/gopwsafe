@@ -10,7 +10,7 @@ Simply download and run, no install needed.
 The pwsafe package contains interfaces for reading/writing to Password Safe v3 databases. This package is utilized by both the gui and cli interfaces with the
 preference going to the gtk based gui library.
 
-The gui is implemented with the library [go-gtk](https://github.com/mattn/go-gtk/)
+The gui is implemented with the library [gotk3](https://github.com/gotk3/gotk3)
 The very basic cli is implemented using the [prompt](https://github.com/Bowery/prompt) library.
 
 The project has been largely tested and developed on Linux (Ubuntu).
@@ -37,29 +37,10 @@ Features:
 
 # Building
 
-The go-gtk project is dependent on gtk2 and so that must be installed to build.
-On linux this is straight forward for example for Ubuntu:
+Go dependencies are managed with [deb](https://github.com/golang/dep), ie run `deb ensure`.
 
-    sudo apt-get install -y build-essential libgtk2.0-dev
+The gotk3 project is dependent on gtk3 and so that must be installed to build.
+Details on this installation are in the gotk3 [project wiki](https://github.com/gotk3/gotk3/wiki#installation).
 
-Then simply go get this package:
-
-    go get github.com/tkuhlman/gopwsafe
-
-## Building for a Mac
-
-On a mac getting the basic gtk dependencies is a bit more involved.
-To install the dependencies you can use [brew](http://brew.sh) and as noted [here](https://github.com/mattn/go-gtk/issues/165) these
-are the basic steps.
-
-    $ brew install go
-    $ brew install  brew install cairo pixman fontconfig freetype libpng gtksourceview
-    $ go get github.com/mattn/go-gtk
-    # Ensure they can be found by exporting the PKG_CONFIG_PATH.
-    $ export PKG_CONFIG_PATH=":/usr/local/opt/cairo/lib/pkgconfig:/usr/local/opt/pixman/lib/pkgconfig:/usr/local/opt/fontconfig/lib/pkgconfig:/usr/local/opt/freetype/lib/pkgconfig:/usr/local/opt/libpng/lib/pkgconfig:/usr/X11/lib/pkgconfig:/usr/local/opt/gtksourceview/lib/pkgconfig:${PKG_CONFIG_PATH}"
-    $ cd $GOPATH/src/github.com/mattn/go-gtk
-    $ make all
-
-Lastly just build the gopwsafe as normal for go.
-
-    go get github.com/tkuhlman/gopwsafe
+After the dependencies are installed a normal go build is all that is needed.
+The build make target in the project will create a fully static build so the machines where the project is run need not have the build dependencies installed.
