@@ -43,4 +43,3 @@ The gotk3 project is dependent on gtk3 and so that must be installed to build.
 Details on this installation are in the gotk3 [project wiki](https://github.com/gotk3/gotk3/wiki#installation).
 
 After the dependencies are installed a normal go build is all that is needed.
-The build make target in the project will create a fully static build so the machines where the project is run need not have the build dependencies installed.

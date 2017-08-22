@@ -2,135 +2,158 @@ package gui
 
 import (
 	"fmt"
+	"log"
 
-	"github.com/mattn/go-gtk/glib"
-	"github.com/mattn/go-gtk/gtk"
-	"github.com/tkuhlman/gopwsafe/config"
+	"github.com/gotk3/gotk3/gtk"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
-func openDB(path string, password string, dbs *[]pwsafe.DB, parent *gtk.Window, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore) bool {
+func (app *GoPWSafeGTK) openDB(path string, password string) bool {
 
-	// todo make sure the dbFile is not already opened and in dbs
+	// TODO make sure the dbFile is not already opened and in dbs
 	db, err := pwsafe.OpenPWSafeFile(path, password)
 	if err != nil {
-		errorDialog(parent, fmt.Sprintf("Error Opening file %s\n%s", path, err))
+		app.errorDialog(fmt.Sprintf("Error Opening file %s\n%s", path, err))
 		return false
 	}
-	err = conf.AddToPathHistory(path)
+	err = app.conf.AddToPathHistory(path)
 	if err != nil {
-		errorDialog(parent, fmt.Sprintf("Error adding %s to History\n%s", path, err))
+		app.errorDialog(fmt.Sprintf("Error adding %s to History\n%s", path, err))
 		return false
 	}
-	newdbs := append(*dbs, db)
-	*dbs = newdbs
-	updateRecords(dbs, recordStore, "")
+	app.dbs = append(app.dbs, db)
+	app.updateRecords("")
 	return true
 }
 
-func openWindow(dbFile string, dbs *[]pwsafe.DB, conf config.PWSafeDBConfig, mainWindow *gtk.Window, recordStore *gtk.TreeStore) {
-	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
+// TODO if this is the only window open on close it should shutdown the app, likely just handle close by
+// sending the shutdown signal
+func (app *GoPWSafeGTK) openWindow(dbFile string) {
+	window, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	if err != nil {
+		log.Fatal(err)
+	}
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
-	window.Connect("destroy", func(ctx *glib.CallbackContext) {
-		gtk.MainQuit()
-	}, "Open Window")
 
-	pathLabel := gtk.NewLabel("Password DB path: ")
+	window.Connect("destroy", func() {
+		window.Close()
+		app.GetWindowByID(app.mainWindowID).ShowAll()
+	})
 
-	pathBox := gtk.NewComboBoxTextWithEntry()
+	pathLabel, err := gtk.LabelNew("Password DB path: ")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pathBox, err := gtk.ComboBoxTextNewWithEntry()
+	if err != nil {
+		log.Fatal(err)
+	}
 	if dbFile != "" {
 		pathBox.AppendText(dbFile)
 	}
-	for _, entry := range conf.GetPathHistory() {
+	for _, entry := range app.conf.GetPathHistory() {
 		pathBox.AppendText(entry)
 	}
 	pathBox.AppendText("Choose a file")
 	pathBox.SetActive(0)
 	pathBox.Connect("changed", func() {
 		if pathBox.GetActiveText() == "Choose a file" {
-			filechooserdialog := gtk.NewFileChooserDialog(
+			filechooserdialog, err := gtk.FileChooserDialogNewWith1Button(
 				"Choose Password Safe file...",
 				window,
 				gtk.FILE_CHOOSER_ACTION_OPEN,
-				gtk.STOCK_OK,
+				"Okay",
 				gtk.RESPONSE_ACCEPT)
-			filechooserdialog.Response(func() {
+			if err != nil {
+				log.Fatal(err)
+			}
+			if gtk.ResponseType(filechooserdialog.Run()) == gtk.RESPONSE_ACCEPT {
 				pathBox.PrependText(filechooserdialog.GetFilename())
-				//todo This triggers a bug in go-gtk causing a crash
-				//pathBox.SetActive(0)
+				pathBox.SetActive(0)
 				filechooserdialog.Destroy()
-			})
-			filechooserdialog.Run()
+			}
 		}
 	})
 
-	passwdLabel := gtk.NewLabel("Password: ")
+	passwdLabel, err := gtk.LabelNew("Password: ")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	passwordBox := gtk.NewEntry()
+	passwordBox, err := gtk.EntryNew()
+	if err != nil {
+		log.Fatal(err)
+	}
 	passwordBox.SetVisibility(false)
 	// Pressing enter in the password box opens the db
-	passwordBox.Connect("activate", func() {
-		opened := openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
-		if opened {
-			window.Hide()
-			mainWindow.ShowAll()
+	dbDecrypt := func() {
+		text, err := passwordBox.GetText()
+		if err != nil {
+			log.Fatal(err)
 		}
-	})
+		opened := app.openDB(pathBox.GetActiveText(), text)
+		if opened {
+			window.Close()
+			app.GetWindowByID(app.mainWindowID).ShowAll()
+		}
+	}
+	passwordBox.Connect("activate", dbDecrypt)
 
-	openButton := gtk.NewButtonWithLabel("Open")
-	openButton.Clicked(func() {
-		opened := openDB(pathBox.GetActiveText(), passwordBox.GetText(), dbs, window, conf, recordStore)
-		if opened {
-			window.Hide()
-			mainWindow.ShowAll()
-		}
-	})
+	openButton, err := gtk.ButtonNewWithLabel("Open")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	openButton.Connect("clicked", dbDecrypt)
 
 	//layout
-	vbox := gtk.NewVBox(false, 1)
-	vbox.PackStart(quitMenuBar(window), false, false, 0)
+	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	vbox.PackStart(app.loginMenuBar(), false, false, 0)
 	vbox.Add(pathLabel)
 	vbox.Add(pathBox)
 	vbox.Add(passwdLabel)
 	vbox.Add(passwordBox)
 	vbox.Add(openButton)
 	window.Add(vbox)
-	window.SetSizeRequest(500, 300)
+	window.SetSizeRequest(500, 150)
 
 	window.ShowAll()
 }
 
-func quitMenuBar(window *gtk.Window) *gtk.Widget {
-	actionGroup := gtk.NewActionGroup("standard")
-	actionGroup.AddAction(gtk.NewAction("FileMenu", "File", "", ""))
-	fileQuit := gtk.NewAction("FileQuit", "", "", gtk.STOCK_QUIT)
-	fileQuit.Connect("activate", gtk.MainQuit)
-	actionGroup.AddActionWithAccel(fileQuit, "<control>q")
+func (app *GoPWSafeGTK) loginMenuBar() *gtk.MenuBar {
+	mb, err := gtk.MenuBarNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	mb.Append(app.fileMenu())
 
-	newDB := gtk.NewAction("NewDB", "Create a new DB", "", "")
+	// TODO below is too much a duplicate of what is in the mainMenuBar, problems and all
+	dbMenuItem, err := gtk.MenuItemNewWithLabel("DB")
+	if err != nil {
+		log.Fatal(err)
+	}
+	mb.Append(dbMenuItem)
+	dbMenu, err := gtk.MenuNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	dbMenuItem.SetSubmenu(dbMenu)
+
+	newDB, err := gtk.MenuItemNewWithLabel("NewDB")
+	if err != nil {
+		log.Fatal(err)
+	}
 	newDB.Connect("activate", func() {
 		db := pwsafe.NewV3("", "")
-		propertiesWindow(db)
+		app.propertiesWindow(db)
+		app.dbs = append(app.dbs, db)
 	})
-	actionGroup.AddActionWithAccel(newDB, "")
+	dbMenu.Append(newDB)
 
-	uiInfo := `
-<ui>
-  <menubar name='MenuBar'>
-    <menu action='FileMenu'>
-      <menuitem action='NewDB' />
-      <menuitem action='FileQuit' />
-    </menu>
-  </menubar>
-</ui>
-`
-	// todo add a popup menu, I think that is a context menu
-	uiManager := gtk.NewUIManager()
-	uiManager.AddUIFromString(uiInfo)
-	uiManager.InsertActionGroup(actionGroup, 0)
-	accelGroup := uiManager.GetAccelGroup()
-	window.AddAccelGroup(accelGroup)
-
-	return uiManager.GetWidget("/MenuBar")
+	return mb
 }

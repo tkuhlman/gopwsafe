@@ -2,78 +2,222 @@ package gui
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
-	"github.com/mattn/go-gtk/gdk"
-	"github.com/mattn/go-gtk/gdkpixbuf"
-	"github.com/mattn/go-gtk/glib"
-	"github.com/mattn/go-gtk/gtk"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/tkuhlman/gopwsafe/config"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
+
+	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/glib"
+	"github.com/gotk3/gotk3/gtk"
 )
 
 // GUI docs
-// https://godoc.org/github.com/mattn/go-gtk
-// https://developer.gnome.org/gtk-tutorial/stable/
-// https://developer.gnome.org/gtk2/2.24/
+// http://godoc.org/github.com/gotk3/gotk3
+// https://developer.gnome.org/gtk3/stable/
 
-func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
+// TODO I should try to define my Application and the associated windows, actions and menus in a
+// more coordinated way, see https://developer.gnome.org/gtk3/stable/ch01s04.html and
+// http://python-gtk-3-tutorial.readthedocs.io/en/latest/application.html and
+// https://wiki.gnome.org/HowDoI/GtkApplication
 
-	//todo revisit the structure of the gui code, splitting more out into functions and in general better organizing things.
+// TODO godocs
+// TODO work on the naming
+type GoPWSafeGTK struct {
+	*gtk.Application
+	conf config.PWSafeDBConfig
+	dbs  []pwsafe.DB
+	// TODO having the recordStore/recordTree and window ids in here doesn't seem to be the best structure
+	recordStore  *gtk.TreeStore
+	recordTree   *gtk.TreeView
+	mainWindowID uint
+}
 
-	window := gtk.NewWindow(gtk.WINDOW_TOPLEVEL)
+func NewGoPWSafeGTK() (*GoPWSafeGTK, error) {
+	gtkApp, err := gtk.ApplicationNew("tkuhlman.gopwsafe", glib.APPLICATION_HANDLES_OPEN|glib.APPLICATION_NON_UNIQUE)
+	if err != nil {
+		return nil, err
+	}
+
+	app := &GoPWSafeGTK{
+		Application: gtkApp,
+		conf:        config.Load(),
+		dbs:         make([]pwsafe.DB, 0),
+	}
+
+	if _, err := app.Connect("startup", app.startUp, nil); err != nil {
+		return nil, fmt.Errorf("error connecting startup signal handler:%v", err)
+	}
+	if _, err := app.Connect("activate", app.open, nil); err != nil {
+		return nil, fmt.Errorf("error connecting activate signal handler:%v", err)
+	}
+	if _, err := app.Connect("open", app.open, nil); err != nil {
+		return nil, fmt.Errorf("error connecting open signal handler:%v", err)
+	}
+	if _, err := app.Connect("shutdown", app.shutdown, nil); err != nil {
+		return nil, fmt.Errorf("error connecting shutdown signal handler:%v", err)
+	}
+	return app, nil
+}
+
+func (app *GoPWSafeGTK) Open(initialDB string) int {
+	return app.Run([]string{initialDB})
+}
+
+//startUp handles the startUp signal for the GTK application
+func (app *GoPWSafeGTK) startUp(gtkApp *gtk.Application) {
+	app.AddWindow(app.mainWindow(""))
+	// TODO should I add all the windows here or leave them all flowing from the main window?
+	// app.setActions()
+	// TODO add a popup menu, I think that is a context menu
+}
+
+func (app *GoPWSafeGTK) open(gtkApp *gtk.Application) {
+	// TODO where does the passed in initial db path come into play?
+	//app.openWindow(dbFile)
+	app.openWindow("")
+}
+
+//TODO doc
+func (app *GoPWSafeGTK) setActions() {
+	// TODO implment actiongroups and accelgroups
+	// https://developer.gnome.org/gtk3/stable/gtk3-Keyboard-Accelerators.html
+	// https://developer.gnome.org/gtk3/stable/GtkActionGroup.html
+	// ** What I believe is I define acctions via the .Connect method, attaching to whatever is appropriate
+	// or possibly to an actionGroup. Actiongroups are attached to objects via the top level gtk methods
+	// Once actions are defined accelerators are defined that map keyboard shortcuts to these actions.
+	// acelerators can also be put into groups to be more easily attached to multiple windows or
+	// individually assigned. Starting off I should just put accelerators onto the main menubar then start
+	// to migrate the actions and accels into groups defined here or in a similar function
+
+}
+
+//TODO doc
+func (app *GoPWSafeGTK) shutdown(gtkApp *gtk.Application) {
+	app.Quit()
+}
+
+// TODO dbFile should not be here, also add godoc
+func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
+
+	//TODO revisit the structure of the gui code, splitting more out into functions and in general better organizing things.
+
+	window, err := gtk.ApplicationWindowNew(app.Application)
+	// TODO gotk3 handles errors different update my code accordingly
+	if err != nil {
+		log.Fatalf("Failed to create main window: %v", err)
+	}
+	app.mainWindowID = window.GetID()
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
-	window.Connect("destroy", func(ctx *glib.CallbackContext) {
+	window.Connect("destroy", func() {
 		// Check if any dbs need to be saved
-		for _, db := range dbs {
+		for _, db := range app.dbs {
 			if db.NeedsSave() {
-				errorDialog(window, fmt.Sprintf("Unsaved changes for db %v", db.GetName()))
-				propertiesWindow(db)
+				app.propertiesWindow(db)
+				app.errorDialog(fmt.Sprintf("Unsaved changes for db %v", db.GetName()))
+				// TODO it seems that right now cancelling the error dialog kills all the windows
 			}
 		}
-		gtk.MainQuit()
 	})
 
-	recordFrame := gtk.NewFrame("Records")
-	recordWin := gtk.NewScrolledWindow(nil, nil)
+	recordFrame, err := gtk.FrameNew("Records")
+	if err != nil {
+		log.Fatalf("Failed to create record frame: %v", err)
+	}
+	recordWin, err := gtk.ScrolledWindowNew(nil, nil)
+	if err != nil {
+		log.Fatalf("Failed to create scrolled window: %v", err)
+	}
 	recordWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-	recordWin.SetShadowType(gtk.SHADOW_IN)
+	recordFrame.SetShadowType(gtk.SHADOW_IN)
 	recordFrame.Add(recordWin)
-	recordTree := gtk.NewTreeView()
-	recordWin.Add(recordTree)
-	recordStore := gtk.NewTreeStore(gdkpixbuf.GetType(), glib.G_TYPE_STRING)
-	recordTree.SetModel(recordStore.ToTreeModel())
-	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("", gtk.NewCellRendererPixbuf(), "pixbuf", 0))
-	recordTree.AppendColumn(gtk.NewTreeViewColumnWithAttributes("Name", gtk.NewCellRendererText(), "text", 1))
 
-	updateRecords(&dbs, recordStore, "")
-	recordTree.ExpandAll()
+	app.recordTree, err = gtk.TreeViewNew()
+	if err != nil {
+		log.Fatalf("Failed to create tree view: %v", err)
+	}
+	recordWin.Add(app.recordTree)
+
+	cellPB, err := gtk.CellRendererPixbufNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// TODO verify the icons are showing up correctly
+	col1, err := gtk.TreeViewColumnNewWithAttribute("", cellPB, "pixbuf", 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	app.recordTree.AppendColumn(col1)
+	cellText, err := gtk.CellRendererTextNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	col2, err := gtk.TreeViewColumnNewWithAttribute("Name", cellText, "text", 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	app.recordTree.AppendColumn(col2)
+
+	app.recordStore, err = gtk.TreeStoreNew(glib.TYPE_OBJECT, glib.TYPE_STRING)
+	if err != nil {
+		log.Fatal(err)
+	}
+	app.recordTree.SetModel(app.recordStore)
+
+	app.updateRecords("")
+	app.recordTree.ExpandAll()
 
 	// Prepare to select the first record in the tree on update
-	treeSelection := recordTree.GetSelection()
+	treeSelection, err := app.recordTree.GetSelection()
+	if err != nil {
+		log.Printf("Failed to get tree selection: %v", err)
+	}
 	treeSelection.SetMode(gtk.SELECTION_SINGLE)
 
-	recordTree.Connect("row_activated", func() {
-		db, record := getSelectedRecord(recordStore, recordTree, &dbs)
-		recordWindow(db, record)
+	app.recordTree.Connect("row_activated", func() {
+		db, record := app.getSelectedRecord()
+		if record != nil {
+			recordWindow(db, record)
+		}
 	})
 
-	searchPaned := gtk.NewHPaned()
-	searchLabel := gtk.NewLabel("Search: ")
+	searchPaned, err := gtk.PanedNew(gtk.ORIENTATION_HORIZONTAL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	searchLabel, err := gtk.LabelNew("Search: ")
+	if err != nil {
+		log.Fatal(err)
+	}
 	searchPaned.Pack1(searchLabel, false, false)
-	searchBox := gtk.NewEntry()
+	searchBox, err := gtk.EntryNew()
+	if err != nil {
+		log.Fatal(err)
+	}
 	searchBox.Connect("changed", func() {
-		updateRecords(&dbs, recordStore, searchBox.GetText())
-		recordTree.ExpandAll()
-		for i := range dbs {
-			firstEntryPath := gtk.NewTreePathFromString(strconv.Itoa(i) + ":0:0")
-			treeSelection.SelectPath(firstEntryPath)
-			if treeSelection.PathIsSelected(firstEntryPath) {
-				break
+		text, err := searchBox.GetText()
+		if err != nil {
+			log.Fatal(err)
+		}
+		app.updateRecords(text)
+		app.recordTree.ExpandAll()
+		for i := range app.dbs {
+			firstEntryPath, err := gtk.TreePathNewFromString(strconv.Itoa(i) + ":0:0")
+			if err != nil {
+				log.Fatal(err)
 			}
+			treeSelection.SelectPath(firstEntryPath)
+		}
+	})
+	searchBox.Connect("activate", func() {
+		// TODO this duplicates the recordTree behaver, dedup
+		db, record := app.getSelectedRecord()
+		if record != nil {
+			recordWindow(db, record)
 		}
 	})
 	searchPaned.Pack2(searchBox, false, false)
@@ -83,64 +227,73 @@ func mainWindow(dbs []pwsafe.DB, conf config.PWSafeDBConfig, dbFile string) {
 		searchBox.SelectRegion(0, -1)
 	})
 
-	//todo add a status bar that will be updated based on the recent actions performed
-
 	// layout
-	vbox := gtk.NewVBox(false, 1)
-	vbox.PackStart(mainMenuBar(window, &dbs, conf, recordStore, recordTree), false, false, 0)
-	vbox.PackStart(selectedRecordMenuBar(window, recordStore, recordTree, &dbs), false, false, 0)
+	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	vbox.PackStart(app.mainMenuBar(), false, false, 0) // TODO consider app.SetAppMenu or app.SetMenubar
 	vbox.PackStart(searchPaned, false, false, 0)
-	vbox.Add(recordFrame)
+	vbox.PackStart(recordFrame, true, true, 0)
 	window.Add(vbox)
-	window.SetSizeRequest(800, 800)
+	window.SetDefaultSize(800, 800)
 	window.Hide() // Start hidden, expose when a db is opened
 
-	// On first startup show the login window
-	if len(dbs) == 0 {
-		openWindow(dbFile, &dbs, conf, window, recordStore)
-		recordTree.ExpandAll()
-	}
+	return &window.Window // TODO is this really what I want?
 }
 
-// return a pwsafe.DB and pwsafe.Record matching the selected entry. If nothing is selected default to dbs[0] and an empty record
-func getSelectedRecord(recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]pwsafe.DB) (pwsafe.DB, *pwsafe.Record) {
-	var iter gtk.TreeIter
-	var rowValue glib.GValue
-	selection := recordTree.GetSelection()
-	selection.GetSelected(&iter)
-	model := recordStore.ToTreeModel()
-	model.GetValue(&iter, 1, &rowValue)
-	path := model.GetPath(&iter)
-	pathStr := path.String()
-	activeDB, err := strconv.Atoi(strings.Split(pathStr, ":")[0])
+// getSelected returns a pwsafe.DB and pwsafe.Record matching the selected entry.
+// If nothing is selected, returns nil,nil.
+func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
+	selection, err := app.recordTree.GetSelection()
 	if err != nil {
-		db := (*dbs)[0] // Default to the first db if none is selected
-		var record pwsafe.Record
-		return db, &record
+		// TODO amoung the many errors to decide on how to handle
+		log.Printf("Failed to determine record tree selection: %v", err)
 	}
-	db := (*dbs)[activeDB]
+	_, iter, ok := selection.GetSelected()
+	if !ok {
+		return nil, nil
+	}
+	rowValue, err := app.recordStore.GetValue(iter, 1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	path, err := app.recordStore.GetPath(iter)
+	if err != nil {
+		log.Printf("Failed to determine selected path: %v", err)
+	}
+	activeDB, err := strconv.Atoi(strings.Split(path.String(), ":")[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	db := app.dbs[activeDB]
 
-	// todo fail gracefully if a non-leaf is selected.
+	// TODO fail gracefully if a non-leaf is selected.
 
-	record, _ := db.GetRecord(rowValue.GetString())
-	/* todo rather than _ have success and check but then I need to pass in the gtk window also, altenatively return the status and check in the main function
+	value, err := rowValue.GetString()
+	if err != nil {
+		log.Fatal(err)
+	}
+	record, success := db.GetRecord(value)
 	if !success {
-		errorDialog(window, "Error retrieving record.")
+		app.errorDialog("Error retrieving record.")
+		return db, nil
 	}
-	*/
 	return db, &record
 }
 
-func updateRecords(dbs *[]pwsafe.DB, store *gtk.TreeStore, search string) {
-	store.Clear()
-	for i, db := range *dbs {
+func (app *GoPWSafeGTK) updateRecords(search string) {
+	app.recordStore.Clear()
+	for i, db := range app.dbs {
 		name := db.GetName()
 		if name == "" {
 			name = strconv.Itoa(i)
 		}
-		var dbRoot gtk.TreeIter
-		store.Append(&dbRoot, nil)
-		store.Set(&dbRoot, gtk.NewImage().RenderIcon(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_SMALL_TOOLBAR, "").GPixbuf, name)
+		dbRoot := app.recordStore.Append(nil)
+		err := app.recordStore.SetValue(dbRoot, 1, name)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		searchLower := strings.ToLower(search)
 		for _, groupName := range db.Groups() {
@@ -151,168 +304,225 @@ func updateRecords(dbs *[]pwsafe.DB, store *gtk.TreeStore, search string) {
 				}
 			}
 			if len(matches) > 0 {
-				var group gtk.TreeIter
-				store.Append(&group, &dbRoot)
-				store.Set(&group, gtk.NewImage().RenderIcon(gtk.STOCK_DIRECTORY, gtk.ICON_SIZE_SMALL_TOOLBAR, "").GPixbuf, groupName)
+				group := app.recordStore.Append(dbRoot)
+				err := app.recordStore.SetValue(group, 1, groupName)
+				if err != nil {
+					log.Fatal(err)
+				}
+
 				for _, recordName := range matches {
-					var record gtk.TreeIter
-					store.Append(&record, &group)
-					store.Set(&record, gtk.NewImage().RenderIcon(gtk.STOCK_FILE, gtk.ICON_SIZE_SMALL_TOOLBAR, "").GPixbuf, recordName)
+					record := app.recordStore.Append(group)
+					err := app.recordStore.SetValue(record, 1, recordName)
+					if err != nil {
+						log.Fatal(err)
+					}
 				}
 			}
 		}
 	}
 }
 
-//todo add a status bar and have it display messages like, copied username to clipboard, etc
+//TODO add a status bar and have it display messages like, copied username to clipboard, etc, see gtk.Statusbar
 // Configures the main menubar and keyboard shortcuts
-func mainMenuBar(window *gtk.Window, dbs *[]pwsafe.DB, conf config.PWSafeDBConfig, recordStore *gtk.TreeStore, recordTree *gtk.TreeView) *gtk.Widget {
-	actionGroup := gtk.NewActionGroup("main")
-	actionGroup.AddAction(gtk.NewAction("FileMenu", "File", "", ""))
+func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
+	// Note of this writing the gotk3 implementation of gtkBuilder is causing me errors hence building menus
+	// directly in the code
+	parent := app.GetWindowByID(app.mainWindowID)
 
-	openDB := gtk.NewAction("OpenDB", "Open a DB", "", "")
-	openDB.Connect("activate", func() { openWindow("", dbs, conf, window, recordStore) })
-	actionGroup.AddActionWithAccel(openDB, "<control>t")
+	// TODO I need to think about how to split up the menu into sections I can reuse for different windows.
+	// fix all other menubar methods also
+	mb, err := gtk.MenuBarNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	mb.Append(app.fileMenu())
 
-	newDB := gtk.NewAction("NewDB", "Create a new DB", "", "")
+	dbMenuItem, err := gtk.MenuItemNewWithLabel("DB")
+	if err != nil {
+		log.Fatal(err)
+	}
+	mb.Append(dbMenuItem)
+	dbMenu, err := gtk.MenuNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	dbMenuItem.SetSubmenu(dbMenu)
+	dbAG, err := gtk.AccelGroupNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	parent.AddAccelGroup(dbAG)
+	dbMenu.SetAccelGroup(dbAG)
+
+	openDB, err := gtk.MenuItemNewWithLabel("OpenDB")
+	if err != nil {
+		log.Fatal(err)
+	}
+	openDB.Connect("activate", func() { app.openWindow("") })
+	openDB.AddAccelerator("activate", dbAG, 't', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	dbMenu.Append(openDB)
+
+	saveDB, err := gtk.MenuItemNewWithLabel("SaveDB")
+	if err != nil {
+		log.Fatal(err)
+	}
+	saveDB.Connect("activate", func() {
+		db, _ := app.getSelectedRecord()
+		if db != nil {
+			app.propertiesWindow(db)
+		} else {
+			app.errorDialog("No DB is selected, please select a DB in the tree view to save")
+		}
+	})
+	saveDB.AddAccelerator("activate", dbAG, 's', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	dbMenu.Append(saveDB)
+
+	newDB, err := gtk.MenuItemNewWithLabel("NewDB")
+	if err != nil {
+		log.Fatal(err)
+	}
 	newDB.Connect("activate", func() {
 		db := pwsafe.NewV3("", "")
-		propertiesWindow(db)
-		newdbs := append(*dbs, db)
-		dbs = &newdbs
+		app.propertiesWindow(db)
+		// TODO this annoying adds in the new DB even when cancel was clicked, fix that
+		app.dbs = append(app.dbs, db)
 	})
-	actionGroup.AddActionWithAccel(newDB, "")
+	dbMenu.Append(newDB)
 
-	saveDB := gtk.NewAction("SaveDB", "DB Properties/Save a DB", "", "")
-	saveDB.Connect("activate", func() {
-		db, _ := getSelectedRecord(recordStore, recordTree, dbs)
-		propertiesWindow(db)
-	})
-	actionGroup.AddActionWithAccel(saveDB, "<control>s")
-
-	//todo, this doesn't actually work
-	//todo close the selected or pop up a dialog not just the last
-	//todo do the check on unsaved changes also.
-	closeDB := gtk.NewAction("CloseDB", "Close an open DB", "", "")
+	closeDB, err := gtk.MenuItemNewWithLabel("CloseDB")
+	if err != nil {
+		log.Fatal(err)
+	}
 	closeDB.Connect("activate", func() {
-		dbsValue := (*dbs)[:len(*dbs)-1]
-		dbs = &dbsValue
+		//TODO close the selected or pop up a dialog not just the last
+		app.dbs = app.dbs[:len(app.dbs)-1]
+		// TODO either use the current selection in the search box or clear it out
+		app.updateRecords("")
 	})
-	actionGroup.AddActionWithAccel(closeDB, "")
+	dbMenu.Append(closeDB)
+	// TODO some shortcut ctrl-w ? something better?
 
-	fileQuit := gtk.NewAction("FileQuit", "", "", gtk.STOCK_QUIT)
-	fileQuit.Connect("activate", gtk.MainQuit)
-	actionGroup.AddActionWithAccel(fileQuit, "<control>q")
+	// TODO gui.go has a similar menuBar I need to combine into one with this
+	recordMenuItem, err := gtk.MenuItemNewWithLabel("Record")
+	if err != nil {
+		log.Fatal(err)
+	}
+	mb.Append(recordMenuItem)
+	recordMenu, err := gtk.MenuNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	recordMenuItem.SetSubmenu(recordMenu)
+	recordAG, err := gtk.AccelGroupNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	parent.AddAccelGroup(recordAG)
+	recordMenu.SetAccelGroup(recordAG)
 
-	uiInfo := `
-<ui>
-  <menubar name='MenuBar'>
-    <menu action='FileMenu'>
-      <menuitem action='OpenDB' />
-      <menuitem action='NewDB' />
-      <menuitem action='SaveDB' />
-      <menuitem action='CloseDB' />
-      <menuitem action='FileQuit' />
-    </menu>
-  </menubar>
-</ui>
-`
-	// todo add a popup menu, I think that is a context menu
-	uiManager := gtk.NewUIManager()
-	uiManager.AddUIFromString(uiInfo)
-	uiManager.InsertActionGroup(actionGroup, 0)
-	accelGroup := uiManager.GetAccelGroup()
-	window.AddAccelGroup(accelGroup)
-
-	return uiManager.GetWidget("/MenuBar")
-}
-
-// todo this is remarkably similar to the recordMenuBar in gui/record.go the difference being this
-// one doesn't get a record passed in but finds it from selection. I should think about how I could
-// clearly and idiomatically reduce the duplication.
-func selectedRecordMenuBar(window *gtk.Window, recordStore *gtk.TreeStore, recordTree *gtk.TreeView, dbs *[]pwsafe.DB) *gtk.Widget {
-	clipboard := gtk.NewClipboardGetForDisplay(gdk.DisplayGetDefault(), gdk.SELECTION_CLIPBOARD)
-
-	actionGroup := gtk.NewActionGroup("record")
-	actionGroup.AddAction(gtk.NewAction("RecordMenu", "Record", "", ""))
-
-	newRecord := gtk.NewAction("NewRecord", "Add a new record to the selected db", "", "")
+	newRecord, err := gtk.MenuItemNewWithLabel("New")
+	if err != nil {
+		log.Fatal(err)
+	}
 	newRecord.Connect("activate", func() {
-		db, _ := getSelectedRecord(recordStore, recordTree, dbs)
-		var record pwsafe.Record
-		recordWindow(db, &record)
+		db, _ := app.getSelectedRecord()
+		recordWindow(db, &pwsafe.Record{})
 	})
-	actionGroup.AddActionWithAccel(newRecord, "<control>n")
+	newRecord.AddAccelerator("activate", recordAG, 'n', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(newRecord)
 
-	deleteRecord := gtk.NewAction("DeleteRecord", "Deleted the selected record", "", "")
+	deleteRecord, err := gtk.MenuItemNewWithLabel("Delete")
+	if err != nil {
+		log.Fatal(err)
+	}
 	deleteRecord.Connect("activate", func() {
-		db, record := getSelectedRecord(recordStore, recordTree, dbs)
-		//todo Pop up an are you sure dialog.
+		db, record := app.getSelectedRecord()
+		recordWindow(db, &pwsafe.Record{})
 		db.DeleteRecord(record.Title)
 	})
-	actionGroup.AddActionWithAccel(deleteRecord, "Delete")
+	recordMenu.Append(deleteRecord)
 
-	//todo all of the getSelectedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
-	copyUser := gtk.NewAction("CopyUsername", "Copy username to clipboard", "", "")
+	// TODO all of the getSelectedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
+	// Also what happens if the selection is different than the open window right now it will follow the
+	// selection which is bad behavior
+	clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+	if err != nil {
+		log.Fatal(err)
+	}
+	copyUser, err := gtk.MenuItemNewWithLabel("Copy Username")
+	if err != nil {
+		log.Fatal(err)
+	}
 	copyUser.Connect("activate", func() {
-		_, record := getSelectedRecord(recordStore, recordTree, dbs)
+		_, record := app.getSelectedRecord()
 		clipboard.SetText(record.Username)
 	})
-	actionGroup.AddActionWithAccel(copyUser, "<control>u")
+	copyUser.AddAccelerator("activate", recordAG, 'u', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(copyUser)
 
-	copyPassword := gtk.NewAction("CopyPassword", "Copy password to clipboard", "", "")
+	copyPassword, err := gtk.MenuItemNewWithLabel("Copy Password")
+	if err != nil {
+		log.Fatal(err)
+	}
 	copyPassword.Connect("activate", func() {
-		_, record := getSelectedRecord(recordStore, recordTree, dbs)
+		_, record := app.getSelectedRecord()
 		clipboard.SetText(record.Password)
 	})
-	actionGroup.AddActionWithAccel(copyPassword, "<control>p")
+	copyPassword.AddAccelerator("activate", recordAG, 'p', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(copyPassword)
 
-	openURL := gtk.NewAction("OpenURL", "Open URL", "", "")
-	// gtk-go hasn't yet implemented gtk_show_uri so using github.com/skratchdot/open-golang/open
-	// todo it opens the url but should switch to that app also.
+	openURL, err := gtk.MenuItemNewWithLabel("Open URL")
+	if err != nil {
+		log.Fatal(err)
+	}
 	openURL.Connect("activate", func() {
-		_, record := getSelectedRecord(recordStore, recordTree, dbs)
+		_, record := app.getSelectedRecord()
 		open.Start(record.URL)
 	})
-	actionGroup.AddActionWithAccel(openURL, "<control>o")
+	openURL.AddAccelerator("activate", recordAG, 'o', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(openURL)
 
-	copyURL := gtk.NewAction("CopyURL", "Copy URL to clipboard", "", "")
+	copyURL, err := gtk.MenuItemNewWithLabel("Copy URL")
+	if err != nil {
+		log.Fatal(err)
+	}
 	copyURL.Connect("activate", func() {
-		_, record := getSelectedRecord(recordStore, recordTree, dbs)
+		_, record := app.getSelectedRecord()
 		clipboard.SetText(record.URL)
 	})
-	actionGroup.AddActionWithAccel(copyURL, "<control>l")
+	copyURL.AddAccelerator("activate", recordAG, 'l', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(copyURL)
 
-	uiInfo := `
-<ui>
-  <menubar name='MenuBar'>
-    <menu action='RecordMenu'>
-      <menuitem action='NewRecord' />
-      <menuitem action='DeleteRecord' />
-      <menuitem action='CopyUsername' />
-      <menuitem action='CopyPassword' />
-      <menuitem action='OpenURL' />
-      <menuitem action='CopyURL' />
-    </menu>
-  </menubar>
-</ui>
-`
-	// todo add a popup menu, at least I think that is a context menu
-	uiManager := gtk.NewUIManager()
-	uiManager.AddUIFromString(uiInfo)
-	uiManager.InsertActionGroup(actionGroup, 0)
-	accelGroup := uiManager.GetAccelGroup()
-	window.AddAccelGroup(accelGroup)
-
-	return uiManager.GetWidget("/MenuBar")
+	return mb
 }
 
-//Start Begins execution of the gui
-func Start(dbFile string) int {
-	gtk.Init(nil)
-	var dbs []pwsafe.DB
-	conf := config.Load()
-	mainWindow(dbs, conf, dbFile)
-	gtk.Main()
-	return 0
+func (app *GoPWSafeGTK) fileMenu() *gtk.MenuItem {
+	fileMenuItem, err := gtk.MenuItemNewWithLabel("File")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fileMenu, err := gtk.MenuNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fileMenuItem.SetSubmenu(fileMenu)
+
+	// TODO the accelGroup should be defined somewhere else and just looked up
+	fileAG, err := gtk.AccelGroupNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+	parent := app.GetWindowByID(app.mainWindowID)
+	parent.AddAccelGroup(fileAG)
+	fileMenu.SetAccelGroup(fileAG)
+
+	quit, err := gtk.MenuItemNewWithLabel("Quit")
+	if err != nil {
+		log.Fatal(err)
+	}
+	quit.Connect("activate", app.Quit)
+	quit.AddAccelerator("activate", fileAG, 'q', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	fileMenu.Append(quit)
+
+	return fileMenuItem
 }

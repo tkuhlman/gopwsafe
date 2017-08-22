@@ -4,6 +4,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 
 	"github.com/tkuhlman/gopwsafe/cli"
@@ -17,7 +18,11 @@ func main() {
 
 	var exitCode int
 	if !*useCli {
-		exitCode = gui.Start(*dbFile)
+		app, err := gui.NewGoPWSafeGTK()
+		if err != nil {
+			log.Fatal(err)
+		}
+		exitCode = app.Open(*dbFile)
 	} else {
 		exitCode = cli.Start(*dbFile)
 	}

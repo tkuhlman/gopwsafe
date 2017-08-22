@@ -27,15 +27,9 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/mattn/go-gtk"
-  packages = ["gdk","gdkpixbuf","glib","gtk","pango"]
-  revision = "f546757330f0b7d13aabef1a8a095c727f6cb571"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/mattn/go-pointer"
-  packages = ["."]
-  revision = "6f8ea376a37a9c9ae33f1898cfc00877f79abfa1"
+  name = "github.com/gotk3/gotk3"
+  packages = ["cairo","gdk","glib","gtk","pango"]
+  revision = "0d1210c307409b41ba83f09140fae3a342ac2161"
 
 [[projects]]
   name = "github.com/pborman/uuid"
@@ -82,6 +76,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6f5739329aa4a379da9d706876f31fd703e575e951b874f74daf973c5e653a4c"
+  inputs-digest = "098f0eb307f4f04b95cb2cfd8768cc12630cca1a62f46d961bf0a58f6ba33d70"
   solver-name = "gps-cdcl"
   solver-version = 1
