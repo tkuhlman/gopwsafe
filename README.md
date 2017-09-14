@@ -43,3 +43,5 @@ The gotk3 project is dependent on gtk3 and so that must be installed to build.
 Details on this installation are in the gotk3 [project wiki](https://github.com/gotk3/gotk3/wiki#installation).
 
 After the dependencies are installed a normal go build is all that is needed.
+
+To debug the GUI run with the environment `GTK_DEBUG=interactive`.

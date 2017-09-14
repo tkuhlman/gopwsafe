@@ -146,7 +146,6 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// TODO verify the icons are showing up correctly
 	col1, err := gtk.TreeViewColumnNewWithAttribute("", cellPB, "pixbuf", 0)
 	if err != nil {
 		log.Fatal(err)
@@ -220,12 +219,28 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 			recordWindow(db, record)
 		}
 	})
-	searchPaned.Pack2(searchBox, false, false)
-
-	// If the window regains focus, select the entire selection of the searchBox
-	window.Connect("focus-in-event", func() {
+	// Only one or the other of the searchbox or selected tree value should be hilighted
+	searchBox.Connect("focus-in-event", func() {
 		searchBox.SelectRegion(0, -1)
+		recordFrame.Bin.Container.Widget.SetStateFlags(gtk.STATE_FLAG_BACKDROP, true)
+		searchBox.Widget.SetStateFlags(gtk.STATE_FLAG_FOCUSED, true)
 	})
+	searchBox.Connect("focus-out-event", func() {
+		recordFrame.Bin.Container.Widget.SetStateFlags(gtk.STATE_FLAG_FOCUSED, true)
+		searchBox.Widget.SetStateFlags(gtk.STATE_FLAG_BACKDROP, true)
+	})
+	// By default when switch focus back to this window it hilights both the search box and selected
+	// item in the tree, making it hard to tell where the focus is, this fixes it
+	window.Connect("style-updated", func() {
+		if searchBox.Widget.HasFocus() {
+			recordFrame.Bin.Container.Widget.SetStateFlags(gtk.STATE_FLAG_BACKDROP, true)
+			searchBox.Widget.SetStateFlags(gtk.STATE_FLAG_FOCUSED, true)
+		} else {
+			recordFrame.Bin.Container.Widget.SetStateFlags(gtk.STATE_FLAG_FOCUSED, true)
+			searchBox.Widget.SetStateFlags(gtk.STATE_FLAG_BACKDROP, true)
+		}
+	})
+	searchPaned.Pack2(searchBox, false, false)
 
 	// layout
 	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
@@ -234,7 +249,7 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 	}
 	vbox.PackStart(app.mainMenuBar(), false, false, 0) // TODO consider app.SetAppMenu or app.SetMenubar
 	vbox.PackStart(searchPaned, false, false, 0)
-	vbox.PackStart(recordFrame, true, true, 0)
+	vbox.PackEnd(recordFrame, true, true, 0)
 	window.Add(vbox)
 	window.SetDefaultSize(800, 800)
 	window.Hide() // Start hidden, expose when a db is opened
@@ -283,6 +298,23 @@ func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 }
 
 func (app *GoPWSafeGTK) updateRecords(search string) {
+	icons, err := gtk.IconThemeGetDefault()
+	if err != nil {
+		log.Fatal(err)
+	}
+	rootIcon, err := icons.LoadIcon("dialog-password", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
+	if err != nil {
+		log.Fatal(err)
+	}
+	folderIcon, err := icons.LoadIcon("folder", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
+	if err != nil {
+		log.Fatal(err)
+	}
+	recordIcon, err := icons.LoadIcon("text-x-generic", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	app.recordStore.Clear()
 	for i, db := range app.dbs {
 		name := db.GetName()
@@ -290,7 +322,11 @@ func (app *GoPWSafeGTK) updateRecords(search string) {
 			name = strconv.Itoa(i)
 		}
 		dbRoot := app.recordStore.Append(nil)
-		err := app.recordStore.SetValue(dbRoot, 1, name)
+		err := app.recordStore.SetValue(dbRoot, 0, rootIcon)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = app.recordStore.SetValue(dbRoot, 1, name)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -305,14 +341,22 @@ func (app *GoPWSafeGTK) updateRecords(search string) {
 			}
 			if len(matches) > 0 {
 				group := app.recordStore.Append(dbRoot)
-				err := app.recordStore.SetValue(group, 1, groupName)
+				err := app.recordStore.SetValue(group, 0, folderIcon)
+				if err != nil {
+					log.Fatal(err)
+				}
+				err = app.recordStore.SetValue(group, 1, groupName)
 				if err != nil {
 					log.Fatal(err)
 				}
 
 				for _, recordName := range matches {
 					record := app.recordStore.Append(group)
-					err := app.recordStore.SetValue(record, 1, recordName)
+					err := app.recordStore.SetValue(record, 0, recordIcon)
+					if err != nil {
+						log.Fatal(err)
+					}
+					err = app.recordStore.SetValue(record, 1, recordName)
 					if err != nil {
 						log.Fatal(err)
 					}
