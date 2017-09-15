@@ -2,18 +2,6 @@
 
 
 [[projects]]
-  branch = "master"
-  name = "github.com/Bowery/prompt"
-  packages = ["."]
-  revision = "eb8f7a6a197ce971ed0e9d4a739c628381d5f124"
-
-[[projects]]
-  name = "github.com/Sirupsen/logrus"
-  packages = ["."]
-  revision = "f006c2ac4710855cf0f916dd6b77acf6b048dc6e"
-  version = "v1.0.3"
-
-[[projects]]
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
@@ -58,14 +46,8 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal","twofish"]
+  packages = ["twofish"]
   revision = "b176d7def5d71bdd214203491f89843ed217f420"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/sys"
-  packages = ["unix","windows"]
-  revision = "9f7170bcd8e9f4d3691c06401119c46a769a1e03"
 
 [[projects]]
   branch = "v2"
@@ -76,6 +58,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "098f0eb307f4f04b95cb2cfd8768cc12630cca1a62f46d961bf0a58f6ba33d70"
+  inputs-digest = "48b03066fc56785fcca0cf19b2d0324ee3fbd6e528a3080ce032e543c70f9e38"
   solver-name = "gps-cdcl"
   solver-version = 1
