@@ -17,7 +17,7 @@
   branch = "master"
   name = "github.com/gotk3/gotk3"
   packages = ["cairo","gdk","glib","gtk","pango"]
-  revision = "0d1210c307409b41ba83f09140fae3a342ac2161"
+  revision = "52a90dfa7c0eaa36b58e0f1d8f1e3efcc462ceee"
 
 [[projects]]
   name = "github.com/pborman/uuid"
@@ -47,7 +47,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["twofish"]
-  revision = "b176d7def5d71bdd214203491f89843ed217f420"
+  revision = "faadfbdc035307d901e69eea569f5dda451a3ee3"
 
 [[projects]]
   branch = "v2"

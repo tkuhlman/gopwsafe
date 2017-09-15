@@ -1,23 +1,18 @@
 language: go
-dist: trusty
+dist: zesty
 go:
-  - 1.6
+  - 1.9
 
-matrix:
-    fast_finish: true
-
-before_install:
-    - sudo apt-get update
-    - sudo apt-get install -y build-essential libgtk2.0-dev
-    - go get golang.org/x/tools/cmd/cover
-    - go get github.com/golang/lint/golint
-    - go get github.com/mattn/goveralls
+install:
+  - go get -u github.com/golang/dep/...
+  - dep ensure
+  - go get github.com/mattn/goveralls
+  - sudo apt-get update
+  - sudo apt-get install -y build-essential libgtk-3-dev libcairo2-dev libglib2.0-dev
 
 script:
-    - go vet -x ./...
-    - $HOME/gopath/bin/golint ./...
-    - go test -v -race ./...
-    - go test -coverprofile=profile.cov ./pwsafe
+  - go test -v -race $(go list ./... | grep -v "/vendor/")
+  - go test -coverprofile=coverage.txt ./pwsafe
 
-after_script:
-    - $HOME/gopath/bin/goveralls -coverprofile=profile.cov -service=travis-ci
+after_success:
+  - goveralls -coverprofile=coverage.txt -service=travis-ci
