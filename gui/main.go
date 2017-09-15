@@ -257,7 +257,7 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 	return &window.Window // TODO is this really what I want?
 }
 
-// getSelected returns a pwsafe.DB and pwsafe.Record matching the selected entry.
+// getSelectedRecord returns a pwsafe.DB and pwsafe.Record matching the selected entry.
 // If nothing is selected, returns nil,nil.
 func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 	selection, err := app.recordTree.GetSelection()
@@ -291,7 +291,6 @@ func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 	}
 	record, success := db.GetRecord(value)
 	if !success {
-		app.errorDialog("Error retrieving record.")
 		return db, nil
 	}
 	return db, &record
@@ -481,6 +480,9 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	}
 	deleteRecord.Connect("activate", func() {
 		db, record := app.getSelectedRecord()
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
 		recordWindow(db, &pwsafe.Record{})
 		db.DeleteRecord(record.Title)
 	})
@@ -499,6 +501,9 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	}
 	copyUser.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
 		clipboard.SetText(record.Username)
 	})
 	copyUser.AddAccelerator("activate", recordAG, 'u', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
@@ -510,6 +515,9 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	}
 	copyPassword.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
 		clipboard.SetText(record.Password)
 	})
 	copyPassword.AddAccelerator("activate", recordAG, 'p', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
@@ -521,6 +529,9 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	}
 	openURL.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
 		open.Start(record.URL)
 	})
 	openURL.AddAccelerator("activate", recordAG, 'o', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
@@ -532,6 +543,9 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	}
 	copyURL.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
 		clipboard.SetText(record.URL)
 	})
 	copyURL.AddAccelerator("activate", recordAG, 'l', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
