@@ -10,7 +10,16 @@ import (
 
 func (app *GoPWSafeGTK) openDB(path string, password string) bool {
 
-	// TODO make sure the dbFile is not already opened and in dbs
+	for _, db := range app.dbs {
+		v3db, ok := db.(*pwsafe.V3)
+		if !ok {
+			continue
+		}
+		if path == v3db.LastSavePath {
+			app.errorDialog(fmt.Sprintf("A password database at path %q is already open", path))
+			return false
+		}
+	}
 	db, err := pwsafe.OpenPWSafeFile(path, password)
 	if err != nil {
 		app.errorDialog(fmt.Sprintf("Error Opening file %s\n%s", path, err))
@@ -93,11 +102,9 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		opened := app.openDB(pathBox.GetActiveText(), text)
-		if opened {
-			window.Close()
-			app.GetWindowByID(app.mainWindowID).ShowAll()
-		}
+		app.openDB(pathBox.GetActiveText(), text)
+		window.Close()
+		app.GetWindowByID(app.mainWindowID).ShowAll()
 	}
 	passwordBox.Connect("activate", dbDecrypt)
 
