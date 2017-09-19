@@ -1,6 +1,7 @@
 package pwsafe
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,9 @@ func TestSaveSimpleDB(t *testing.T) {
 
 	//Set a new password, save a copy, open it and compare with the source
 	source.SetPassword("passwordcopy")
-	err = WritePWSafeFile(source, "./test_dbs/simple-copy.dat")
+	copyPath := "./test_dbs/simple-copy.dat"
+	err = WritePWSafeFile(source, copyPath)
+	defer os.Remove(copyPath)
 	assert.Nil(t, err)
 	dest, err := OpenPWSafeFile("./test_dbs/simple-copy.dat", "passwordcopy")
 	assert.Nil(t, err)
@@ -48,7 +51,9 @@ func TestNewV3(t *testing.T) {
 	record.Notes = "no notes"
 	newDB.SetRecord(record)
 
-	err := WritePWSafeFile(newDB, "./test_dbs/simple-new.dat")
+	newPath := "./test_dbs/simple-new.dat"
+	err := WritePWSafeFile(newDB, newPath)
+	defer os.Remove(newPath)
 	assert.Nil(t, err)
 
 	readNew, err := OpenPWSafeFile("./test_dbs/simple-new.dat", "password")
