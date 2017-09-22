@@ -35,8 +35,6 @@ func (app *GoPWSafeGTK) openDB(path string, password string) bool {
 	return true
 }
 
-// TODO if this is the only window open on close it should shutdown the app, likely just handle close by
-// sending the shutdown signal
 func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	window, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
@@ -120,7 +118,7 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	vbox.PackStart(app.loginMenuBar(), false, false, 0)
+	vbox.PackStart(app.openWindowMenuBar(), false, false, 0)
 	vbox.Add(pathLabel)
 	vbox.Add(pathBox)
 	vbox.Add(passwdLabel)
@@ -132,7 +130,7 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	window.ShowAll()
 }
 
-func (app *GoPWSafeGTK) loginMenuBar() *gtk.MenuBar {
+func (app *GoPWSafeGTK) openWindowMenuBar() *gtk.MenuBar {
 	mb, err := gtk.MenuBarNew()
 	if err != nil {
 		log.Fatal(err)

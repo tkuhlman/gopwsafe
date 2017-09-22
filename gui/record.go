@@ -8,7 +8,7 @@ import (
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
 
-func recordWindow(db pwsafe.DB, record *pwsafe.Record) {
+func (app *GoPWSafeGTK) recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	window, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		log.Fatal(err)
@@ -148,7 +148,7 @@ func recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 		// Update the record
 		if origName != record.Title { // The Record title has changed
 			db.DeleteRecord(origName)
-			// Todo, this invalidates the current search so a new run of updateRecords should be done, or at least it made obvious what is going on
+			app.updateRecords("")
 		}
 		db.SetRecord(*record)
 		window.Destroy()
@@ -206,7 +206,7 @@ func recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	vbox.PackStart(hbox, false, false, 0)
 
 	window.Add(vbox)
-	window.SetDefaultSize(300, 500)
+	window.SetDefaultSize(500, 500)
 	window.ShowAll()
 }
 

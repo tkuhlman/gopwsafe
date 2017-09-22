@@ -25,7 +25,6 @@ func (app *GoPWSafeGTK) errorDialog(msg string) {
 }
 
 func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
-	// TODO this window is ugly and the description field is too small also it doesn't scale when the window resizes
 	window, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		log.Fatal(err)
@@ -114,7 +113,6 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// todo it would be nice if pressing enter in an field activated this.
 	saveButton.Connect("clicked", func() {
 		v3db.Name, err = nameValue.GetText()
 		if err != nil {
@@ -149,9 +147,19 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		var new bool
+		v3db := db.(*pwsafe.V3)
+		if v3db.LastSavePath == "" {
+			new = true
+		}
 		if err := pwsafe.WritePWSafeFile(db, path); err != nil {
 			app.errorDialog(fmt.Sprintf("Error Saving database to a file\n%s", err))
+		} else if new {
+			app.dbs = append(app.dbs, db)
+			app.updateRecords("")
 		}
+
 		window.Destroy()
 	})
 	cancelButton, err := gtk.ButtonNewWithLabel("Cancel")
@@ -159,7 +167,6 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 		log.Fatal(err)
 	}
 	cancelButton.Connect("clicked", func() {
-		//todo if this is a new DB that was cancelled it will still show in the list
 		window.Destroy()
 	})
 
@@ -170,7 +177,6 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//TODO	vbox.PackStart(quitMenuBar(window), false, false, 0)
 
 	grid, err := gtk.GridNew()
 	if err != nil {

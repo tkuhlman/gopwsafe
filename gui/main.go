@@ -180,7 +180,7 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 	app.recordTree.Connect("row_activated", func() {
 		db, record := app.getSelectedRecord()
 		if record != nil {
-			recordWindow(db, record)
+			app.recordWindow(db, record)
 		}
 	})
 
@@ -216,7 +216,7 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 		// TODO this duplicates the recordTree behaver, dedup
 		db, record := app.getSelectedRecord()
 		if record != nil {
-			recordWindow(db, record)
+			app.recordWindow(db, record)
 		}
 	})
 	// Only one or the other of the searchbox or selected tree value should be hilighted
@@ -297,6 +297,7 @@ func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 }
 
 func (app *GoPWSafeGTK) updateRecords(search string) {
+	// TODO it would be ideal if updateRecords could read the search field itself
 	icons, err := gtk.IconThemeGetDefault()
 	if err != nil {
 		log.Fatal(err)
@@ -397,7 +398,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	parent.AddAccelGroup(dbAG)
 	dbMenu.SetAccelGroup(dbAG)
 
-	openDB, err := gtk.MenuItemNewWithLabel("OpenDB")
+	openDB, err := gtk.MenuItemNewWithLabel("Open")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -405,7 +406,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	openDB.AddAccelerator("activate", dbAG, 't', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	dbMenu.Append(openDB)
 
-	saveDB, err := gtk.MenuItemNewWithLabel("SaveDB")
+	saveDB, err := gtk.MenuItemNewWithLabel("Save")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -420,19 +421,17 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	saveDB.AddAccelerator("activate", dbAG, 's', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	dbMenu.Append(saveDB)
 
-	newDB, err := gtk.MenuItemNewWithLabel("NewDB")
+	newDB, err := gtk.MenuItemNewWithLabel("New")
 	if err != nil {
 		log.Fatal(err)
 	}
 	newDB.Connect("activate", func() {
 		db := pwsafe.NewV3("", "")
 		app.propertiesWindow(db)
-		// TODO this annoying adds in the new DB even when cancel was clicked, fix that
-		app.dbs = append(app.dbs, db)
 	})
 	dbMenu.Append(newDB)
 
-	closeDB, err := gtk.MenuItemNewWithLabel("CloseDB")
+	closeDB, err := gtk.MenuItemNewWithLabel("Close")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -443,9 +442,8 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 		app.updateRecords("")
 	})
 	dbMenu.Append(closeDB)
-	// TODO some shortcut ctrl-w ? something better?
 
-	// TODO gui.go has a similar menuBar I need to combine into one with this
+	// TODO record.go has a similar menuBar I need to combine into one with this
 	recordMenuItem, err := gtk.MenuItemNewWithLabel("Record")
 	if err != nil {
 		log.Fatal(err)
@@ -469,7 +467,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	}
 	newRecord.Connect("activate", func() {
 		db, _ := app.getSelectedRecord()
-		recordWindow(db, &pwsafe.Record{})
+		app.recordWindow(db, &pwsafe.Record{})
 	})
 	newRecord.AddAccelerator("activate", recordAG, 'n', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(newRecord)
@@ -483,7 +481,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 		if record == nil {
 			app.errorDialog("Error retrieving record.")
 		}
-		recordWindow(db, &pwsafe.Record{})
+		app.recordWindow(db, &pwsafe.Record{})
 		db.DeleteRecord(record.Title)
 	})
 	recordMenu.Append(deleteRecord)
@@ -570,6 +568,7 @@ func (app *GoPWSafeGTK) fileMenu() *gtk.MenuItem {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// TODO the accel group is only associated with the main window so Ctrl-q doesn't work from the open window
 	parent := app.GetWindowByID(app.mainWindowID)
 	parent.AddAccelGroup(fileAG)
 	fileMenu.SetAccelGroup(fileAG)
