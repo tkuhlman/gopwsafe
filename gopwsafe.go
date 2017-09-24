@@ -3,7 +3,6 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"os"
 
@@ -11,12 +10,9 @@ import (
 )
 
 func main() {
-	dbFile := flag.String("f", "", "Path of the password database to open.")
-	flag.Parse()
-
 	app, err := gui.NewGoPWSafeGTK()
 	if err != nil {
 		log.Fatal(err)
 	}
-	os.Exit(app.Open(*dbFile))
+	os.Exit(app.Run(os.Args))
 }

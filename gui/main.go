@@ -19,13 +19,10 @@ import (
 // http://godoc.org/github.com/gotk3/gotk3
 // https://developer.gnome.org/gtk3/stable/
 
-// TODO I should try to define my Application and the associated windows, actions and menus in a
-// more coordinated way, see https://developer.gnome.org/gtk3/stable/ch01s04.html and
-// http://python-gtk-3-tutorial.readthedocs.io/en/latest/application.html and
+// GoPWSafeGTK wraps gtk.Application adding variables for state needed for this particular application
+// I'm using gtk.Application though gotk3 support for gio is lacking making the menus and associated
+// accelerators more painful to implement.
 // https://wiki.gnome.org/HowDoI/GtkApplication
-
-// TODO godocs
-// TODO work on the naming
 type GoPWSafeGTK struct {
 	*gtk.Application
 	accelGroup *gtk.AccelGroup
@@ -38,7 +35,8 @@ type GoPWSafeGTK struct {
 }
 
 func NewGoPWSafeGTK() (*GoPWSafeGTK, error) {
-	gtkApp, err := gtk.ApplicationNew("tkuhlman.gopwsafe", glib.APPLICATION_HANDLES_OPEN|glib.APPLICATION_NON_UNIQUE)
+	// TODO add glib.APPLICATION_HANDLES_OPEN and figure out how to pass in a path to openWindow
+	gtkApp, err := gtk.ApplicationNew("tkuhlman.gopwsafe", glib.APPLICATION_NON_UNIQUE)
 	if err != nil {
 		return nil, err
 	}
@@ -70,44 +68,23 @@ func NewGoPWSafeGTK() (*GoPWSafeGTK, error) {
 	return app, nil
 }
 
-func (app *GoPWSafeGTK) Open(initialDB string) int {
-	return app.Run([]string{initialDB})
-}
-
-//startUp handles the startUp signal for the GTK application
+//startUp handles the startUp signal for the GTK application by defining the main window.
 func (app *GoPWSafeGTK) startUp(gtkApp *gtk.Application) {
-	app.AddWindow(app.mainWindow(""))
-	// gotk3 support for adding an application menu is lacking
-	// TODO should I add all the windows here or leave them all flowing from the main window?
+	app.AddWindow(app.mainWindow())
 }
 
+//open handles the open and activate signals for the GTK application by starting the open window.
 func (app *GoPWSafeGTK) open(gtkApp *gtk.Application) {
-	// TODO where does the passed in initial db path come into play?
-	//app.openWindow(dbFile)
-	app.openWindow("")
+	app.openWindow("") // TODO handle a path passed to the application see, glib.APPLICATION_HANDLES_OPEN todo item
 }
 
-//TODO doc
-func (app *GoPWSafeGTK) setActions() {
-	// TODO implment actiongroups and accelgroups
-	// https://developer.gnome.org/gtk3/stable/gtk3-Keyboard-Accelerators.html
-	// https://developer.gnome.org/gtk3/stable/GtkActionGroup.html
-	// ** What I believe is I define acctions via the .Connect method, attaching to whatever is appropriate
-	// or possibly to an actionGroup. Actiongroups are attached to objects via the top level gtk methods
-	// Once actions are defined accelerators are defined that map keyboard shortcuts to these actions.
-	// acelerators can also be put into groups to be more easily attached to multiple windows or
-	// individually assigned. Starting off I should just put accelerators onto the main menubar then start
-	// to migrate the actions and accels into groups defined here or in a similar function
-
-}
-
-//TODO doc
+// shutdown handles the shutdown signal for the GTK application.
 func (app *GoPWSafeGTK) shutdown(gtkApp *gtk.Application) {
 	app.Quit()
 }
 
-// TODO dbFile should not be here, also add godoc
-func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
+// mainWindow is the primary application window all other windows are accesories to it.
+func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 
 	//TODO revisit the structure of the gui code, splitting more out into functions and in general better organizing things.
 
