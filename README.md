@@ -28,6 +28,7 @@ Features:
 # Roadmap
 - Add a timeout to clear the clipboard a minute or so after copying a password.
 - The ability copy/move entries from one open db to another.
+- A status bar to display messages, ie 'Copied Password to Clipboard', etc
 - Automatic storage of old passwords.
 - Add a file selection tool for opening.
 - The ability to diff two different databases.

@@ -28,8 +28,9 @@ import (
 // TODO work on the naming
 type GoPWSafeGTK struct {
 	*gtk.Application
-	conf config.PWSafeDBConfig
-	dbs  []pwsafe.DB
+	accelGroup *gtk.AccelGroup
+	conf       config.PWSafeDBConfig
+	dbs        []pwsafe.DB
 	// TODO having the recordStore/recordTree and window ids in here doesn't seem to be the best structure
 	recordStore  *gtk.TreeStore
 	recordTree   *gtk.TreeView
@@ -42,8 +43,14 @@ func NewGoPWSafeGTK() (*GoPWSafeGTK, error) {
 		return nil, err
 	}
 
+	ag, err := gtk.AccelGroupNew()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	app := &GoPWSafeGTK{
 		Application: gtkApp,
+		accelGroup:  ag,
 		conf:        config.Load(),
 		dbs:         make([]pwsafe.DB, 0),
 	}
@@ -70,9 +77,8 @@ func (app *GoPWSafeGTK) Open(initialDB string) int {
 //startUp handles the startUp signal for the GTK application
 func (app *GoPWSafeGTK) startUp(gtkApp *gtk.Application) {
 	app.AddWindow(app.mainWindow(""))
+	// gotk3 support for adding an application menu is lacking
 	// TODO should I add all the windows here or leave them all flowing from the main window?
-	// app.setActions()
-	// TODO add a popup menu, I think that is a context menu
 }
 
 func (app *GoPWSafeGTK) open(gtkApp *gtk.Application) {
@@ -113,6 +119,7 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 	app.mainWindowID = window.GetID()
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
+	window.AddAccelGroup(app.accelGroup)
 	window.Connect("destroy", func() {
 		// Check if any dbs need to be saved
 		for _, db := range app.dbs {
@@ -247,7 +254,7 @@ func (app *GoPWSafeGTK) mainWindow(dbFile string) *gtk.Window {
 	if err != nil {
 		log.Fatal(err)
 	}
-	vbox.PackStart(app.mainMenuBar(), false, false, 0) // TODO consider app.SetAppMenu or app.SetMenubar
+	vbox.PackStart(app.mainMenuBar(), false, false, 0)
 	vbox.PackStart(searchPaned, false, false, 0)
 	vbox.PackEnd(recordFrame, true, true, 0)
 	window.Add(vbox)
@@ -366,7 +373,6 @@ func (app *GoPWSafeGTK) updateRecords(search string) {
 	}
 }
 
-//TODO add a status bar and have it display messages like, copied username to clipboard, etc, see gtk.Statusbar
 // Configures the main menubar and keyboard shortcuts
 func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	// Note of this writing the gotk3 implementation of gtkBuilder is causing me errors hence building menus
@@ -562,23 +568,14 @@ func (app *GoPWSafeGTK) fileMenu() *gtk.MenuItem {
 		log.Fatal(err)
 	}
 	fileMenuItem.SetSubmenu(fileMenu)
-
-	// TODO the accelGroup should be defined somewhere else and just looked up
-	fileAG, err := gtk.AccelGroupNew()
-	if err != nil {
-		log.Fatal(err)
-	}
-	// TODO the accel group is only associated with the main window so Ctrl-q doesn't work from the open window
-	parent := app.GetWindowByID(app.mainWindowID)
-	parent.AddAccelGroup(fileAG)
-	fileMenu.SetAccelGroup(fileAG)
+	fileMenu.SetAccelGroup(app.accelGroup)
 
 	quit, err := gtk.MenuItemNewWithLabel("Quit")
 	if err != nil {
 		log.Fatal(err)
 	}
 	quit.Connect("activate", app.Quit)
-	quit.AddAccelerator("activate", fileAG, 'q', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	quit.AddAccelerator("activate", app.accelGroup, 'q', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	fileMenu.Append(quit)
 
 	return fileMenuItem

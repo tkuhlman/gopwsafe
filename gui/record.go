@@ -15,6 +15,7 @@ func (app *GoPWSafeGTK) recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	}
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle(record.Title)
+	window.AddAccelGroup(app.accelGroup)
 
 	title, err := gtk.LabelNew("Title")
 	if err != nil {

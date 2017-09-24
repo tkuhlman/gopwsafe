@@ -42,6 +42,7 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	}
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
+	window.AddAccelGroup(app.accelGroup)
 
 	window.Connect("destroy", func() {
 		window.Close()
