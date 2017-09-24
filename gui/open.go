@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
@@ -37,9 +36,7 @@ func (app *GoPWSafeGTK) openDB(path string, password string) bool {
 
 func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	window, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
 	window.AddAccelGroup(app.accelGroup)
@@ -50,14 +47,10 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	})
 
 	pathLabel, err := gtk.LabelNew("Password DB path: ")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 
 	pathBox, err := gtk.ComboBoxTextNewWithEntry()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	if dbFile != "" {
 		pathBox.AppendText(dbFile)
 	}
@@ -74,9 +67,7 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 				gtk.FILE_CHOOSER_ACTION_OPEN,
 				"Okay",
 				gtk.RESPONSE_ACCEPT)
-			if err != nil {
-				log.Fatal(err)
-			}
+			logError(err, "")
 			if gtk.ResponseType(filechooserdialog.Run()) == gtk.RESPONSE_ACCEPT {
 				pathBox.PrependText(filechooserdialog.GetFilename())
 				pathBox.SetActive(0)
@@ -86,21 +77,15 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	})
 
 	passwdLabel, err := gtk.LabelNew("Password: ")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 
 	passwordBox, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	passwordBox.SetVisibility(false)
 	// Pressing enter in the password box opens the db
 	dbDecrypt := func() {
 		text, err := passwordBox.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		app.openDB(pathBox.GetActiveText(), text)
 		window.Close()
 		app.GetWindowByID(app.mainWindowID).ShowAll()
@@ -108,17 +93,13 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 	passwordBox.Connect("activate", dbDecrypt)
 
 	openButton, err := gtk.ButtonNewWithLabel("Open")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 
 	openButton.Connect("clicked", dbDecrypt)
 
 	//layout
 	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	vbox.PackStart(app.openWindowMenuBar(), false, false, 0)
 	vbox.Add(pathLabel)
 	vbox.Add(pathBox)
@@ -133,27 +114,19 @@ func (app *GoPWSafeGTK) openWindow(dbFile string) {
 
 func (app *GoPWSafeGTK) openWindowMenuBar() *gtk.MenuBar {
 	mb, err := gtk.MenuBarNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	mb.Append(app.fileMenu())
 
 	// TODO below is too much a duplicate of what is in the mainMenuBar, problems and all
 	dbMenuItem, err := gtk.MenuItemNewWithLabel("DB")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	mb.Append(dbMenuItem)
 	dbMenu, err := gtk.MenuNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	dbMenuItem.SetSubmenu(dbMenu)
 
 	newDB, err := gtk.MenuItemNewWithLabel("NewDB")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	newDB.Connect("activate", func() {
 		db := pwsafe.NewV3("", "")
 		app.propertiesWindow(db)

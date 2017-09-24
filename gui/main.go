@@ -42,9 +42,7 @@ func NewGoPWSafeGTK() (*GoPWSafeGTK, error) {
 	}
 
 	ag, err := gtk.AccelGroupNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 
 	app := &GoPWSafeGTK{
 		Application: gtkApp,
@@ -89,10 +87,7 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 	//TODO revisit the structure of the gui code, splitting more out into functions and in general better organizing things.
 
 	window, err := gtk.ApplicationWindowNew(app.Application)
-	// TODO gotk3 handles errors different update my code accordingly
-	if err != nil {
-		log.Fatalf("Failed to create main window: %v", err)
-	}
+	logError(err, "Failed to create main window")
 	app.mainWindowID = window.GetID()
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
@@ -109,46 +104,30 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 	})
 
 	recordFrame, err := gtk.FrameNew("Records")
-	if err != nil {
-		log.Fatalf("Failed to create record frame: %v", err)
-	}
+	logError(err, "Failed to create record frame")
 	recordWin, err := gtk.ScrolledWindowNew(nil, nil)
-	if err != nil {
-		log.Fatalf("Failed to create scrolled window: %v", err)
-	}
+	logError(err, "Failed to create scrolled window")
 	recordWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 	recordFrame.SetShadowType(gtk.SHADOW_IN)
 	recordFrame.Add(recordWin)
 
 	app.recordTree, err = gtk.TreeViewNew()
-	if err != nil {
-		log.Fatalf("Failed to create tree view: %v", err)
-	}
+	logError(err, "Failed to create tree view")
 	recordWin.Add(app.recordTree)
 
 	cellPB, err := gtk.CellRendererPixbufNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	col1, err := gtk.TreeViewColumnNewWithAttribute("", cellPB, "pixbuf", 0)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	app.recordTree.AppendColumn(col1)
 	cellText, err := gtk.CellRendererTextNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	col2, err := gtk.TreeViewColumnNewWithAttribute("Name", cellText, "text", 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	app.recordTree.AppendColumn(col2)
 
 	app.recordStore, err = gtk.TreeStoreNew(glib.TYPE_OBJECT, glib.TYPE_STRING)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	app.recordTree.SetModel(app.recordStore)
 
 	app.updateRecords("")
@@ -156,9 +135,7 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 
 	// Prepare to select the first record in the tree on update
 	treeSelection, err := app.recordTree.GetSelection()
-	if err != nil {
-		log.Printf("Failed to get tree selection: %v", err)
-	}
+	logError(err, "Failed to get tree selection")
 	treeSelection.SetMode(gtk.SELECTION_SINGLE)
 
 	app.recordTree.Connect("row_activated", func() {
@@ -169,30 +146,20 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 	})
 
 	searchPaned, err := gtk.PanedNew(gtk.ORIENTATION_HORIZONTAL)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	searchLabel, err := gtk.LabelNew("Search: ")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	searchPaned.Pack1(searchLabel, false, false)
 	searchBox, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	searchBox.Connect("changed", func() {
 		text, err := searchBox.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		app.updateRecords(text)
 		app.recordTree.ExpandAll()
 		for i := range app.dbs {
 			firstEntryPath, err := gtk.TreePathNewFromString(strconv.Itoa(i) + ":0:0")
-			if err != nil {
-				log.Fatal(err)
-			}
+			logError(err, "")
 			treeSelection.SelectPath(firstEntryPath)
 		}
 	})
@@ -228,9 +195,7 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 
 	// layout
 	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	vbox.PackStart(app.mainMenuBar(), false, false, 0)
 	vbox.PackStart(searchPaned, false, false, 0)
 	vbox.PackEnd(recordFrame, true, true, 0)
@@ -246,7 +211,6 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 	selection, err := app.recordTree.GetSelection()
 	if err != nil {
-		// TODO amoung the many errors to decide on how to handle
 		log.Printf("Failed to determine record tree selection: %v", err)
 	}
 	_, iter, ok := selection.GetSelected()
@@ -254,25 +218,19 @@ func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 		return nil, nil
 	}
 	rowValue, err := app.recordStore.GetValue(iter, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	path, err := app.recordStore.GetPath(iter)
 	if err != nil {
 		log.Printf("Failed to determine selected path: %v", err)
 	}
 	activeDB, err := strconv.Atoi(strings.Split(path.String(), ":")[0])
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	db := app.dbs[activeDB]
 
 	// TODO fail gracefully if a non-leaf is selected.
 
 	value, err := rowValue.GetString()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	record, success := db.GetRecord(value)
 	if !success {
 		return db, nil
@@ -283,21 +241,13 @@ func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 func (app *GoPWSafeGTK) updateRecords(search string) {
 	// TODO it would be ideal if updateRecords could read the search field itself
 	icons, err := gtk.IconThemeGetDefault()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	rootIcon, err := icons.LoadIcon("dialog-password", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	folderIcon, err := icons.LoadIcon("folder", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	recordIcon, err := icons.LoadIcon("text-x-generic", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 
 	app.recordStore.Clear()
 	for i, db := range app.dbs {
@@ -307,13 +257,9 @@ func (app *GoPWSafeGTK) updateRecords(search string) {
 		}
 		dbRoot := app.recordStore.Append(nil)
 		err := app.recordStore.SetValue(dbRoot, 0, rootIcon)
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		err = app.recordStore.SetValue(dbRoot, 1, name)
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 
 		searchLower := strings.ToLower(search)
 		for _, groupName := range db.Groups() {
@@ -326,24 +272,16 @@ func (app *GoPWSafeGTK) updateRecords(search string) {
 			if len(matches) > 0 {
 				group := app.recordStore.Append(dbRoot)
 				err := app.recordStore.SetValue(group, 0, folderIcon)
-				if err != nil {
-					log.Fatal(err)
-				}
+				logError(err, "")
 				err = app.recordStore.SetValue(group, 1, groupName)
-				if err != nil {
-					log.Fatal(err)
-				}
+				logError(err, "")
 
 				for _, recordName := range matches {
 					record := app.recordStore.Append(group)
 					err := app.recordStore.SetValue(record, 0, recordIcon)
-					if err != nil {
-						log.Fatal(err)
-					}
+					logError(err, "")
 					err = app.recordStore.SetValue(record, 1, recordName)
-					if err != nil {
-						log.Fatal(err)
-					}
+					logError(err, "")
 				}
 			}
 		}
@@ -359,40 +297,28 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	// TODO I need to think about how to split up the menu into sections I can reuse for different windows.
 	// fix all other menubar methods also
 	mb, err := gtk.MenuBarNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	mb.Append(app.fileMenu())
 
 	dbMenuItem, err := gtk.MenuItemNewWithLabel("DB")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	mb.Append(dbMenuItem)
 	dbMenu, err := gtk.MenuNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	dbMenuItem.SetSubmenu(dbMenu)
 	dbAG, err := gtk.AccelGroupNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	parent.AddAccelGroup(dbAG)
 	dbMenu.SetAccelGroup(dbAG)
 
 	openDB, err := gtk.MenuItemNewWithLabel("Open")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	openDB.Connect("activate", func() { app.openWindow("") })
 	openDB.AddAccelerator("activate", dbAG, 't', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	dbMenu.Append(openDB)
 
 	saveDB, err := gtk.MenuItemNewWithLabel("Save")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	saveDB.Connect("activate", func() {
 		db, _ := app.getSelectedRecord()
 		if db != nil {
@@ -405,9 +331,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	dbMenu.Append(saveDB)
 
 	newDB, err := gtk.MenuItemNewWithLabel("New")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	newDB.Connect("activate", func() {
 		db := pwsafe.NewV3("", "")
 		app.propertiesWindow(db)
@@ -415,9 +339,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	dbMenu.Append(newDB)
 
 	closeDB, err := gtk.MenuItemNewWithLabel("Close")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	closeDB.Connect("activate", func() {
 		//TODO close the selected or pop up a dialog not just the last
 		app.dbs = app.dbs[:len(app.dbs)-1]
@@ -428,26 +350,18 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 
 	// TODO record.go has a similar menuBar I need to combine into one with this
 	recordMenuItem, err := gtk.MenuItemNewWithLabel("Record")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	mb.Append(recordMenuItem)
 	recordMenu, err := gtk.MenuNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	recordMenuItem.SetSubmenu(recordMenu)
 	recordAG, err := gtk.AccelGroupNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	parent.AddAccelGroup(recordAG)
 	recordMenu.SetAccelGroup(recordAG)
 
 	newRecord, err := gtk.MenuItemNewWithLabel("New")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	newRecord.Connect("activate", func() {
 		db, _ := app.getSelectedRecord()
 		app.recordWindow(db, &pwsafe.Record{})
@@ -456,9 +370,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	recordMenu.Append(newRecord)
 
 	deleteRecord, err := gtk.MenuItemNewWithLabel("Delete")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	deleteRecord.Connect("activate", func() {
 		db, record := app.getSelectedRecord()
 		if record == nil {
@@ -473,13 +385,9 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	// Also what happens if the selection is different than the open window right now it will follow the
 	// selection which is bad behavior
 	clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	copyUser, err := gtk.MenuItemNewWithLabel("Copy Username")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	copyUser.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
 		if record == nil {
@@ -491,9 +399,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	recordMenu.Append(copyUser)
 
 	copyPassword, err := gtk.MenuItemNewWithLabel("Copy Password")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	copyPassword.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
 		if record == nil {
@@ -505,9 +411,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	recordMenu.Append(copyPassword)
 
 	openURL, err := gtk.MenuItemNewWithLabel("Open URL")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	openURL.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
 		if record == nil {
@@ -519,9 +423,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	recordMenu.Append(openURL)
 
 	copyURL, err := gtk.MenuItemNewWithLabel("Copy URL")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	copyURL.Connect("activate", func() {
 		_, record := app.getSelectedRecord()
 		if record == nil {
@@ -537,23 +439,30 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 
 func (app *GoPWSafeGTK) fileMenu() *gtk.MenuItem {
 	fileMenuItem, err := gtk.MenuItemNewWithLabel("File")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	fileMenu, err := gtk.MenuNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	fileMenuItem.SetSubmenu(fileMenu)
 	fileMenu.SetAccelGroup(app.accelGroup)
 
 	quit, err := gtk.MenuItemNewWithLabel("Quit")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	quit.Connect("activate", app.Quit)
 	quit.AddAccelerator("activate", app.accelGroup, 'q', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	fileMenu.Append(quit)
 
 	return fileMenuItem
+}
+
+// logError handles errors that are unexpected to occur in normal funtioning of the app. If provided
+// preface string will be used to build a new error before logging.
+// string is used to preface the error
+func logError(err error, preface string) {
+	if err != nil {
+		if preface == "" {
+			log.Fatal(err)
+		} else {
+			log.Fatalf("%s: %v", preface, err)
+		}
+	}
 }

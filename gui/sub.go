@@ -26,9 +26,7 @@ func (app *GoPWSafeGTK) errorDialog(msg string) {
 
 func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 	window, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	dbName := db.GetName()
 	window.SetTitle(dbName)
@@ -39,102 +37,66 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 	}
 
 	name, err := gtk.LabelNew("DB Name")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	nameValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	nameValue.SetText(dbName)
 	nameValue.SetHExpand(true)
 
 	savePath, err := gtk.LabelNew("Save path")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	savePathValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	savePathValue.SetText(v3db.LastSavePath)
 	savePathValue.SetHExpand(true)
 
 	saveTime, err := gtk.LabelNew(fmt.Sprintf("Last Save at %v", v3db.LastSave.Format(time.RFC3339)))
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 
 	passwordLabel, err := gtk.LabelNew("New Password")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	passwordValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	passwordValue.SetVisibility(false)
 	passwordValue.SetHExpand(true)
 
 	password2Label, err := gtk.LabelNew("Repeated New Password")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	password2Value, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	password2Value.SetVisibility(false)
 	password2Value.SetHExpand(true)
 
 	descriptionFrame, err := gtk.FrameNew("Description")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	descriptionWin, err := gtk.ScrolledWindowNew(nil, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	descriptionWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 	textView, err := gtk.TextViewNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	textView.SetWrapMode(gtk.WRAP_WORD)
 	buffer, err := textView.GetBuffer()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	buffer.SetText(v3db.Description)
 	descriptionWin.Add(textView)
 	descriptionFrame.Add(descriptionWin)
 
 	saveButton, err := gtk.ButtonNewWithLabel("Save")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	saveButton.Connect("clicked", func() {
 		v3db.Name, err = nameValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 
 		start := buffer.GetStartIter()
 		end := buffer.GetEndIter()
 		v3db.Description, err = buffer.GetText(start, end, true)
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 
 		pw, err := passwordValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		if pw != "" {
 			pw2, err := password2Value.GetText()
-			if err != nil {
-				log.Fatal(err)
-			}
+			logError(err, "")
 			if pw != pw2 {
 				app.errorDialog("Error Passwords don't match")
 			} else if err := db.SetPassword(pw); err != nil {
@@ -144,9 +106,7 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 		}
 
 		path, err := savePathValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 
 		var new bool
 		v3db := db.(*pwsafe.V3)
@@ -163,9 +123,7 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 		window.Destroy()
 	})
 	cancelButton, err := gtk.ButtonNewWithLabel("Cancel")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	cancelButton.Connect("clicked", func() {
 		window.Destroy()
 	})
@@ -174,21 +132,15 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 
 	//layout
 	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 
 	grid, err := gtk.GridNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	vbox.PackStart(grid, false, true, 1)
 	grid.SetColumnSpacing(2)
 
 	hbox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	grid.Attach(name, 0, 0, 1, 1)
 	grid.Attach(nameValue, 1, 0, 1, 1)
 
@@ -206,9 +158,7 @@ func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
 	vbox.PackStart(descriptionFrame, true, true, 0)
 
 	hbox, err = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	hbox.Add(saveButton)
 	hbox.Add(cancelButton)
 	vbox.PackStart(hbox, false, false, 0)

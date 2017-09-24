@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"log"
 	"time"
 
 	"github.com/gotk3/gotk3/gtk"
@@ -10,141 +9,91 @@ import (
 
 func (app *GoPWSafeGTK) recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	window, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle(record.Title)
 	window.AddAccelGroup(app.accelGroup)
 
 	title, err := gtk.LabelNew("Title")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	titleValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	titleValue.SetText(record.Title)
 	titleValue.SetHExpand(true)
 
 	group, err := gtk.LabelNew("Group")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	groupValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	groupValue.SetText(record.Group)
 	groupValue.SetHExpand(true)
 
 	user, err := gtk.LabelNew("Username")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	userValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	userValue.SetText(record.Username)
 	userValue.SetHExpand(true)
 
 	url, err := gtk.LabelNew("URL")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	urlValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	urlValue.SetText(record.URL)
 	urlValue.SetHExpand(true)
 
 	password, err := gtk.LabelNew("Password")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	passwordValue, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	passwordValue.SetVisibility(false)
 	passwordValue.SetText(record.Password)
 	passwordValue.SetHExpand(true)
 	showPassword, err := gtk.ButtonNewWithLabel("show/hide")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	showPassword.Connect("clicked", func() {
 		passwordValue.SetVisibility(!passwordValue.GetVisibility())
 	})
 
 	modTime, err := gtk.LabelNew("Last Modification")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	modValue, err := gtk.LabelNew(record.ModTime.Format(time.UnixDate))
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	modValue.SetHExpand(true)
 
 	notesFrame, err := gtk.FrameNew("Notes")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	notesWin, err := gtk.ScrolledWindowNew(nil, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	notesWin.SetPolicy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 	textView, err := gtk.TextViewNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	textView.SetWrapMode(gtk.WRAP_WORD)
 	buffer, err := textView.GetBuffer()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	buffer.SetText(record.Notes)
 	notesWin.Add(textView)
 	notesFrame.Add(notesWin)
 
 	okayButton, err := gtk.ButtonNewWithLabel("Okay")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	okayButton.Connect("clicked", func() {
 		// Grab values
 		origName := record.Title
 		record.Title, err = titleValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		record.Group, err = groupValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		record.Username, err = userValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		record.URL, err = urlValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		record.Password, err = passwordValue.GetText()
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 		start := buffer.GetStartIter()
 		end := buffer.GetEndIter()
 		record.Notes, err = buffer.GetText(start, end, true)
-		if err != nil {
-			log.Fatal(err)
-		}
+		logError(err, "")
 
 		// Update the record
 		if origName != record.Title { // The Record title has changed
@@ -155,26 +104,20 @@ func (app *GoPWSafeGTK) recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 		window.Destroy()
 	})
 	cancelButton, err := gtk.ButtonNewWithLabel("Cancel")
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	cancelButton.Connect("clicked", func() {
 		window.Destroy()
 	})
 
 	//layout
 	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	// TODO figure out how to add record specific menu bar including ctrl-w to close this window and
 	// all the mainMenuBar record items but targetted at the window record not the selection
 	//	vbox.PackStart(recordMenuBar(window, record), false, false, 0)
 
 	grid, err := gtk.GridNew()
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	vbox.PackStart(grid, false, true, 1)
 	grid.SetColumnSpacing(2)
 
@@ -199,9 +142,7 @@ func (app *GoPWSafeGTK) recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 
 	vbox.PackStart(notesFrame, true, true, 0)
 	hbox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 1)
-	if err != nil {
-		log.Fatal(err)
-	}
+	logError(err, "")
 	hbox.Add(okayButton)
 	hbox.Add(cancelButton)
 	vbox.PackStart(hbox, false, false, 0)
