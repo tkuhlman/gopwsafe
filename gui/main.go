@@ -98,7 +98,6 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 			if db.NeedsSave() {
 				app.propertiesWindow(db)
 				app.errorDialog(fmt.Sprintf("Unsaved changes for db %v", db.GetName()))
-				// TODO it seems that right now cancelling the error dialog kills all the windows
 			}
 		}
 	})
@@ -338,6 +337,27 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	})
 	dbMenu.Append(newDB)
 
+	newRecord, err := gtk.MenuItemNewWithLabel("New Record")
+	logError(err, "")
+	newRecord.Connect("activate", func() {
+		db, _ := app.getSelectedRecord()
+		app.recordWindow(db, &pwsafe.Record{})
+	})
+	newRecord.AddAccelerator("activate", app.accelGroup, 'n', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	dbMenu.Append(newRecord)
+
+	deleteRecord, err := gtk.MenuItemNewWithLabel("Delete Record")
+	logError(err, "")
+	deleteRecord.Connect("activate", func() {
+		db, record := app.getSelectedRecord()
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
+		app.recordWindow(db, &pwsafe.Record{})
+		db.DeleteRecord(record.Title)
+	})
+	dbMenu.Append(deleteRecord)
+
 	closeDB, err := gtk.MenuItemNewWithLabel("Close")
 	logError(err, "")
 	closeDB.Connect("activate", func() {
@@ -348,91 +368,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	})
 	dbMenu.Append(closeDB)
 
-	// TODO record.go has a similar menuBar I need to combine into one with this
-	recordMenuItem, err := gtk.MenuItemNewWithLabel("Record")
-	logError(err, "")
-	mb.Append(recordMenuItem)
-	recordMenu, err := gtk.MenuNew()
-	logError(err, "")
-	recordMenuItem.SetSubmenu(recordMenu)
-	recordAG, err := gtk.AccelGroupNew()
-	logError(err, "")
-	parent.AddAccelGroup(recordAG)
-	recordMenu.SetAccelGroup(recordAG)
-
-	newRecord, err := gtk.MenuItemNewWithLabel("New")
-	logError(err, "")
-	newRecord.Connect("activate", func() {
-		db, _ := app.getSelectedRecord()
-		app.recordWindow(db, &pwsafe.Record{})
-	})
-	newRecord.AddAccelerator("activate", recordAG, 'n', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
-	recordMenu.Append(newRecord)
-
-	deleteRecord, err := gtk.MenuItemNewWithLabel("Delete")
-	logError(err, "")
-	deleteRecord.Connect("activate", func() {
-		db, record := app.getSelectedRecord()
-		if record == nil {
-			app.errorDialog("Error retrieving record.")
-		}
-		app.recordWindow(db, &pwsafe.Record{})
-		db.DeleteRecord(record.Title)
-	})
-	recordMenu.Append(deleteRecord)
-
-	// TODO all of the getSelectedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
-	// Also what happens if the selection is different than the open window right now it will follow the
-	// selection which is bad behavior
-	clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
-	logError(err, "")
-	copyUser, err := gtk.MenuItemNewWithLabel("Copy Username")
-	logError(err, "")
-	copyUser.Connect("activate", func() {
-		_, record := app.getSelectedRecord()
-		if record == nil {
-			app.errorDialog("Error retrieving record.")
-		}
-		clipboard.SetText(record.Username)
-	})
-	copyUser.AddAccelerator("activate", recordAG, 'u', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
-	recordMenu.Append(copyUser)
-
-	copyPassword, err := gtk.MenuItemNewWithLabel("Copy Password")
-	logError(err, "")
-	copyPassword.Connect("activate", func() {
-		_, record := app.getSelectedRecord()
-		if record == nil {
-			app.errorDialog("Error retrieving record.")
-		}
-		clipboard.SetText(record.Password)
-	})
-	copyPassword.AddAccelerator("activate", recordAG, 'p', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
-	recordMenu.Append(copyPassword)
-
-	openURL, err := gtk.MenuItemNewWithLabel("Open URL")
-	logError(err, "")
-	openURL.Connect("activate", func() {
-		_, record := app.getSelectedRecord()
-		if record == nil {
-			app.errorDialog("Error retrieving record.")
-		}
-		open.Start(record.URL)
-	})
-	openURL.AddAccelerator("activate", recordAG, 'o', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
-	recordMenu.Append(openURL)
-
-	copyURL, err := gtk.MenuItemNewWithLabel("Copy URL")
-	logError(err, "")
-	copyURL.Connect("activate", func() {
-		_, record := app.getSelectedRecord()
-		if record == nil {
-			app.errorDialog("Error retrieving record.")
-		}
-		clipboard.SetText(record.URL)
-	})
-	copyURL.AddAccelerator("activate", recordAG, 'l', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
-	recordMenu.Append(copyURL)
+	mb.Append(app.recordMenu(parent, nil))
 
 	return mb
 }
@@ -452,6 +388,70 @@ func (app *GoPWSafeGTK) fileMenu() *gtk.MenuItem {
 	fileMenu.Append(quit)
 
 	return fileMenuItem
+}
+
+func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *gtk.MenuItem {
+	if record == nil {
+		_, record = app.getSelectedRecord()
+	}
+	recordMenuItem, err := gtk.MenuItemNewWithLabel("Record")
+	logError(err, "")
+	recordMenu, err := gtk.MenuNew()
+	logError(err, "")
+	recordMenuItem.SetSubmenu(recordMenu)
+	recordAG, err := gtk.AccelGroupNew()
+	logError(err, "")
+	parent.AddAccelGroup(recordAG)
+	recordMenu.SetAccelGroup(recordAG)
+
+	// TODO all of the getSelectedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
+	clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+	logError(err, "")
+	copyUser, err := gtk.MenuItemNewWithLabel("Copy Username")
+	logError(err, "")
+	copyUser.Connect("activate", func() {
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
+		clipboard.SetText(record.Username)
+	})
+	copyUser.AddAccelerator("activate", recordAG, 'u', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(copyUser)
+
+	copyPassword, err := gtk.MenuItemNewWithLabel("Copy Password")
+	logError(err, "")
+	copyPassword.Connect("activate", func() {
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
+		clipboard.SetText(record.Password)
+	})
+	copyPassword.AddAccelerator("activate", recordAG, 'p', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(copyPassword)
+
+	openURL, err := gtk.MenuItemNewWithLabel("Open URL")
+	logError(err, "")
+	openURL.Connect("activate", func() {
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
+		open.Start(record.URL)
+	})
+	openURL.AddAccelerator("activate", recordAG, 'o', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(openURL)
+
+	copyURL, err := gtk.MenuItemNewWithLabel("Copy URL")
+	logError(err, "")
+	copyURL.Connect("activate", func() {
+		if record == nil {
+			app.errorDialog("Error retrieving record.")
+		}
+		clipboard.SetText(record.URL)
+	})
+	copyURL.AddAccelerator("activate", recordAG, 'l', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	recordMenu.Append(copyURL)
+
+	return recordMenuItem
 }
 
 // logError handles errors that are unexpected to occur in normal funtioning of the app. If provided

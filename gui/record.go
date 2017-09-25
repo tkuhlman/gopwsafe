@@ -3,6 +3,7 @@ package gui
 import (
 	"time"
 
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
@@ -112,9 +113,7 @@ func (app *GoPWSafeGTK) recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	//layout
 	vbox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 1)
 	logError(err, "")
-	// TODO figure out how to add record specific menu bar including ctrl-w to close this window and
-	// all the mainMenuBar record items but targetted at the window record not the selection
-	//	vbox.PackStart(recordMenuBar(window, record), false, false, 0)
+	vbox.PackStart(app.recordMenuBar(window, record), false, false, 0)
 
 	grid, err := gtk.GridNew()
 	logError(err, "")
@@ -152,56 +151,30 @@ func (app *GoPWSafeGTK) recordWindow(db pwsafe.DB, record *pwsafe.Record) {
 	window.ShowAll()
 }
 
-/*
 // Configures the record menubar and keyboard shortcuts
-func recordMenuBar(window *gtk.Window, record *pwsafe.Record) *gtk.Widget {
-	clipboard := gtk.NewClipboardGetForDisplay(gdk.DisplayGetDefault(), gdk.SELECTION_CLIPBOARD)
+func (app *GoPWSafeGTK) recordMenuBar(parent *gtk.Window, record *pwsafe.Record) *gtk.MenuBar {
+	mb, err := gtk.MenuBarNew()
+	logError(err, "")
 
-	actionGroup := gtk.NewActionGroup("record")
-	actionGroup.AddAction(gtk.NewAction("RecordMenu", "Record", "", ""))
+	fileMenuItem, err := gtk.MenuItemNewWithLabel("File")
+	logError(err, "")
+	fileMenu, err := gtk.MenuNew()
+	logError(err, "")
+	fileMenuItem.SetSubmenu(fileMenu)
 
-	copyUser := gtk.NewAction("CopyUsername", "Copy username to clipboard", "", "")
-	copyUser.Connect("activate", func() { clipboard.SetText(record.Username) })
-	actionGroup.AddActionWithAccel(copyUser, "<control>u")
+	ag, err := gtk.AccelGroupNew()
+	logError(err, "")
+	fileMenu.SetAccelGroup(ag)
+	parent.AddAccelGroup(ag)
 
-	copyPassword := gtk.NewAction("CopyPassword", "Copy password to clipboard", "", "")
-	copyPassword.Connect("activate", func() { clipboard.SetText(record.Password) })
-	actionGroup.AddActionWithAccel(copyPassword, "<control>p")
+	close, err := gtk.MenuItemNewWithLabel("Close")
+	logError(err, "")
+	close.Connect("activate", parent.Destroy)
+	close.AddAccelerator("activate", ag, 'w', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	fileMenu.Append(close)
 
-	openURL := gtk.NewAction("OpenURL", "Open URL", "", "")
-	// gtk-go hasn't yet implemented gtk_show_uri so using github.com/skratchdot/open-golang/open
-	// todo it opens the url but should switch to that app also.
-	openURL.Connect("activate", func() { open.Start(record.URL) })
-	actionGroup.AddActionWithAccel(openURL, "<control>o")
+	mb.Append(fileMenuItem)
+	mb.Append(app.recordMenu(parent, record))
 
-	copyURL := gtk.NewAction("CopyURL", "Copy URL to clipboard", "", "")
-	copyURL.Connect("activate", func() { clipboard.SetText(record.URL) })
-	actionGroup.AddActionWithAccel(copyURL, "<control>l")
-
-	closeWindow := gtk.NewAction("CloseWindow", "", "", gtk.STOCK_CLOSE)
-	closeWindow.Connect("activate", window.Destroy)
-	actionGroup.AddActionWithAccel(closeWindow, "<control>w")
-
-	uiInfo := `
-<ui>
-  <menubar name='MenuBar'>
-    <menu action='RecordMenu'>
-      <menuitem action='CopyUsername' />
-      <menuitem action='CopyPassword' />
-      <menuitem action='OpenURL' />
-      <menuitem action='CopyURL' />
-      <menuitem action='CloseWindow' />
-    </menu>
-  </menubar>
-</ui>
-`
-	// todo add a popup menu, at least I think that is a context menu
-	uiManager := gtk.NewUIManager()
-	uiManager.AddUIFromString(uiInfo)
-	uiManager.InsertActionGroup(actionGroup, 0)
-	accelGroup := uiManager.GetAccelGroup()
-	window.AddAccelGroup(accelGroup)
-
-	return uiManager.GetWidget("/MenuBar")
+	return mb
 }
-*/

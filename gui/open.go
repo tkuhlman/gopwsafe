@@ -117,7 +117,6 @@ func (app *GoPWSafeGTK) openWindowMenuBar() *gtk.MenuBar {
 	logError(err, "")
 	mb.Append(app.fileMenu())
 
-	// TODO below is too much a duplicate of what is in the mainMenuBar, problems and all
 	dbMenuItem, err := gtk.MenuItemNewWithLabel("DB")
 	logError(err, "")
 	mb.Append(dbMenuItem)

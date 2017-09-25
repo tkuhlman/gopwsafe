@@ -22,6 +22,8 @@ func (app *GoPWSafeGTK) errorDialog(msg string) {
 	messagedialog.Response(gtk.RESPONSE_CLOSE)
 	messagedialog.Run()
 	messagedialog.Destroy()
+	// TODO hitting the x in the corner to close the dialog window crashes the app, I think this is a
+	// gotk3 bug but need to investigate more
 }
 
 func (app *GoPWSafeGTK) propertiesWindow(db pwsafe.DB) {
