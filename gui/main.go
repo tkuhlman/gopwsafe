@@ -163,7 +163,6 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 		}
 	})
 	searchBox.Connect("activate", func() {
-		// TODO this duplicates the recordTree behaver, dedup
 		db, record := app.getSelectedRecord()
 		if record != nil {
 			app.recordWindow(db, record)
@@ -202,7 +201,7 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 	window.SetDefaultSize(800, 800)
 	window.Hide() // Start hidden, expose when a db is opened
 
-	return &window.Window // TODO is this really what I want?
+	return &window.Window
 }
 
 // getSelectedRecord returns a pwsafe.DB and pwsafe.Record matching the selected entry.
@@ -293,8 +292,6 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	// directly in the code
 	parent := app.GetWindowByID(app.mainWindowID)
 
-	// TODO I need to think about how to split up the menu into sections I can reuse for different windows.
-	// fix all other menubar methods also
 	mb, err := gtk.MenuBarNew()
 	logError(err, "")
 	mb.Append(app.fileMenu())
