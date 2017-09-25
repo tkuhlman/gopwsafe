@@ -388,9 +388,6 @@ func (app *GoPWSafeGTK) fileMenu() *gtk.MenuItem {
 }
 
 func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *gtk.MenuItem {
-	if record == nil {
-		_, record = app.getSelectedRecord()
-	}
 	recordMenuItem, err := gtk.MenuItemNewWithLabel("Record")
 	logError(err, "")
 	recordMenu, err := gtk.MenuNew()
@@ -401,16 +398,18 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 	parent.AddAccelGroup(recordAG)
 	recordMenu.SetAccelGroup(recordAG)
 
-	// TODO all of the getSelectedRecord calls for menu items could fail more gracefully if nothing is selected or a non-leaf selected.
 	clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
 	logError(err, "")
 	copyUser, err := gtk.MenuItemNewWithLabel("Copy Username")
 	logError(err, "")
 	copyUser.Connect("activate", func() {
 		if record == nil {
-			app.errorDialog("Error retrieving record.")
+			if selectedRecord, ok := app.checkSelectedRecord(); ok {
+				clipboard.SetText(selectedRecord.Username)
+			}
+		} else {
+			clipboard.SetText(record.Username)
 		}
-		clipboard.SetText(record.Username)
 	})
 	copyUser.AddAccelerator("activate", recordAG, 'u', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(copyUser)
@@ -419,9 +418,12 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 	logError(err, "")
 	copyPassword.Connect("activate", func() {
 		if record == nil {
-			app.errorDialog("Error retrieving record.")
+			if selectedRecord, ok := app.checkSelectedRecord(); ok {
+				clipboard.SetText(selectedRecord.Password)
+			}
+		} else {
+			clipboard.SetText(record.Password)
 		}
-		clipboard.SetText(record.Password)
 	})
 	copyPassword.AddAccelerator("activate", recordAG, 'p', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(copyPassword)
@@ -430,9 +432,12 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 	logError(err, "")
 	openURL.Connect("activate", func() {
 		if record == nil {
-			app.errorDialog("Error retrieving record.")
+			if selectedRecord, ok := app.checkSelectedRecord(); ok {
+				open.Start(selectedRecord.URL)
+			}
+		} else {
+			open.Start(record.URL)
 		}
-		open.Start(record.URL)
 	})
 	openURL.AddAccelerator("activate", recordAG, 'o', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(openURL)
@@ -441,14 +446,28 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 	logError(err, "")
 	copyURL.Connect("activate", func() {
 		if record == nil {
-			app.errorDialog("Error retrieving record.")
+			if selectedRecord, ok := app.checkSelectedRecord(); ok {
+				clipboard.SetText(selectedRecord.URL)
+			}
+		} else {
+			clipboard.SetText(record.URL)
 		}
-		clipboard.SetText(record.URL)
 	})
 	copyURL.AddAccelerator("activate", recordAG, 'l', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(copyURL)
 
 	return recordMenuItem
+}
+
+// checkSelectedRecord retrieves the selected record, validates it and either
+// pops up an error dialog or returns the record.
+func (app *GoPWSafeGTK) checkSelectedRecord() (*pwsafe.Record, bool) {
+	_, selectedRecord := app.getSelectedRecord()
+	if selectedRecord == nil {
+		app.errorDialog("Error retrieving record.")
+		return nil, false
+	}
+	return selectedRecord, true
 }
 
 // logError handles errors that are unexpected to occur in normal funtioning of the app. If provided
