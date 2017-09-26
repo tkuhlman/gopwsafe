@@ -238,14 +238,20 @@ func (app *GoPWSafeGTK) getSelectedRecord() (pwsafe.DB, *pwsafe.Record) {
 
 func (app *GoPWSafeGTK) updateRecords(search string) {
 	// TODO it would be ideal if updateRecords could read the search field itself
+	var iconErrors []error
 	icons, err := gtk.IconThemeGetDefault()
-	logError(err, "")
+	iconErrors = append(iconErrors, err)
 	rootIcon, err := icons.LoadIcon("dialog-password", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
-	logError(err, "")
+	iconErrors = append(iconErrors, err)
 	folderIcon, err := icons.LoadIcon("folder", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
-	logError(err, "")
+	iconErrors = append(iconErrors, err)
 	recordIcon, err := icons.LoadIcon("text-x-generic", 16, gtk.ICON_LOOKUP_FORCE_SIZE)
-	logError(err, "")
+	iconErrors = append(iconErrors, err)
+	for _, e := range iconErrors {
+		if e != nil {
+			log.Print(e)
+		}
+	}
 
 	app.recordStore.Clear()
 	for i, db := range app.dbs {
