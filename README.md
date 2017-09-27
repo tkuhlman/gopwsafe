@@ -22,13 +22,23 @@ Features:
 - Tree representation based on db and group.
 - Keyboard shortcuts, for copy/paste, opening url in a browser, etc.
 
+# Installation
+[Gotk3](https://github.com/gotk3/gotk3) requires GTK3 to be installed, on linux this is standard likely there is nothing you need to do.
+For a mac gtk3 should be explicitly installed, for example with brew:
+
+    brew install gtk+3
+    brew install adwaita-icon-theme
+    
+After the dependencies are installed run the compiled binary as normal. If you wish to make it into a mac application, I suggest following [these instructions](http://brizzled.clapper.org/blog/2008/10/22/wrapping-an-executable-inside-a-mac-os-x-application/).
+
 # References
 - V3 Password Safe Specification - https://github.com/pwsafe/pwsafe/blob/master/docs/formatV3.txt
 
 # Roadmap
 - Add a timeout to clear the clipboard a minute or so after copying a password.
 - The ability copy/move entries from one open db to another.
-- A status bar to display messages, ie 'Copied Password to Clipboard', etc
+- Make the Mac version more mac like, ie don't startup unfocused, top level menu, working command key not just control, etc.
+- A status bar to display messages, ie 'Copied Password to Clipboard', etc.
 - Automatic storage of old passwords.
 - Add a file selection tool for opening.
 - The ability to diff two different databases.
