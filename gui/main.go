@@ -92,7 +92,7 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 	window.SetPosition(gtk.WIN_POS_CENTER)
 	window.SetTitle("GoPWSafe")
 	window.AddAccelGroup(app.accelGroup)
-	window.Connect("destroy", func() {
+	window.Window.Connect("destroy", func() {
 		// Check if any dbs need to be saved
 		for _, db := range app.dbs {
 			if db.NeedsSave() {
@@ -180,7 +180,7 @@ func (app *GoPWSafeGTK) mainWindow() *gtk.Window {
 	})
 	// By default when switch focus back to this window it hilights both the search box and selected
 	// item in the tree, making it hard to tell where the focus is, this fixes it
-	window.Connect("style-updated", func() {
+	window.Window.Connect("style-updated", func() {
 		if searchBox.Widget.HasFocus() {
 			recordFrame.Bin.Container.Widget.SetStateFlags(gtk.STATE_FLAG_BACKDROP, true)
 			searchBox.Widget.SetStateFlags(gtk.STATE_FLAG_FOCUSED, true)

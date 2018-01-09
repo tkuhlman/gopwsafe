@@ -17,7 +17,7 @@
   branch = "master"
   name = "github.com/gotk3/gotk3"
   packages = ["cairo","gdk","glib","gtk","pango"]
-  revision = "52a90dfa7c0eaa36b58e0f1d8f1e3efcc462ceee"
+  revision = "ddbc6a9ff106af4886c8215d09831cc4cfceff2e"
 
 [[projects]]
   name = "github.com/pborman/uuid"
@@ -40,20 +40,20 @@
 [[projects]]
   name = "github.com/stretchr/testify"
   packages = ["assert"]
-  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
-  version = "v1.1.4"
+  revision = "b91bfb9ebec76498946beb6af7c0230c7cc7ba6c"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["twofish"]
-  revision = "faadfbdc035307d901e69eea569f5dda451a3ee3"
+  revision = "0fcca4842a8d74bfddc2c96a073bd2a4d2a7a2e8"
 
 [[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
+  revision = "1244d3ce02e3e1c16820ada0bae506b6c479f106"
 
 [solve-meta]
   analyzer-name = "dep"
