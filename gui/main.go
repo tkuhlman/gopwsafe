@@ -316,7 +316,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 	openDB, err := gtk.MenuItemNewWithLabel("Open")
 	logError(err, "")
 	openDB.Connect("activate", func() { app.openWindow("") })
-	openDB.AddAccelerator("activate", dbAG, 't', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	openDB.AddAccelerator("activate", dbAG, 't', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	dbMenu.Append(openDB)
 
 	saveDB, err := gtk.MenuItemNewWithLabel("Save")
@@ -329,7 +329,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 			app.errorDialog("No DB is selected, please select a DB in the tree view to save")
 		}
 	})
-	saveDB.AddAccelerator("activate", dbAG, 's', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	saveDB.AddAccelerator("activate", dbAG, 's', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	dbMenu.Append(saveDB)
 
 	newDB, err := gtk.MenuItemNewWithLabel("New")
@@ -346,7 +346,7 @@ func (app *GoPWSafeGTK) mainMenuBar() *gtk.MenuBar {
 		db, _ := app.getSelectedRecord()
 		app.recordWindow(db, &pwsafe.Record{})
 	})
-	newRecord.AddAccelerator("activate", app.accelGroup, 'n', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	newRecord.AddAccelerator("activate", app.accelGroup, 'n', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	dbMenu.Append(newRecord)
 
 	deleteRecord, err := gtk.MenuItemNewWithLabel("Delete Record")
@@ -387,7 +387,7 @@ func (app *GoPWSafeGTK) fileMenu() *gtk.MenuItem {
 	quit, err := gtk.MenuItemNewWithLabel("Quit")
 	logError(err, "")
 	quit.Connect("activate", app.Quit)
-	quit.AddAccelerator("activate", app.accelGroup, 'q', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	quit.AddAccelerator("activate", app.accelGroup, 'q', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	fileMenu.Append(quit)
 
 	return fileMenuItem
@@ -417,7 +417,7 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 			clipboard.SetText(record.Username)
 		}
 	})
-	copyUser.AddAccelerator("activate", recordAG, 'u', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	copyUser.AddAccelerator("activate", recordAG, 'u', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(copyUser)
 
 	copyPassword, err := gtk.MenuItemNewWithLabel("Copy Password")
@@ -431,7 +431,7 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 			clipboard.SetText(record.Password)
 		}
 	})
-	copyPassword.AddAccelerator("activate", recordAG, 'p', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	copyPassword.AddAccelerator("activate", recordAG, 'p', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(copyPassword)
 
 	openURL, err := gtk.MenuItemNewWithLabel("Open URL")
@@ -445,7 +445,7 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 			open.Start(record.URL)
 		}
 	})
-	openURL.AddAccelerator("activate", recordAG, 'o', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	openURL.AddAccelerator("activate", recordAG, 'o', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(openURL)
 
 	copyURL, err := gtk.MenuItemNewWithLabel("Copy URL")
@@ -459,7 +459,7 @@ func (app *GoPWSafeGTK) recordMenu(parent *gtk.Window, record *pwsafe.Record) *g
 			clipboard.SetText(record.URL)
 		}
 	})
-	copyURL.AddAccelerator("activate", recordAG, 'l', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	copyURL.AddAccelerator("activate", recordAG, 'l', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	recordMenu.Append(copyURL)
 
 	return recordMenuItem
