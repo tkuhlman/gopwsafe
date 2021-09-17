@@ -170,7 +170,7 @@ func (app *GoPWSafeGTK) recordMenuBar(parent *gtk.Window, record *pwsafe.Record)
 	close, err := gtk.MenuItemNewWithLabel("Close")
 	logError(err, "")
 	close.Connect("activate", parent.Destroy)
-	close.AddAccelerator("activate", ag, 'w', gdk.GDK_CONTROL_MASK, gtk.ACCEL_VISIBLE)
+	close.AddAccelerator("activate", ag, 'w', gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 	fileMenu.Append(close)
 
 	mb.Append(fileMenuItem)
