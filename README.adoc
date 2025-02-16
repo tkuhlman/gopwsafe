@@ -53,8 +53,6 @@ After the dependencies are installed run the compiled binary as normal. If you w
 
 == Building
 
-Go dependencies are managed with https://github.com/golang/dep[dep], ie run `dep ensure`.
-
 The gotk3 project is dependent on gtk3 and so that must be installed to build.
 Details on this installation are in the gotk3 https://github.com/gotk3/gotk3/wiki#installation[project wiki].
 

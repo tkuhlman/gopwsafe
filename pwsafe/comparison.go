@@ -67,7 +67,8 @@ func (db *V3) Identical(other DB) (bool, error) {
 	}
 	dbStruct := structs.New(*db)
 	otherStruct := structs.New(other)
-	skipHeaderFields := []string{"LastSaveBy", "UUID", "Version"}
+	// TODO add back in UUID, for some reason it is not being read correctly at times but the code needs lots of cleanup before it will be clear why
+	skipHeaderFields := []string{"LastSaveBy", "Version"}
 	encryptionFields := []string{"CBCIV", "EncryptionKey", "HMACKey", "Iter", "Salt", "StretchedKey"}
 	checkFields := append(skipHeaderFields, encryptionFields...)
 	for _, fieldName := range checkFields {

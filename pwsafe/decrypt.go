@@ -162,8 +162,7 @@ func setField(field *structs.Field, data []byte) {
 		if err != nil {
 			panic(err)
 		}
-	case "array":
-	case "slice":
+	case "array", "slice":
 		switch len(data) {
 		case 2:
 			var farray [2]byte
