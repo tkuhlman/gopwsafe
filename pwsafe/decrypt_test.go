@@ -14,7 +14,7 @@ func TestSimpleDB(t *testing.T) {
 
 	assert.Equal(t, db.GetName(), "simple.dat")
 	assert.Equal(t, len(db.Records), 1)
-	record, exists := db.GetRecord("Test entry")
+	record, exists := db.Records["Test entry"]
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "test")
 	assert.Equal(t, record.Password, "password")
@@ -50,7 +50,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, group1List, db.ListByGroup("group1"))
 
 	//record 1
-	record, exists := db.GetRecord("three entry 1")
+	record, exists := db.Records["three entry 1"]
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three1_user")
 	assert.Equal(t, record.Password, "three1!@$%^&*()")
@@ -59,7 +59,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Notes, "three DB\r\nentry 1")
 
 	//record 2
-	record, exists = db.GetRecord("three entry 2")
+	record, exists = db.Records["three entry 2"]
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three2_user")
 	assert.Equal(t, record.Password, "three2_-+=\\\\|][}{';:")
@@ -68,7 +68,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Notes, "three DB\r\nsecond entry")
 
 	//record 3
-	record, exists = db.GetRecord("three entry 3")
+	record, exists = db.Records["three entry 3"]
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three3_user")
 	assert.Equal(t, record.Password, ",./<>?`~0")
@@ -87,10 +87,10 @@ func TestDBModifications(t *testing.T) {
 	assert.Equal(t, false, db.NeedsSave())
 
 	//test Delete
-	record, exists := db.GetRecord("Test entry")
+	record, exists := db.Records["Test entry"]
 	assert.Equal(t, true, exists)
 	db.DeleteRecord("Test entry")
-	record, exists = db.GetRecord("Test entry")
+	record, exists = db.Records["Test entry"]
 	assert.Equal(t, false, exists)
 	assert.Equal(t, true, db.NeedsSave())
 
@@ -108,12 +108,12 @@ func TestDBModifications(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, false, db.NeedsSave())
-	record, exists = db.GetRecord("Test entry")
+	record, exists = db.Records["Test entry"]
 	assert.Equal(t, true, exists)
 	startTime := record.ModTime
 	record.Username = "newuser"
 	db.SetRecord(record)
-	record, exists = db.GetRecord("Test entry")
+	record, exists = db.Records["Test entry"]
 	assert.Equal(t, true, exists)
 	assert.NotEqual(t, startTime, record.ModTime)
 	assert.Equal(t, true, db.NeedsSave())

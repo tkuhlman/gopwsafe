@@ -7,38 +7,15 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/fatih/structs"
 	"github.com/pborman/uuid"
 )
-
-// Record The primary type for password DB entries
-type Record struct {
-	AccessTime             time.Time `field:"09"`
-	Autotype               string    `field:"0e"`
-	CreateTime             time.Time `field:"07"`
-	DoubleClickAction      [2]byte   `field:"13"`
-	Email                  string    `field:"14"`
-	Group                  string    `field:"02"`
-	ModTime                time.Time `field:"0c"`
-	Notes                  string    `field:"05"`
-	Password               string    `field:"06"`
-	PasswordExpiry         time.Time `field:"0a"`
-	PasswordExpiryInterval [4]byte   `field:"11"`
-	PasswordHistory        string    `field:"0f"`
-	PasswordModTime        string    `field:"08"`
-	PasswordPolicy         string    `field:"10"`
-	PasswordPolicyName     string    `field:"18"`
-	ProtectedEntry         byte      `field:"15"`
-	RunCommand             string    `field:"12"`
-	ShiftDoubleClickAction [2]byte   `field:"17"`
-	Title                  string    `field:"03"`
-	Username               string    `field:"04"`
-	URL                    string    `field:"0d"`
-	UUID                   [16]byte  `field:"01"`
-}
 
 // V3 The type representing a password safe v3 database
 type V3 struct {
@@ -68,28 +45,53 @@ type V3 struct {
 	Version        [2]byte  `field:"00"`
 }
 
-// calculateHMAC calculate and set db.HMAC for the unencrypted data using HMACKey
-func (db *V3) calculateHMAC(unencrypted []byte) {
-	hmacHash := hmac.New(sha256.New, db.HMACKey[:])
-	hmacHash.Write(unencrypted)
-	copy(db.HMAC[:], hmacHash.Sum(nil))
-}
+// NewV3 - create and initialize a new pwsafe.V3 db
+func NewV3(name, password string) *V3 {
+	var db V3
+	db.Name = name
+	// create the initial UUID
+	db.UUID = [16]byte(uuid.NewRandom().Array())
+	// Set the DB version
+	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
+	db.Records = make(map[string]Record, 0)
 
-// calculateStretchKey Using the db Salt and Iter along with the passwd calculate the stretch key
-func (db *V3) calculateStretchKey(passwd string) {
-	iterations := int(db.Iter)
-	salted := append([]byte(passwd), db.Salt[:]...)
-	stretched := sha256.Sum256(salted)
-	for i := 0; i < iterations; i++ {
-		stretched = sha256.Sum256(stretched[:])
-	}
-	db.StretchedKey = stretched
+	// Set the password
+	db.SetPassword(password)
+	return &db
 }
 
 // DeleteRecord Removes a record from the db
 func (db *V3) DeleteRecord(title string) {
 	delete(db.Records, title)
 	db.LastMod = time.Now()
+}
+
+// Equal returns true if the two dbs have the same data but not necessarily the same keys nor same LastSave time
+func (db *V3) Equal(other *V3) (bool, error) {
+	// todo should I compare version?
+	skipHeaderFields := map[string]bool{"LastSave": true, "LastSaveBy": true, "UUID": true, "Version": true}
+	// restrict comparison to fields with a field struct tag
+	otherStruct := structs.New(other)
+	for _, field := range mapByFieldTag(db) {
+		if _, skip := skipHeaderFields[field.Name()]; skip {
+			continue
+		}
+		if !reflect.DeepEqual(field.Value(), otherStruct.Field(field.Name()).Value()) {
+			return false, fmt.Errorf("%v fields not equal, %v != %v", field.Name(), field.Value(), otherStruct.Field(field.Name()).Value())
+		}
+	}
+
+	// compare records
+	if len(db.List()) != len(other.List()) {
+		return false, fmt.Errorf("record lengths don't match, %v != %v", len(db.List()), len(other.List()))
+	}
+	for _, title := range db.List() {
+		equal, err := db.Records[title].Equal(other.Records[title], true)
+		if !equal {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 // GetName returns the database name or if unset the filename
@@ -99,12 +101,6 @@ func (db *V3) GetName() string {
 		return splits[len(splits)-1]
 	}
 	return db.Name
-}
-
-// GetRecord Returns a record from the db with the title matching the given String
-func (db V3) GetRecord(title string) (Record, bool) {
-	r, prs := db.Records[title]
-	return r, prs
 }
 
 // Groups Returns an slice of strings which match all groups used by records in the DB
@@ -121,6 +117,28 @@ func (db V3) Groups() []string {
 	return groups
 }
 
+// Identical returns true if the two dbs have the same fields including the cryptographic keys
+// note this doesn't check times and uuid's of the records
+func (db *V3) Identical(other *V3) (bool, error) {
+	equal, err := db.Equal(other)
+	if !equal {
+		return false, err
+	}
+	dbStruct := structs.New(*db)
+	otherStruct := structs.New(other)
+	// TODO add back in UUID, for some reason it is not being read correctly at times but the code needs lots of cleanup before it will be clear why
+	skipHeaderFields := []string{"LastSaveBy", "Version"}
+	encryptionFields := []string{"CBCIV", "EncryptionKey", "HMACKey", "Iter", "Salt", "StretchedKey"}
+	checkFields := append(skipHeaderFields, encryptionFields...)
+	for _, fieldName := range checkFields {
+		if !reflect.DeepEqual(dbStruct.Field(fieldName).Value(), otherStruct.Field(fieldName).Value()) {
+			return false, fmt.Errorf("%v fields not equal, %v != %v", fieldName, dbStruct.Field(fieldName).Value(), otherStruct.Field(fieldName).Value())
+		}
+	}
+
+	return true, nil
+}
+
 // List Returns the titles of all the records in the db.
 func (db V3) List() []string {
 	entries := make([]string, 0, len(db.Records))
@@ -129,26 +147,6 @@ func (db V3) List() []string {
 	}
 	sort.Strings(entries)
 	return entries
-}
-
-// NeedsSave Returns true if the db has unsaved modifiations
-func (db V3) NeedsSave() bool {
-	return db.LastSave.Before(db.LastMod)
-}
-
-// NewV3 - create and initialize a new pwsafe.V3 db
-func NewV3(name, password string) *V3 {
-	var db V3
-	db.Name = name
-	// create the initial UUID
-	db.UUID = [16]byte(uuid.NewRandom().Array())
-	// Set the DB version
-	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
-	db.Records = make(map[string]Record, 0)
-
-	// Set the password
-	db.SetPassword(password)
-	return &db
 }
 
 // ListByGroup Returns the list of record titles that have the given group.
@@ -161,6 +159,11 @@ func (db V3) ListByGroup(group string) []string {
 	}
 	sort.Strings(entries)
 	return entries
+}
+
+// NeedsSave Returns true if the db has unsaved modifiations
+func (db V3) NeedsSave() bool {
+	return db.LastSave.Before(db.LastMod)
 }
 
 // SetPassword Sets the password that will be used to encrypt the file on next save
@@ -179,9 +182,9 @@ func (db *V3) SetPassword(pw string) error {
 func (db *V3) SetRecord(record Record) {
 	now := time.Now()
 	//detect if there have been changes and only update if needed
-	oldRecord, prs := db.GetRecord(record.Title)
+	oldRecord, prs := db.Records[record.Title]
 	if prs {
-		equal, _ := recordsEqual(oldRecord, record, false)
+		equal, _ := oldRecord.Equal(record, false)
 		if equal {
 			return
 		}
@@ -196,6 +199,24 @@ func (db *V3) SetRecord(record Record) {
 	db.Records[record.Title] = record
 	db.LastMod = now
 	// todo add checking of db and record times to the tests
+}
+
+// calculateHMAC calculate and set db.HMAC for the unencrypted data using HMACKey
+func (db *V3) calculateHMAC(unencrypted []byte) {
+	hmacHash := hmac.New(sha256.New, db.HMACKey[:])
+	hmacHash.Write(unencrypted)
+	copy(db.HMAC[:], hmacHash.Sum(nil))
+}
+
+// calculateStretchKey Using the db Salt and Iter along with the passwd calculate the stretch key
+func (db *V3) calculateStretchKey(passwd string) {
+	iterations := int(db.Iter)
+	salted := append([]byte(passwd), db.Salt[:]...)
+	stretched := sha256.Sum256(salted)
+	for i := 0; i < iterations; i++ {
+		stretched = sha256.Sum256(stretched[:])
+	}
+	db.StretchedKey = stretched
 }
 
 // TODO I may be able to replaces this with, binary.BigEndian.Uint32 or similar
