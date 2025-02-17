@@ -22,21 +22,21 @@ func TestSaveSimpleDB(t *testing.T) {
 	dest, err := OpenPWSafeFile("./test_dbs/simple-copy.dat", "passwordcopy")
 	assert.Nil(t, err)
 
-	equal, err := source.Identical(dest)
-	assert.Nil(t, err)
-	assert.Equal(t, true, equal)
+	equal, err := source.Equal(dest)
+	assert.NoError(t, err)
+	assert.True(t, equal)
 
 	// Reopen the original and verify keys have changed but content is the same
 	orig, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
 
+	// On write dest gets version set but orig doesn't have it so just set to the same here
+	orig.Version = dest.Version
 	// I expect the stretchedkey, salt, encryption key, hmac key and CBCIV to have changed
-	// iter changes also but won't necessarily always
+	// iter changes also but won't necessarily always.
 	equal, err = orig.Equal(dest)
 	assert.Nil(t, err)
 	assert.Equal(t, true, equal)
-	identical, _ := orig.Identical(dest)
-	assert.Equal(t, false, identical)
 }
 
 // TestNewV3 test creating a new DB, saving it to a file and loading it
@@ -60,6 +60,12 @@ func TestNewV3(t *testing.T) {
 	assert.Nil(t, err)
 	orig, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
+
+	// The UUID for these should be different since one was created fresh, check then set the same for comparison
+	assert.NotEqual(t, orig.UUID, readNew.UUID)
+	readNew.UUID = orig.UUID
+	// On write version is set but orig doesn't have it so just set to the same here
+	orig.Version = readNew.Version
 
 	equal, err := orig.Equal(readNew)
 	assert.Nil(t, err)

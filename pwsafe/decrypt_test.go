@@ -2,6 +2,7 @@ package pwsafe
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,8 @@ func TestSimpleDB(t *testing.T) {
 	db, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
 
-	assert.Equal(t, db.GetName(), "simple.dat")
+	assert.Equal(t, db.Name, "")
+	assert.Equal(t, filepath.Base(db.LastSavePath), "simple.dat")
 	assert.Equal(t, len(db.Records), 1)
 	record, exists := db.Records["Test entry"]
 	assert.Equal(t, exists, true)

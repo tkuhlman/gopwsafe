@@ -10,10 +10,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 	"time"
 
-	"github.com/fatih/structs"
 	"github.com/pborman/uuid"
 )
 
@@ -66,19 +64,37 @@ func (db *V3) DeleteRecord(title string) {
 	db.LastMod = time.Now()
 }
 
-// Equal returns true if the two dbs have the same data but not necessarily the same keys nor same LastSave time
+// Equal compares the content of two V3 DBs except for LastSave fields and fields with transient or changing values.
 func (db *V3) Equal(other *V3) (bool, error) {
-	// todo should I compare version?
-	skipHeaderFields := map[string]bool{"LastSave": true, "LastSaveBy": true, "UUID": true, "Version": true}
-	// restrict comparison to fields with a field struct tag
-	otherStruct := structs.New(other)
-	for _, field := range mapByFieldTag(db) {
-		if _, skip := skipHeaderFields[field.Name()]; skip {
-			continue
-		}
-		if !reflect.DeepEqual(field.Value(), otherStruct.Field(field.Name()).Value()) {
-			return false, fmt.Errorf("%v fields not equal, %v != %v", field.Name(), field.Value(), otherStruct.Field(field.Name()).Value())
-		}
+	if db.Description != other.Description {
+		return false, fmt.Errorf("Description fields not equal, %v != %v", db.Description, other.Description)
+	}
+	if !reflect.DeepEqual(db.EmptyGroups, other.EmptyGroups) {
+		return false, fmt.Errorf("EmptyGroups fields not equal, %v != %v", db.EmptyGroups, other.EmptyGroups)
+	}
+	if db.Filters != other.Filters {
+		return false, fmt.Errorf("Filters fields not equal, %v != %v", db.Filters, other.Filters)
+	}
+	if db.Name != other.Name {
+		return false, fmt.Errorf("Name fields not equal, %v != %v", db.Name, other.Name)
+	}
+	if db.PasswordPolicy != other.PasswordPolicy {
+		return false, fmt.Errorf("PasswordPolicy fields not equal, %v != %v", db.PasswordPolicy, other.PasswordPolicy)
+	}
+	if db.Preferences != other.Preferences {
+		return false, fmt.Errorf("Preferences fields not equal, %v != %v", db.Preferences, other.Preferences)
+	}
+	if db.RecentyUsed != other.RecentyUsed {
+		return false, fmt.Errorf("RecentyUsed fields not equal, %v != %v", db.RecentyUsed, other.RecentyUsed)
+	}
+	if db.Tree != other.Tree {
+		return false, fmt.Errorf("Tree fields not equal, %q != %q", db.Tree, other.Tree)
+	}
+	if db.UUID != other.UUID {
+		return false, fmt.Errorf("UUID fields not equal, %v != %v", db.UUID, other.UUID)
+	}
+	if db.Version != other.Version {
+		return false, fmt.Errorf("Version fields not equal, %v != %v", db.Version, other.Version)
 	}
 
 	// compare records
@@ -94,15 +110,6 @@ func (db *V3) Equal(other *V3) (bool, error) {
 	return true, nil
 }
 
-// GetName returns the database name or if unset the filename
-func (db *V3) GetName() string {
-	if db.Name == "" {
-		splits := strings.Split(db.LastSavePath, "/")
-		return splits[len(splits)-1]
-	}
-	return db.Name
-}
-
 // Groups Returns an slice of strings which match all groups used by records in the DB
 func (db V3) Groups() []string {
 	groups := make([]string, 0, len(db.Records))
@@ -115,28 +122,6 @@ func (db V3) Groups() []string {
 	}
 	sort.Strings(groups)
 	return groups
-}
-
-// Identical returns true if the two dbs have the same fields including the cryptographic keys
-// note this doesn't check times and uuid's of the records
-func (db *V3) Identical(other *V3) (bool, error) {
-	equal, err := db.Equal(other)
-	if !equal {
-		return false, err
-	}
-	dbStruct := structs.New(*db)
-	otherStruct := structs.New(other)
-	// TODO add back in UUID, for some reason it is not being read correctly at times but the code needs lots of cleanup before it will be clear why
-	skipHeaderFields := []string{"LastSaveBy", "Version"}
-	encryptionFields := []string{"CBCIV", "EncryptionKey", "HMACKey", "Iter", "Salt", "StretchedKey"}
-	checkFields := append(skipHeaderFields, encryptionFields...)
-	for _, fieldName := range checkFields {
-		if !reflect.DeepEqual(dbStruct.Field(fieldName).Value(), otherStruct.Field(fieldName).Value()) {
-			return false, fmt.Errorf("%v fields not equal, %v != %v", fieldName, dbStruct.Field(fieldName).Value(), otherStruct.Field(fieldName).Value())
-		}
-	}
-
-	return true, nil
 }
 
 // List Returns the titles of all the records in the db.
