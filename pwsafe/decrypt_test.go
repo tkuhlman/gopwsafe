@@ -9,10 +9,8 @@ import (
 
 func TestSimpleDB(t *testing.T) {
 	// This test relies on the simple password db found at ./test_db/simple.dat
-	dbInterface, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	db, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
-
-	db := dbInterface.(*V3)
 
 	assert.Equal(t, db.GetName(), "simple.dat")
 	assert.Equal(t, len(db.Records), 1)
@@ -33,10 +31,8 @@ func TestBadHMAC(t *testing.T) {
 
 func TestThreeDB(t *testing.T) {
 	// This test relies on the password db found at ./test_db/three.dat
-	dbInterface, err := OpenPWSafeFile("./test_dbs/three.dat", "three3#;")
+	db, err := OpenPWSafeFile("./test_dbs/three.dat", "three3#;")
 	assert.Nil(t, err)
-
-	db := dbInterface.(*V3)
 
 	assert.Equal(t, len(db.Records), 3)
 
@@ -84,9 +80,8 @@ func TestThreeDB(t *testing.T) {
 
 func TestDBModifications(t *testing.T) {
 	// This test relies on the simple password db found at ./test_db/simple.dat
-	dbInterface, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	db, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
-	db := dbInterface.(*V3)
 
 	//No modifications yet
 	assert.Equal(t, false, db.NeedsSave())
@@ -100,9 +95,8 @@ func TestDBModifications(t *testing.T) {
 	assert.Equal(t, true, db.NeedsSave())
 
 	//reload the db and test password change
-	dbInterface, err = OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	db, err = OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
-	db = dbInterface.(*V3)
 
 	assert.Equal(t, false, db.NeedsSave())
 	err = db.SetPassword("newpass")
@@ -110,9 +104,8 @@ func TestDBModifications(t *testing.T) {
 	assert.Equal(t, true, db.NeedsSave())
 
 	//reload the db and test modifying a record
-	dbInterface, err = OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	db, err = OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
-	db = dbInterface.(*V3)
 
 	assert.Equal(t, false, db.NeedsSave())
 	record, exists = db.GetRecord("Test entry")

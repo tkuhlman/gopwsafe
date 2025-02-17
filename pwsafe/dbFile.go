@@ -3,7 +3,7 @@ package pwsafe
 import "os"
 
 //OpenPWSafeFile Opens a password safe v3 file and decrypts with the supplied password
-func OpenPWSafeFile(dbPath string, passwd string) (DB, error) {
+func OpenPWSafeFile(dbPath string, passwd string) (*V3, error) {
 	var db V3
 
 	// Open the file
@@ -21,10 +21,7 @@ func OpenPWSafeFile(dbPath string, passwd string) (DB, error) {
 }
 
 //WritePWSafeFile Writes a pwsafe.DB to disk, using either the specified path or the LastSavedPath
-func WritePWSafeFile(db DB, path string) error {
-	//Only type pwsafe.V3 is currently supported
-	v3db := db.(*V3)
-
+func WritePWSafeFile(v3db *V3, path string) error {
 	var savePath string
 	if path == "" {
 		savePath = v3db.LastSavePath

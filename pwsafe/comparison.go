@@ -8,7 +8,7 @@ import (
 )
 
 // Equal returns true if the two dbs have the same data but not necessarily the same keys nor same LastSave time
-func (db *V3) Equal(other DB) (bool, error) {
+func (db *V3) Equal(other *V3) (bool, error) {
 	// todo should I compare version?
 	skipHeaderFields := map[string]bool{"LastSave": true, "LastSaveBy": true, "UUID": true, "Version": true}
 	// restrict comparison to fields with a field struct tag
@@ -60,7 +60,7 @@ func recordsEqual(record, otherRecord Record, skipTimes bool) (bool, error) {
 
 // Identical returns true if the two dbs have the same fields including the cryptographic keys
 // note this doesn't check times and uuid's of the records
-func (db *V3) Identical(other DB) (bool, error) {
+func (db *V3) Identical(other *V3) (bool, error) {
 	equal, err := db.Equal(other)
 	if !equal {
 		return false, err

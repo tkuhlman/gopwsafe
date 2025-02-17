@@ -7,7 +7,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"io"
 	"sort"
 	"strings"
 	"time"
@@ -15,7 +14,7 @@ import (
 	"github.com/pborman/uuid"
 )
 
-//Record The primary type for password DB entries
+// Record The primary type for password DB entries
 type Record struct {
 	AccessTime             time.Time `field:"09"`
 	Autotype               string    `field:"0e"`
@@ -41,7 +40,7 @@ type Record struct {
 	UUID                   [16]byte  `field:"01"`
 }
 
-//V3 The type representing a password safe v3 database
+// V3 The type representing a password safe v3 database
 type V3 struct {
 	CBCIV          [16]byte //Random initial value for CBC
 	Description    string   `field:"0a"`
@@ -69,31 +68,14 @@ type V3 struct {
 	Version        [2]byte  `field:"00"`
 }
 
-//DB The interface representing the core functionality available for any password database
-type DB interface {
-	Encrypt(io.Writer) (int, error)
-	Equal(DB) (bool, error)
-	Decrypt(io.Reader, string) (int, error)
-	GetName() string
-	GetRecord(string) (Record, bool)
-	Groups() []string
-	Identical(DB) (bool, error)
-	List() []string
-	ListByGroup(string) []string
-	NeedsSave() bool
-	SetPassword(string) error
-	SetRecord(Record)
-	DeleteRecord(string)
-}
-
-//calculateHMAC calculate and set db.HMAC for the unencrypted data using HMACKey
+// calculateHMAC calculate and set db.HMAC for the unencrypted data using HMACKey
 func (db *V3) calculateHMAC(unencrypted []byte) {
 	hmacHash := hmac.New(sha256.New, db.HMACKey[:])
 	hmacHash.Write(unencrypted)
 	copy(db.HMAC[:], hmacHash.Sum(nil))
 }
 
-//calculateStretchKey Using the db Salt and Iter along with the passwd calculate the stretch key
+// calculateStretchKey Using the db Salt and Iter along with the passwd calculate the stretch key
 func (db *V3) calculateStretchKey(passwd string) {
 	iterations := int(db.Iter)
 	salted := append([]byte(passwd), db.Salt[:]...)
@@ -104,7 +86,7 @@ func (db *V3) calculateStretchKey(passwd string) {
 	db.StretchedKey = stretched
 }
 
-//DeleteRecord Removes a record from the db
+// DeleteRecord Removes a record from the db
 func (db *V3) DeleteRecord(title string) {
 	delete(db.Records, title)
 	db.LastMod = time.Now()
@@ -119,13 +101,13 @@ func (db *V3) GetName() string {
 	return db.Name
 }
 
-//GetRecord Returns a record from the db with the title matching the given String
+// GetRecord Returns a record from the db with the title matching the given String
 func (db V3) GetRecord(title string) (Record, bool) {
 	r, prs := db.Records[title]
 	return r, prs
 }
 
-//Groups Returns an slice of strings which match all groups used by records in the DB
+// Groups Returns an slice of strings which match all groups used by records in the DB
 func (db V3) Groups() []string {
 	groups := make([]string, 0, len(db.Records))
 	groupSet := make(map[string]bool)
@@ -139,7 +121,7 @@ func (db V3) Groups() []string {
 	return groups
 }
 
-//List Returns the titles of all the records in the db.
+// List Returns the titles of all the records in the db.
 func (db V3) List() []string {
 	entries := make([]string, 0, len(db.Records))
 	for key := range db.Records {
@@ -169,7 +151,7 @@ func NewV3(name, password string) *V3 {
 	return &db
 }
 
-//ListByGroup Returns the list of record titles that have the given group.
+// ListByGroup Returns the list of record titles that have the given group.
 func (db V3) ListByGroup(group string) []string {
 	entries := make([]string, 0, len(db.Records))
 	for key, value := range db.Records {
@@ -181,7 +163,7 @@ func (db V3) ListByGroup(group string) []string {
 	return entries
 }
 
-//SetPassword Sets the password that will be used to encrypt the file on next save
+// SetPassword Sets the password that will be used to encrypt the file on next save
 func (db *V3) SetPassword(pw string) error {
 	// First recalculate the Salt and set iter
 	db.Iter = 86000
@@ -193,7 +175,7 @@ func (db *V3) SetPassword(pw string) error {
 	return nil
 }
 
-//SetRecord Adds or updates a record in the db
+// SetRecord Adds or updates a record in the db
 func (db *V3) SetRecord(record Record) {
 	now := time.Now()
 	//detect if there have been changes and only update if needed
