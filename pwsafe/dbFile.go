@@ -36,7 +36,5 @@ func WritePWSafeFile(v3db *V3, path string) error {
 	}
 	defer f.Close()
 
-	_, err = v3db.Encrypt(f)
-
-	return err
+	return v3db.Encrypt(f)
 }

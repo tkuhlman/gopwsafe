@@ -18,36 +18,46 @@ import (
 	"golang.org/x/crypto/twofish"
 )
 
-//Encrypt Encrypt the data in the db building it up in memory then writing to the writer, returns bytesWritten, error
-func (db *V3) Encrypt(writer io.Writer) (int, error) {
-	var dbBytes []byte
-
-	// Set unencrypted DB headers
-	dbBytes = append(dbBytes, "PWS3"...)
-
+// Encrypt Encrypt the data in the db building it up in memory then writing to the writer, returns bytesWritten, error
+func (db *V3) Encrypt(dbBuf io.Writer) error {
 	//update the LastSave time in the DB
 	db.LastSave = time.Now()
+	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
+
+	// Set unencrypted DB headers
+	if err := binary.Write(dbBuf, binary.LittleEndian, []byte("PWS3")); err != nil {
+		return err
+	}
 
 	// Add salt and iter neither of which can change without knowing the password as the stretchedkey will need recalculating.
 	// use db.SetPassword() to change the password
-	dbBytes = append(dbBytes, db.Salt[:]...)
-	dbBytes = append(dbBytes, intToBytes(int(db.Iter))...)
+	if err := binary.Write(dbBuf, binary.LittleEndian, db.Salt); err != nil {
+		return err
+	}
+	if err := binary.Write(dbBuf, binary.LittleEndian, db.Iter); err != nil {
+		return err
+	}
 
 	// Add the stretchedKey Hash and refresh the encryption keys adding them encrypted
-	stretchedSha := sha256.Sum256(db.StretchedKey[:])
-	dbBytes = append(dbBytes, stretchedSha[:]...)
-	dbBytes = append(dbBytes, db.refreshEncryptedKeys()...)
+	stretchedSHA := sha256.Sum256(db.StretchedKey[:])
+	if err := binary.Write(dbBuf, binary.LittleEndian, stretchedSHA); err != nil {
+		return err
+	}
+	if err := db.refreshEncryptedKeys(dbBuf); err != nil {
+		return err
+	}
 
 	// calculate and add cbc initial value
 	_, err := rand.Read(db.CBCIV[:])
 	if err != nil {
-		return 0, err
+		return err
 	}
-	dbBytes = append(dbBytes, db.CBCIV[:]...)
+	if err := binary.Write(dbBuf, binary.LittleEndian, db.CBCIV); err != nil {
+		return err
+	}
 
 	// marshal the core db values
 	var unencryptedBytes []byte
-	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
 	// Note the version field needs to be first and is required
 	headerFields := structs.Fields(db)
 	//todo it is a bad assumption that version is the last item in the slice, fix so version is first
@@ -67,18 +77,22 @@ func (db *V3) Encrypt(writer io.Writer) (int, error) {
 		block := unencryptedBytes[i : i+twofish.BlockSize]
 		encrypted := make([]byte, twofish.BlockSize)
 		cbcTwoFish.CryptBlocks(encrypted, block)
-		dbBytes = append(dbBytes, encrypted...)
+		if err := binary.Write(dbBuf, binary.LittleEndian, encrypted); err != nil {
+			return err
+		}
 	}
 
 	// Add the EOF and HMAC
-	dbBytes = append(dbBytes, []byte("PWS3-EOFPWS3-EOF")...)
+	if err := binary.Write(dbBuf, binary.LittleEndian, []byte("PWS3-EOFPWS3-EOF")); err != nil {
+		return err
+	}
 	hmacBytes := append(headerValues, recordValues...)
 	db.calculateHMAC(hmacBytes)
-	dbBytes = append(dbBytes, db.HMAC[:]...)
+	if err := binary.Write(dbBuf, binary.LittleEndian, db.HMAC); err != nil {
+		return err
+	}
 
-	// Write out the db
-	bytesWritten, err := writer.Write(dbBytes)
-	return bytesWritten, err
+	return nil
 }
 
 // For the given field return the []byte representation of its data
@@ -108,13 +122,6 @@ func getFieldBytes(field *structs.Field) (fbytes []byte) {
 		fbytes = field.Value().([]byte)
 	}
 	return fbytes
-}
-
-// intToBytes Converts an int to byte array
-func intToBytes(num int) []byte {
-	intBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(intBytes, uint32(num))
-	return intBytes
 }
 
 // marshalHeader return the binary format for the record as specified in the spec and the header values used for hmac calculations
@@ -194,21 +201,33 @@ func pseudoRandmonBytes(size int) (r []byte) {
 }
 
 // re-calculate and add to the db new encryption key and hmac key then encrypt with and return the encrypted bytes
-func (db *V3) refreshEncryptedKeys() []byte {
-	var encryptedBytes []byte
+func (db *V3) refreshEncryptedKeys(buf io.Writer) error {
 	_, err := rand.Read(db.EncryptionKey[:])
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = rand.Read(db.HMACKey[:])
 	if err != nil {
-		panic(err)
+		return err
 	}
-	keyTwoFish, _ := twofish.NewCipher(db.StretchedKey[:])
+	keyTwoFish, err := twofish.NewCipher(db.StretchedKey[:])
+	if err != nil {
+		return err
+	}
 	for _, block := range [][]byte{db.EncryptionKey[:16], db.EncryptionKey[16:], db.HMACKey[:16], db.HMACKey[16:]} {
 		encrypted := make([]byte, 16)
 		keyTwoFish.Encrypt(encrypted, block)
-		encryptedBytes = append(encryptedBytes, encrypted...)
+		if err := binary.Write(buf, binary.LittleEndian, encrypted); err != nil {
+			return err
+		}
 	}
-	return encryptedBytes
+	return nil
+}
+
+// TODO get rid of this just use binary.Write
+// intToBytes Converts an int to byte array
+func intToBytes(num int) []byte {
+	intBytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(intBytes, uint32(num))
+	return intBytes
 }
