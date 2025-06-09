@@ -31,7 +31,7 @@ func TestSaveSimpleDB(t *testing.T) {
 	assert.Nil(t, err)
 
 	// On write dest gets version set but orig doesn't have it so just set to the same here
-	orig.Version = dest.Version
+	orig.Header.Version = dest.Header.Version
 	// I expect the stretchedkey, salt, encryption key, hmac key and CBCIV to have changed
 	// iter changes also but won't necessarily always.
 	equal, err = orig.Equal(dest)
@@ -62,10 +62,10 @@ func TestNewV3(t *testing.T) {
 	assert.Nil(t, err)
 
 	// The UUID for these should be different since one was created fresh, check then set the same for comparison
-	assert.NotEqual(t, orig.UUID, readNew.UUID)
-	readNew.UUID = orig.UUID
+	assert.NotEqual(t, orig.Header.UUID, readNew.Header.UUID)
+	readNew.Header.UUID = orig.Header.UUID
 	// On write version is set but orig doesn't have it so just set to the same here
-	orig.Version = readNew.Version
+	orig.Header.Version = readNew.Header.Version
 
 	equal, err := orig.Equal(readNew)
 	assert.Nil(t, err)

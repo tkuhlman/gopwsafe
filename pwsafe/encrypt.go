@@ -21,8 +21,8 @@ import (
 // Encrypt Encrypt the data in the db building it up in memory then writing to the writer, returns bytesWritten, error
 func (db *V3) Encrypt(dbBuf io.Writer) error {
 	//update the LastSave time in the DB
-	db.LastSave = time.Now()
-	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
+	db.Header.LastSave = time.Now()
+	db.Header.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
 
 	// Set unencrypted DB headers
 	if err := binary.Write(dbBuf, binary.LittleEndian, []byte("PWS3")); err != nil {
@@ -57,9 +57,22 @@ func (db *V3) Encrypt(dbBuf io.Writer) error {
 	}
 
 	// marshal the core db values
+
+	/* TODO consider switching to a bytes buffer
+	unencryptedBuf := &bytes.Buffer{}
+
+	// TODO MarshalBinary will not work because I need to return to calculate the HMAC bytes as well, see the function to caculate the HMAC and continue from there.
+	header, err := db.Header.MarshalBinary(hmacBuf)
+	if err!= nil {
+		return fmt.Errorf("error marshalling header: %w", err)
+	}
+	if _, err := unencryptedBuf.Write(header); err != nil {
+		return err
+	}
+	*/
 	var unencryptedBytes []byte
 	// Note the version field needs to be first and is required
-	headerFields := structs.Fields(db)
+	headerFields := structs.Fields(db.Header)
 	//todo it is a bad assumption that version is the last item in the slice, fix so version is first
 	//ordered := structs.Fields(db)
 	//headerFields := append(ordered[:len(ordered)-2], ordered[len(ordered)-1])
@@ -97,7 +110,6 @@ func (db *V3) Encrypt(dbBuf io.Writer) error {
 
 // For the given field return the []byte representation of its data
 func getFieldBytes(field *structs.Field) (fbytes []byte) {
-
 	switch field.Kind().String() {
 	// switch field.Kind()
 	// case reflect.
@@ -127,6 +139,7 @@ func getFieldBytes(field *structs.Field) (fbytes []byte) {
 // marshalHeader return the binary format for the record as specified in the spec and the header values used for hmac calculations
 // This function is used both to Marshal the header and individual records in the DB
 func marshalRecord(fields []*structs.Field) (record []byte, totalDataBytes []byte) {
+	// TODO the UUID, password and title fields are mandatory, make sure the are defined before a record can be added to the DB.
 	for _, field := range fields {
 		fieldTypeStr := field.Tag("field")
 		if fieldTypeStr == "" || field.IsZero() {
@@ -164,14 +177,13 @@ func marshalRecord(fields []*structs.Field) (record []byte, totalDataBytes []byt
 
 // marshalRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
 func (db *V3) marshalRecords() (records []byte, dataBytes []byte) {
-
 	for _, record := range db.Records {
 		recordStruct := structs.New(record)
 		// if uuid is not set calculate
 		//todo I should assume the UUID is set. I do for new dbs but don't check on reading from disk, I
 		// should check it is unique also when opening more than one in the gui
 		if recordStruct.Field("UUID").IsZero() {
-			db.UUID = [16]byte(uuid.NewRandom().Array())
+			db.Header.UUID = [16]byte(uuid.NewRandom().Array())
 		}
 
 		// for each record UUID, Title and Password fields are mandatory all others are optional

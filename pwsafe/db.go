@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -17,40 +16,23 @@ import (
 
 // V3 The type representing a password safe v3 database
 type V3 struct {
-	CBCIV          [16]byte //Random initial value for CBC
-	Description    string   `field:"0a"`
-	EmptyGroups    []string `field:"11"`
-	EncryptionKey  [32]byte
-	Filters        string   `field:"0b"`
-	HMAC           [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
-	HMACKey        [32]byte
-	Iter           uint32 //the number of iterations on the hash function to create the stretched key
-	LastMod        time.Time
-	LastSave       time.Time `field:"04"`
-	LastSaveBy     []byte    `field:"06"`
-	LastSaveHost   []byte    `field:"08"`
-	LastSavePath   string
-	LastSaveUser   []byte            `field:"07"`
-	Name           string            `field:"09"`
-	PasswordPolicy string            `field:"10"`
-	Preferences    string            `field:"02"`
-	Records        map[string]Record //the key is the record title
-	RecentyUsed    string            `field:"0f"`
-	Salt           [32]byte
-	StretchedKey   [sha256.Size]byte
-	Tree           string   `field:"03"`
-	UUID           [16]byte `field:"01"`
-	Version        [2]byte  `field:"00"`
+	CBCIV         [16]byte //Random initial value for CBC
+	EncryptionKey [32]byte
+	Header        header
+	HMAC          [32]byte //32bytes keyed-hash MAC with SHA-256 as the hash function.
+	HMACKey       [32]byte
+	Iter          uint32 //the number of iterations on the hash function to create the stretched key
+	LastMod       time.Time
+	LastSavePath  string
+	Records       map[string]Record //the key is the record title
+	Salt          [32]byte
+	StretchedKey  [sha256.Size]byte
 }
 
 // NewV3 - create and initialize a new pwsafe.V3 db
 func NewV3(name, password string) *V3 {
 	var db V3
-	db.Name = name
-	// create the initial UUID
-	db.UUID = [16]byte(uuid.NewRandom().Array())
-	// Set the DB version
-	db.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
+	db.Header = newHeader(name)
 	db.Records = make(map[string]Record, 0)
 
 	// Set the password
@@ -66,35 +48,8 @@ func (db *V3) DeleteRecord(title string) {
 
 // Equal compares the content of two V3 DBs except for LastSave fields and fields with transient or changing values.
 func (db *V3) Equal(other *V3) (bool, error) {
-	if db.Description != other.Description {
-		return false, fmt.Errorf("Description fields not equal, %v != %v", db.Description, other.Description)
-	}
-	if !reflect.DeepEqual(db.EmptyGroups, other.EmptyGroups) {
-		return false, fmt.Errorf("EmptyGroups fields not equal, %v != %v", db.EmptyGroups, other.EmptyGroups)
-	}
-	if db.Filters != other.Filters {
-		return false, fmt.Errorf("Filters fields not equal, %v != %v", db.Filters, other.Filters)
-	}
-	if db.Name != other.Name {
-		return false, fmt.Errorf("Name fields not equal, %v != %v", db.Name, other.Name)
-	}
-	if db.PasswordPolicy != other.PasswordPolicy {
-		return false, fmt.Errorf("PasswordPolicy fields not equal, %v != %v", db.PasswordPolicy, other.PasswordPolicy)
-	}
-	if db.Preferences != other.Preferences {
-		return false, fmt.Errorf("Preferences fields not equal, %v != %v", db.Preferences, other.Preferences)
-	}
-	if db.RecentyUsed != other.RecentyUsed {
-		return false, fmt.Errorf("RecentyUsed fields not equal, %v != %v", db.RecentyUsed, other.RecentyUsed)
-	}
-	if db.Tree != other.Tree {
-		return false, fmt.Errorf("Tree fields not equal, %q != %q", db.Tree, other.Tree)
-	}
-	if db.UUID != other.UUID {
-		return false, fmt.Errorf("UUID fields not equal, %v != %v", db.UUID, other.UUID)
-	}
-	if db.Version != other.Version {
-		return false, fmt.Errorf("Version fields not equal, %v != %v", db.Version, other.Version)
+	if matches, err := db.Header.Equal(other.Header); !matches || err != nil {
+		return matches, err
 	}
 
 	// compare records
@@ -148,7 +103,7 @@ func (db V3) ListByGroup(group string) []string {
 
 // NeedsSave Returns true if the db has unsaved modifiations
 func (db V3) NeedsSave() bool {
-	return db.LastSave.Before(db.LastMod)
+	return db.Header.LastSave.Before(db.LastMod)
 }
 
 // SetPassword Sets the password that will be used to encrypt the file on next save

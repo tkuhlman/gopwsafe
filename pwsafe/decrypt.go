@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/twofish"
 )
 
-//Decrypt Decrypts the data in the reader using the given password and populates the information into the db
+// Decrypt Decrypts the data in the reader using the given password and populates the information into the db
 func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	// read the entire encrypted db into memory
 	var rawDB []byte
@@ -85,6 +85,9 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	}
 
 	block, err := twofish.NewCipher(db.EncryptionKey[:])
+	if err != nil {
+		return 0, err
+	}
 	decrypter := cipher.NewCBCDecrypter(block, db.CBCIV[:])
 	decryptedDB := make([]byte, encryptedSize) // The EOF and HMAC are after the encrypted section
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
@@ -96,10 +99,11 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	}
 
 	//UnMarshal the decrypted DB, first the header
-	hdrSize, headerHMACData, err := unmarshalRecord(decryptedDB, mapByFieldTag(db))
+	header, hdrSize, headerHMACData, err := UnmarshalHeader(decryptedDB)
 	if err != nil {
 		return bytesRead, errors.New("Error parsing the unencrypted header - " + err.Error())
 	}
+	db.Header = header
 
 	_, recordHMACData, err := db.unmarshalRecords(decryptedDB[hdrSize:])
 	if err != nil {

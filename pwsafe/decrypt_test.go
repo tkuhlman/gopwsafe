@@ -13,7 +13,7 @@ func TestSimpleDB(t *testing.T) {
 	db, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
 
-	assert.Equal(t, db.Name, "")
+	assert.Equal(t, db.Header.Name, "")
 	assert.Equal(t, filepath.Base(db.LastSavePath), "simple.dat")
 	assert.Equal(t, len(db.Records), 1)
 	record, exists := db.Records["Test entry"]
