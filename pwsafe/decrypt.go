@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"time"
 
-	"github.com/fatih/structs"
 	"golang.org/x/crypto/twofish"
 )
 
@@ -136,15 +136,23 @@ func (db *V3) extractKeys(keyData []byte) {
 	copy(db.HMACKey[:], append(l1, l2...))
 }
 
-// mapByFieldTag Return map[byte]*structs.Field for a struct where byte is the "field" struct tag converted to a byte
+// mapByFieldTag Return map[byte]reflect.Value for a struct where byte is the "field" struct tag converted to a byte
 // if field struct tag doesn't exist skip that field
-func mapByFieldTag(s interface{}) map[byte]*structs.Field {
-	fieldMap := make(map[byte]*structs.Field)
-	for _, field := range structs.Fields(s) {
-		fieldTypeStr := field.Tag("field")
+func mapByFieldTag(s interface{}) map[byte]reflect.Value {
+	fieldMap := make(map[byte]reflect.Value)
+	val := reflect.ValueOf(s).Elem()
+	typ := val.Type()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		typeField := typ.Field(i)
+		fieldTypeStr := typeField.Tag.Get("field")
+		if fieldTypeStr == "" {
+			continue
+		}
 		fieldType, err := hex.DecodeString(fieldTypeStr)
 		if err != nil {
-			panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", field.Name(), err))
+			panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", typeField.Name, err))
 		}
 		if len(fieldType) > 0 {
 			fieldMap[fieldType[0]] = field
@@ -154,38 +162,50 @@ func mapByFieldTag(s interface{}) map[byte]*structs.Field {
 }
 
 // setField Set the value of the Field with the proper conversion for its type
-func setField(field *structs.Field, data []byte) {
-	switch field.Kind().String() {
-	case "string":
-		err := field.Set(string(data))
-		if err != nil {
-			panic(err)
+func setField(field reflect.Value, data []byte) {
+	if !field.CanSet() {
+		// This should ideally not happen if mapByFieldTag correctly returns settable fields.
+		// Or if the struct passed to mapByFieldTag is a pointer.
+		panic(fmt.Sprintf("Cannot set field %s", field.Type().Name()))
+	}
+
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(string(data))
+	case reflect.Struct: //time.Time shows as kind struct
+		if field.Type() == reflect.TypeOf(time.Time{}) {
+			field.Set(reflect.ValueOf(time.Unix(int64(byteToInt(data)), 0)))
 		}
-	case "struct": //time.Time shows as kind struct
-		err := field.Set(time.Unix(int64(byteToInt(data)), 0))
-		if err != nil {
-			panic(err)
-		}
-	case "array", "slice":
+	case reflect.Array, reflect.Slice:
 		switch len(data) {
 		case 2:
 			var farray [2]byte
 			copy(farray[:], data)
-			field.Set(farray)
+			field.Set(reflect.ValueOf(farray))
 		case 4:
 			var farray [4]byte
 			copy(farray[:], data)
-			field.Set(farray)
+			field.Set(reflect.ValueOf(farray))
 		case 16:
 			var farray [16]byte
 			copy(farray[:], data)
-			field.Set(farray)
+			field.Set(reflect.ValueOf(farray))
 		}
-
+	case reflect.Uint8: // For byte fields
+		if len(data) == 1 {
+			field.SetUint(uint64(data[0]))
+		}
 	default:
-		err := field.Set(data)
-		if err != nil {
-			panic(err)
+		// For []byte or other types, we might need more specific handling if they are not covered above.
+		// Assuming []byte for now if it matches the type.
+		if field.Kind() == reflect.Slice && field.Type().Elem().Kind() == reflect.Uint8 {
+			field.SetBytes(data)
+		} else if field.Type() == reflect.TypeOf([]byte{}) { // Explicit check for []byte type
+			field.SetBytes(data)
+		} else {
+			// If we reach here, it's an unhandled type or a type that cannot be directly set from []byte
+			// without further conversion. Panic for now to indicate an unhandled case.
+			panic(fmt.Sprintf("Unhandled field type for setting: %s (Kind: %s)", field.Type().Name(), field.Kind()))
 		}
 	}
 }
@@ -214,10 +234,10 @@ func (db *V3) unmarshalRecords(records []byte) (int, []byte, error) {
 	return recordStart, hmacData, nil
 }
 
-// UnMarshal a single record from the given records []byte, writing to fields in recordFieldMap, return record size, raw record Data and error/nil
+// UnMarshal a single record from the given records []byte, writing to fields in recordFieldMap, return record size, raw record Data and error or nil
 // Individual records stop with an END field
 // This function is used both to UnMarshal the header and individual records in the DB
-func unmarshalRecord(records []byte, recordFieldMap map[byte]*structs.Field) (int, []byte, error) {
+func unmarshalRecord(records []byte, recordFieldMap map[byte]reflect.Value) (int, []byte, error) {
 	var rdata []byte
 	fieldStart := 0
 	for {
