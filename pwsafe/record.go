@@ -1,34 +1,64 @@
 package pwsafe
 
 import (
+	"errors"
 	"fmt"
 	"time"
+
+	"golang.org/x/crypto/twofish"
+)
+
+// Record field constants
+const (
+	recordUUID                   = 0x01
+	recordGroup                  = 0x02
+	recordTitle                  = 0x03
+	recordUsername               = 0x04
+	recordNotes                  = 0x05
+	recordPassword               = 0x06
+	recordCreateTime             = 0x07
+	recordPasswordModTime        = 0x08
+	recordAccessTime             = 0x09
+	recordPasswordExpiry         = 0x0a
+	recordModTime                = 0x0c
+	recordURL                    = 0x0d
+	recordAutotype               = 0x0e
+	recordPasswordHistory        = 0x0f
+	recordPasswordPolicy         = 0x10
+	recordPasswordExpiryInterval = 0x11
+	recordRunCommand             = 0x12
+	recordDoubleClickAction      = 0x13
+	recordEmail                  = 0x14
+	recordProtectedEntry         = 0x15
+	recordShiftDoubleClickAction = 0x17
+	recordPasswordPolicyName     = 0x18
+	recordEndOfEntry             = 0xff
 )
 
 // Record The primary type for password DB entries
 type Record struct {
-	AccessTime             time.Time `field:"09"`
-	Autotype               string    `field:"0e"`
-	CreateTime             time.Time `field:"07"`
-	DoubleClickAction      [2]byte   `field:"13"`
-	Email                  string    `field:"14"`
-	Group                  string    `field:"02"`
-	ModTime                time.Time `field:"0c"`
-	Notes                  string    `field:"05"`
-	Password               string    `field:"06"`
-	PasswordExpiry         time.Time `field:"0a"`
-	PasswordExpiryInterval [4]byte   `field:"11"`
-	PasswordHistory        string    `field:"0f"`
-	PasswordModTime        string    `field:"08"`
-	PasswordPolicy         string    `field:"10"`
-	PasswordPolicyName     string    `field:"18"`
-	ProtectedEntry         byte      `field:"15"`
-	RunCommand             string    `field:"12"`
-	ShiftDoubleClickAction [2]byte   `field:"17"`
-	Title                  string    `field:"03"`
-	Username               string    `field:"04"`
-	URL                    string    `field:"0d"`
-	UUID                   [16]byte  `field:"01"`
+	AccessTime             time.Time // 0x09
+	Autotype               string    // 0x0e
+	CreateTime             time.Time // 0x07
+	DoubleClickAction      [2]byte   // 0x13
+	Email                  string    // 0x14
+	Group                  string    // 0x02
+	ModTime                time.Time // 0x0c
+	Notes                  string    // 0x05
+	Password               string    // 0x06
+	PasswordExpiry         time.Time // 0x0a
+	PasswordExpiryInterval [4]byte   // 0x11
+	PasswordHistory        string    // 0x0f
+	PasswordModTime        string    // 0x08
+	PasswordPolicy         string    // 0x10
+	PasswordPolicyName     string    // 0x18
+	ProtectedEntry         byte      // 0x15
+	RunCommand             string    // 0x12
+	ShiftDoubleClickAction [2]byte   // 0x17
+	Title                  string    // 0x03
+	Username               string    // 0x04
+	URL                    string    // 0x0d
+	UUID                   [16]byte  // 0x01
 }
 
 // Equal compares two records returning true optionally skipping create/access times and UUID.
@@ -104,4 +134,130 @@ func (r Record) Equal(otherRecord Record, skipTimes bool) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// setField sets the field value based on the ID
+func (r *Record) setField(id byte, data []byte) error {
+	switch id {
+	case recordUUID:
+		if len(data) != 16 {
+			return errors.New("invalid length for UUID")
+		}
+		copy(r.UUID[:], data)
+	case recordGroup:
+		r.Group = string(data)
+	case recordTitle:
+		r.Title = string(data)
+	case recordUsername:
+		r.Username = string(data)
+	case recordNotes:
+		r.Notes = string(data)
+	case recordPassword:
+		r.Password = string(data)
+	case recordCreateTime:
+		r.CreateTime = time.Unix(int64(byteToInt(data)), 0)
+	case recordPasswordModTime:
+		r.PasswordModTime = string(data)
+	case recordAccessTime:
+		r.AccessTime = time.Unix(int64(byteToInt(data)), 0)
+	case recordPasswordExpiry:
+		r.PasswordExpiry = time.Unix(int64(byteToInt(data)), 0)
+	case recordModTime:
+		r.ModTime = time.Unix(int64(byteToInt(data)), 0)
+	case recordURL:
+		r.URL = string(data)
+	case recordAutotype:
+		r.Autotype = string(data)
+	case recordPasswordHistory:
+		r.PasswordHistory = string(data)
+	case recordPasswordPolicy:
+		r.PasswordPolicy = string(data)
+	case recordPasswordExpiryInterval:
+		if len(data) != 4 {
+			return errors.New("invalid length for PasswordExpiryInterval")
+		}
+		copy(r.PasswordExpiryInterval[:], data)
+	case recordRunCommand:
+		r.RunCommand = string(data)
+	case recordDoubleClickAction:
+		if len(data) != 2 {
+			return errors.New("invalid length for DoubleClickAction")
+		}
+		copy(r.DoubleClickAction[:], data)
+	case recordEmail:
+		r.Email = string(data)
+	case recordProtectedEntry:
+		if len(data) != 1 {
+			return errors.New("invalid length for ProtectedEntry")
+		}
+		r.ProtectedEntry = data[0]
+	case recordShiftDoubleClickAction:
+		if len(data) != 2 {
+			return errors.New("invalid length for ShiftDoubleClickAction")
+		}
+		copy(r.ShiftDoubleClickAction[:], data)
+	case recordPasswordPolicyName:
+		r.PasswordPolicyName = string(data)
+	default:
+		return fmt.Errorf("Encountered unknown Record Field type - %v", id)
+	}
+	return nil
+}
+
+// marshal returns the binary format for the record and the values used for hmac calculations
+func (r *Record) marshal() (record []byte, totalDataBytes []byte) {
+	// Helper to append a field
+	appendField := func(id byte, data []byte) {
+		if len(data) == 0 {
+			return
+		}
+		totalDataBytes = append(totalDataBytes, data...)
+		record = append(record, intToBytes(len(data))...)
+		record = append(record, id)
+		record = append(record, data...)
+		usedBlockSpace := (len(data) + 5) % twofish.BlockSize
+		if usedBlockSpace != 0 {
+			record = append(record, pseudoRandmonBytes(twofish.BlockSize-usedBlockSpace)...)
+		}
+	}
+
+	appendField(recordUUID, r.UUID[:])
+	appendField(recordGroup, []byte(r.Group))
+	appendField(recordTitle, []byte(r.Title))
+	appendField(recordUsername, []byte(r.Username))
+	appendField(recordNotes, []byte(r.Notes))
+	appendField(recordPassword, []byte(r.Password))
+	if !r.CreateTime.IsZero() {
+		appendField(recordCreateTime, intToBytes(int(r.CreateTime.Unix())))
+	}
+	appendField(recordPasswordModTime, []byte(r.PasswordModTime))
+	if !r.AccessTime.IsZero() {
+		appendField(recordAccessTime, intToBytes(int(r.AccessTime.Unix())))
+	}
+	if !r.PasswordExpiry.IsZero() {
+		appendField(recordPasswordExpiry, intToBytes(int(r.PasswordExpiry.Unix())))
+	}
+	if !r.ModTime.IsZero() {
+		appendField(recordModTime, intToBytes(int(r.ModTime.Unix())))
+	}
+	appendField(recordURL, []byte(r.URL))
+	appendField(recordAutotype, []byte(r.Autotype))
+	appendField(recordPasswordHistory, []byte(r.PasswordHistory))
+	appendField(recordPasswordPolicy, []byte(r.PasswordPolicy))
+	appendField(recordPasswordExpiryInterval, r.PasswordExpiryInterval[:])
+	appendField(recordRunCommand, []byte(r.RunCommand))
+	appendField(recordDoubleClickAction, r.DoubleClickAction[:])
+	appendField(recordEmail, []byte(r.Email))
+	if r.ProtectedEntry != 0 {
+		appendField(recordProtectedEntry, []byte{r.ProtectedEntry})
+	}
+	appendField(recordShiftDoubleClickAction, r.ShiftDoubleClickAction[:])
+	appendField(recordPasswordPolicyName, []byte(r.PasswordPolicyName))
+
+	// End of entry
+	record = append(record, []byte{0, 0, 0, 0}...)
+	record = append(record, recordEndOfEntry)
+	record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
+
+	return record, totalDataBytes
 }

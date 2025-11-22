@@ -10,23 +10,42 @@ import (
 	"golang.org/x/crypto/twofish"
 )
 
+// Header field constants
+const (
+	headerVersion        = 0x00
+	headerUUID           = 0x01
+	headerPreferences    = 0x02
+	headerTree           = 0x03
+	headerLastSave       = 0x04
+	headerLastSaveBy     = 0x06
+	headerLastSaveUser   = 0x07
+	headerLastSaveHost   = 0x08
+	headerName           = 0x09
+	headerDescription    = 0x0a
+	headerFilters        = 0x0b
+	headerRecentyUsed    = 0x0f
+	headerPasswordPolicy = 0x10
+	headerEmptyGroups    = 0x11
+	headerEndOfEntry     = 0xff
+)
+
 // header defines the fields in the V3 DB header
 // The field is the 1 byte hex value of the field type
 type header struct {
-	Description    string    `field:"0a"`
-	EmptyGroups    []string  `field:"11"`
-	Filters        string    `field:"0b"`
-	LastSave       time.Time `field:"04"`
-	LastSaveBy     []byte    `field:"06"`
-	LastSaveHost   []byte    `field:"08"`
-	LastSaveUser   []byte    `field:"07"`
-	Name           string    `field:"09"`
-	PasswordPolicy string    `field:"10"`
-	Preferences    string    `field:"02"`
-	RecentyUsed    string    `field:"0f"`
-	Tree           string    `field:"03"`
-	UUID           [16]byte  `field:"01"`
-	Version        [2]byte   `field:"00"`
+	Description    string    // 0x0a
+	EmptyGroups    []string  // 0x11
+	Filters        string    // 0x0b
+	LastSave       time.Time // 0x04
+	LastSaveBy     []byte    // 0x06
+	LastSaveHost   []byte    // 0x08
+	LastSaveUser   []byte    // 0x07
+	Name           string    // 0x09
+	PasswordPolicy string    // 0x10
+	Preferences    string    // 0x02
+	RecentyUsed    string    // 0x0f
+	Tree           string    // 0x03
+	UUID           [16]byte  // 0x01
+	Version        [2]byte   // 0x00
 }
 
 func newHeader(name string) header {
@@ -73,30 +92,108 @@ func (h header) Equal(other header) (bool, error) {
 	return true, nil
 }
 
-// MarshalBinary returns the encoded bytes for the header.
-// These are unecrypted and will need encrypting later.
-func (h header) MarshalBinary() ([]byte, error) {
-	// Note the version field needs to be first and is required, END type field must be last
-	//headerBytes, headerValues := marshalRecord(headerFields)
-	// TODO the hmac 
-	return nil, fmt.Errorf("Not Implemented")
+// setField sets the field value based on the ID
+func (h *header) setField(id byte, data []byte) error {
+	switch id {
+	case headerVersion:
+		if len(data) != 2 {
+			return fmt.Errorf("invalid length for Version: %d", len(data))
+		}
+		copy(h.Version[:], data)
+	case headerUUID:
+		if len(data) != 16 {
+			return errors.New("invalid length for UUID")
+		}
+		copy(h.UUID[:], data)
+	case headerPreferences:
+		h.Preferences = string(data)
+	case headerTree:
+		h.Tree = string(data)
+	case headerLastSave:
+		h.LastSave = time.Unix(int64(byteToInt(data)), 0)
+	case headerLastSaveBy:
+		h.LastSaveBy = data
+	case headerLastSaveUser:
+		h.LastSaveUser = data
+	case headerLastSaveHost:
+		h.LastSaveHost = data
+	case headerName:
+		h.Name = string(data)
+	case headerDescription:
+		h.Description = string(data)
+	case headerFilters:
+		h.Filters = string(data)
+	case headerRecentyUsed:
+		h.RecentyUsed = string(data)
+	case headerPasswordPolicy:
+		h.PasswordPolicy = string(data)
+	case headerEmptyGroups:
+		h.EmptyGroups = append(h.EmptyGroups, string(data))
+	default:
+		return fmt.Errorf("Encountered unknown Header Field type - %v", id)
+	}
+	return nil
+}
+
+// marshal returns the binary format for the header and the values used for hmac calculations
+func (h *header) marshal() (record []byte, totalDataBytes []byte) {
+	// Helper to append a field
+	appendField := func(id byte, data []byte) {
+		if len(data) == 0 {
+			return
+		}
+		totalDataBytes = append(totalDataBytes, data...)
+		record = append(record, intToBytes(len(data))...)
+		record = append(record, id)
+		record = append(record, data...)
+		usedBlockSpace := (len(data) + 5) % twofish.BlockSize
+		if usedBlockSpace != 0 {
+			record = append(record, pseudoRandmonBytes(twofish.BlockSize-usedBlockSpace)...)
+		}
+	}
+
+	// Version is required and should be first
+	appendField(headerVersion, h.Version[:])
+	appendField(headerUUID, h.UUID[:])
+	appendField(headerPreferences, []byte(h.Preferences))
+	appendField(headerTree, []byte(h.Tree))
+	if !h.LastSave.IsZero() {
+		appendField(headerLastSave, intToBytes(int(h.LastSave.Unix())))
+	}
+	appendField(headerLastSaveBy, h.LastSaveBy)
+	appendField(headerLastSaveUser, h.LastSaveUser)
+	appendField(headerLastSaveHost, h.LastSaveHost)
+	appendField(headerName, []byte(h.Name))
+	appendField(headerDescription, []byte(h.Description))
+	appendField(headerFilters, []byte(h.Filters))
+	appendField(headerRecentyUsed, []byte(h.RecentyUsed))
+	appendField(headerPasswordPolicy, []byte(h.PasswordPolicy))
+	for _, group := range h.EmptyGroups {
+		appendField(headerEmptyGroups, []byte(group))
+	}
+
+	// End of entry
+	record = append(record, []byte{0, 0, 0, 0}...)
+	record = append(record, headerEndOfEntry)
+	record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
+
+	return record, totalDataBytes
 }
 
 // UnmarshalHeader takes a byte slice and unmarshals it into a header struct, also returning the next position in the data and raw bytes
 // used so they can be reused for HMAC calculations.
 func UnmarshalHeader(data []byte) (header, int, []byte, error) {
 	var h header
-	headerFieldMap := mapByFieldTag(&h)
 	var rdata []byte
 	fieldStart := 0
 	for {
-		if fieldStart > len(data) {
+		if fieldStart+5 > len(data) {
 			return h, 0, rdata, errors.New("No END field found when UnMarshaling")
 		}
 		fieldLength := byteToInt(data[fieldStart : fieldStart+4])
 		btype := data[fieldStart+4 : fieldStart+5][0]
-		data := data[fieldStart+5 : fieldStart+fieldLength+5]
-		rdata = append(rdata, data...)
+		fieldData := data[fieldStart+5 : fieldStart+fieldLength+5]
+		rdata = append(rdata, fieldData...)
 		fieldStart += fieldLength + 5
 		//The next field must start on a block boundary
 		blockmod := fieldStart % twofish.BlockSize
@@ -104,13 +201,14 @@ func UnmarshalHeader(data []byte) (header, int, []byte, error) {
 			fieldStart += twofish.BlockSize - blockmod
 		}
 
-		field, prs := headerFieldMap[btype]
-		if prs {
-			setField(field, data)
-		} else if btype == 0xff { //end
+		if btype == headerEndOfEntry {
 			return h, fieldStart, rdata, nil
-		} else {
-			return h, fieldStart, rdata, fmt.Errorf("Encountered unknown Record Field type - %v", btype)
+		}
+
+		if err := h.setField(btype, fieldData); err != nil {
+			// For forward compatibility, maybe we should ignore unknown fields?
+			// But the original code returned error.
+			return h, fieldStart, rdata, err
 		}
 	}
 }

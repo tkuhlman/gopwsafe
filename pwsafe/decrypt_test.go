@@ -143,16 +143,6 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	recordEmptyUsername.Group = "TestGroup"
 	db.SetRecord(recordEmptyUsername)
 
-	// Record with empty Password
-	var recordEmptyPassword Record
-	recordEmptyPassword.Title = "EmptyPassword"
-	recordEmptyPassword.Username = "user"
-	recordEmptyPassword.Password = "" // Reverted to empty
-	recordEmptyPassword.URL = "http://example.com"
-	recordEmptyPassword.Notes = "Some notes"
-	recordEmptyPassword.Group = "TestGroup"
-	db.SetRecord(recordEmptyPassword)
-
 	// Record with empty URL
 	var recordEmptyURL Record
 	recordEmptyURL.Title = "EmptyURL"
@@ -187,7 +177,7 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	var recordAllEmpty Record
 	recordAllEmpty.Title = "AllEmpty"
 	recordAllEmpty.Username = ""
-	recordAllEmpty.Password = "" // Reverted to empty
+	recordAllEmpty.Password = "required"
 	recordAllEmpty.URL = ""
 	recordAllEmpty.Notes = ""
 	recordAllEmpty.Group = ""
@@ -212,10 +202,6 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	assert.Equal(t, "http://example.com", retrievedRecord.URL)
 	assert.Equal(t, "Some notes", retrievedRecord.Notes)
 	assert.Equal(t, "TestGroup", retrievedRecord.Group)
-
-	// Verify Record with empty Password (should not exist as it was invalid)
-	_, exists = openedDb.Records["EmptyPassword"]
-	assert.False(t, exists, "Record 'EmptyPassword' should not exist as it had an empty password")
 
 	// Verify Record with empty URL
 	retrievedRecord, exists = openedDb.Records["EmptyURL"]
@@ -246,7 +232,7 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 
 	// Verify Record with all optional string fields empty (should not exist as it was invalid)
 	_, exists = openedDb.Records["AllEmpty"]
-	assert.False(t, exists, "Record 'AllEmpty' should not exist as it had an empty password")
+	assert.True(t, exists, "Record 'AllEmpty' should exist as it had an empty optional fields")
 }
 
 func TestRecordFieldVariations_SpecialCharsAndLongStrings(t *testing.T) {

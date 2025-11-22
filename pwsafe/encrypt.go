@@ -5,11 +5,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	pseudoRand "math/rand"
-	"reflect"
 	"time"
 
 	"github.com/pborman/uuid"
@@ -76,10 +74,13 @@ func (db *V3) Encrypt(dbBuf io.Writer) error {
 	//ordered := structs.Fields(db)
 	//headerFields := append(ordered[:len(ordered)-2], ordered[len(ordered)-1])
 
-	headerBytes, headerValues := marshalRecord(reflect.ValueOf(db.Header))
+	headerBytes, headerValues := db.Header.marshal()
 	unencryptedBytes = append(unencryptedBytes, headerBytes...)
 
-	recordBytes, recordValues := db.marshalRecords()
+	recordBytes, recordValues, err := db.marshalRecords()
+	if err != nil {
+		return err
+	}
 	unencryptedBytes = append(unencryptedBytes, recordBytes...)
 
 	// encrypt and write the dbBlocks
@@ -107,134 +108,28 @@ func (db *V3) Encrypt(dbBuf io.Writer) error {
 	return nil
 }
 
-// For the given field return the []byte representation of its data
-func getFieldBytes(field reflect.Value) (fbytes []byte) {
-	switch field.Kind() {
-	// switch field.Kind()
-	// case reflect.
-	case reflect.String:
-		fstring := field.String()
-		fbytes = []byte(fstring)
-	case reflect.Struct: //time.Time shows as kind struct
-		if field.Type() == reflect.TypeOf(time.Time{}) {
-			fbytes = intToBytes(int(field.Interface().(time.Time).Unix()))
-		}
-	case reflect.Array:
-		switch field.Len() {
-		case 2:
-			farray := field.Interface().([2]byte)
-			fbytes = farray[:]
-		case 4:
-			farray := field.Interface().([4]byte)
-			fbytes = farray[:]
-		case 16:
-			farray := field.Interface().([16]byte)
-			fbytes = farray[:]
-		}
-	default:
-		if field.Kind() == reflect.Slice && field.Type().Elem().Kind() == reflect.Uint8 {
-			fbytes = field.Bytes()
-		}
-	}
-	return fbytes
-}
-
-// marshalHeader return the binary format for the record as specified in the spec and the header values used for hmac calculations
-// This function is used both to Marshal the header and individual records in the DB
-func marshalRecord(s reflect.Value) (record []byte, totalDataBytes []byte) {
-	// TODO the UUID, password and title fields are mandatory, make sure the are defined before a record can be added to the DB.
-	typ := s.Type()
-	for i := 0; i < s.NumField(); i++ {
-		field := s.Field(i)
-		typeField := typ.Field(i)
-		fieldTypeStr := typeField.Tag.Get("field")
-
-		if fieldTypeStr == "" || isZero(field) {
-			continue
-		} else {
-			fieldType, err := hex.DecodeString(fieldTypeStr)
-			if err != nil {
-				panic(fmt.Sprintf("Invalid field type in struct tag for %s\n\t%v", typeField.Name, err))
-			}
-			dataBytes := getFieldBytes(field)
-			totalDataBytes = append(totalDataBytes, dataBytes...)
-
-			// Each record is the length, type and data
-			record = append(record, intToBytes(len(dataBytes))...)
-			record = append(record, fieldType[0])
-
-			// Add in the data
-			record = append(record, dataBytes...)
-
-			// if total written bytes doesn't match twofish.BlockSize fill remaining bytes with pseudo random values
-			usedBlockSpace := (len(dataBytes) + 5) % twofish.BlockSize
-			if usedBlockSpace != 0 {
-				record = append(record, pseudoRandmonBytes(twofish.BlockSize-usedBlockSpace)...)
-			}
-		}
-	}
-
-	//finish with the end of record
-	record = append(record, []byte{0, 0, 0, 0}...)
-	record = append(record, '\xFF')
-	record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
-
-	return record, totalDataBytes
-}
-
-// isZero checks if a value is zero-valued
-func isZero(v reflect.Value) bool {
-	switch v.Kind() {
-	case reflect.Func, reflect.Map, reflect.Slice:
-		return v.IsNil()
-	case reflect.Array:
-		z := true
-		for i := 0; i < v.Len(); i++ {
-			z = z && isZero(v.Index(i))
-		}
-		return z
-	case reflect.Struct:
-		// Special handling for time.Time
-		if v.Type() == reflect.TypeOf(time.Time{}) {
-			return v.Interface().(time.Time).IsZero()
-		}
-		z := true
-		for i := 0; i < v.NumField(); i++ {
-			z = z && isZero(v.Field(i))
-		}
-		return z
-	default:
-		// Compare with zero value of the type
-		zero := reflect.Zero(v.Type())
-		return v.Interface() == zero.Interface()
-	}
-}
-
 // marshalRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
-func (db *V3) marshalRecords() (records []byte, dataBytes []byte) {
+func (db *V3) marshalRecords() (records []byte, dataBytes []byte, err error) {
 	for _, record := range db.Records {
-		recordVal := reflect.ValueOf(record)
 		// if uuid is not set calculate
 		//todo I should assume the UUID is set. I do for new dbs but don't check on reading from disk, I
 		// should check it is unique also when opening more than one in the gui
-		if isZero(recordVal.FieldByName("UUID")) {
+		if record.UUID == [16]byte{} {
 			db.Header.UUID = [16]byte(uuid.NewRandom().Array())
 		}
 
 		// for each record UUID, Title and Password fields are mandatory all others are optional
-		if isZero(recordVal.FieldByName("Title")) || isZero(recordVal.FieldByName("Password")) {
-			//todo how should I handle this?
-			fmt.Println("Error: Title or Password is not set, invalid record")
-			continue
+		if record.Title == "" || record.Password == "" {
+			return nil, nil, fmt.Errorf("Title or Password is not set, invalid record, title %s", record.Title)
 		}
 
 		// finally call marshalRecord for this record
-		rBytes, hmacBytes := marshalRecord(recordVal)
+		rBytes, hmacBytes := record.marshal()
 		records = append(records, rBytes...)
 		dataBytes = append(dataBytes, hmacBytes...)
 	}
 
-	return records, dataBytes
+	return records, dataBytes, nil
 }
 
 // Generate size bytes of pseudo random data
