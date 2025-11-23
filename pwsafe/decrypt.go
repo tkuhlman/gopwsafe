@@ -4,6 +4,7 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"io"
 
@@ -12,65 +13,56 @@ import (
 
 // Decrypt Decrypts the data in the reader using the given password and populates the information into the db
 func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
-	// read the entire encrypted db into memory
-	var rawDB []byte
-	var bytesRead int
-	for {
-		block := make([]byte, 256)
-		readLoop, err := reader.Read(block)
-		bytesRead += readLoop
-		if err != nil {
-			return bytesRead, err
-		}
-		rawDB = append(rawDB, block[:readLoop]...)
-		if readLoop != 256 {
-			break
-		}
-	}
-
-	if bytesRead < 200 {
-		return bytesRead, errors.New("DB file is smaller than minimum size")
-	}
+	cr := &CountingReader{Reader: reader}
 
 	// The TAG is 4 ascii characters, should be "PWS3"
-	if string(rawDB[:4]) != "PWS3" {
-		return bytesRead, errors.New("File is not a valid Password Safe v3 file")
+	tag := make([]byte, 4)
+	if _, err := io.ReadFull(cr, tag); err != nil {
+		return cr.BytesRead, err
 	}
-	pos := 4 // used to track the current position in the byte array representing the db.
+	if string(tag) != "PWS3" {
+		return cr.BytesRead, errors.New("File is not a valid Password Safe v3 file")
+	}
 
 	// Read the Salt
-	copy(db.Salt[:], rawDB[pos:pos+32])
-	pos += 32
+	if _, err := io.ReadFull(cr, db.Salt[:]); err != nil {
+		return cr.BytesRead, err
+	}
 
 	// Read iter
-	db.Iter = uint32(byteToInt(rawDB[pos : pos+4]))
-	pos += 4
+	if err := binary.Read(cr, binary.LittleEndian, &db.Iter); err != nil {
+		return cr.BytesRead, err
+	}
 
 	// Verify the password
 	db.calculateStretchKey(passwd)
 	var keyHash [sha256.Size]byte
-	copy(keyHash[:], rawDB[pos:pos+sha256.Size])
-	pos += sha256.Size
+	if _, err := io.ReadFull(cr, keyHash[:]); err != nil {
+		return cr.BytesRead, err
+	}
 	if keyHash != sha256.Sum256(db.StretchedKey[:]) {
-		return bytesRead, errors.New("Invalid Password")
+		return cr.BytesRead, errors.New("Invalid Password")
 	}
 
 	//extract the encryption and hmac keys
-	db.extractKeys(rawDB[pos : pos+64])
-	pos += 64
+	keyData := make([]byte, 64)
+	if _, err := io.ReadFull(cr, keyData); err != nil {
+		return cr.BytesRead, err
+	}
+	db.extractKeys(keyData)
 
-	copy(db.CBCIV[:], rawDB[pos:pos+16])
-	pos += 16
+	if _, err := io.ReadFull(cr, db.CBCIV[:]); err != nil {
+		return cr.BytesRead, err
+	}
 
 	// All following fields are encrypted with twofish in CBC mode until the EOF, find the EOF
 	var encryptedDB []byte
 	var encryptedSize int
 	for {
-		if pos+twofish.BlockSize > bytesRead {
-			return bytesRead, errors.New("Invalid DB, no EOF found")
+		blockBytes := make([]byte, twofish.BlockSize)
+		if _, err := io.ReadFull(cr, blockBytes); err != nil {
+			return cr.BytesRead, err
 		}
-		blockBytes := rawDB[pos : pos+twofish.BlockSize]
-		pos += twofish.BlockSize
 
 		if string(blockBytes) == "PWS3-EOFPWS3-EOF" {
 			break
@@ -89,31 +81,43 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	decrypter.CryptBlocks(decryptedDB, encryptedDB)
 
 	// Verify expected end of data
-	expectedHMAC := rawDB[pos : pos+32]
-	if len(rawDB) != pos+32 {
-		return bytesRead, errors.New("Error unknown data after expected EOF")
+	expectedHMAC := make([]byte, 32)
+	if _, err := io.ReadFull(cr, expectedHMAC); err != nil {
+		return cr.BytesRead, err
 	}
 
 	//UnMarshal the decrypted DB, first the header
 	header, hdrSize, headerHMACData, err := UnmarshalHeader(decryptedDB)
 	if err != nil {
-		return bytesRead, errors.New("Error parsing the unencrypted header - " + err.Error())
+		return cr.BytesRead, errors.New("Error parsing the unencrypted header - " + err.Error())
 	}
 	db.Header = header
 
 	_, recordHMACData, err := db.unmarshalRecords(decryptedDB[hdrSize:])
 	if err != nil {
-		return bytesRead, errors.New("Error parsing the unencrypted records - " + err.Error())
+		return cr.BytesRead, errors.New("Error parsing the unencrypted records - " + err.Error())
 	}
 	hmacData := append(headerHMACData, recordHMACData...)
 
 	// Verify HMAC - The HMAC is only calculated on the header/field values not length/type
 	db.calculateHMAC(hmacData)
 	if !hmac.Equal(db.HMAC[:], expectedHMAC) {
-		return bytesRead, errors.New("Error Calculated HMAC does not match read HMAC")
+		return cr.BytesRead, errors.New("Error Calculated HMAC does not match read HMAC")
 	}
 
-	return bytesRead, nil
+	return cr.BytesRead, nil
+}
+
+// CountingReader wraps an io.Reader and counts the bytes read
+type CountingReader struct {
+	io.Reader
+	BytesRead int
+}
+
+func (r *CountingReader) Read(p []byte) (n int, err error) {
+	n, err = r.Reader.Read(p)
+	r.BytesRead += n
+	return n, err
 }
 
 // Pull encryptionKey and HMAC key from the 64byte keyData
@@ -170,7 +174,7 @@ func unmarshalRecord(records []byte, setter fieldSetter) (int, []byte, error) {
 		if fieldStart > len(records) {
 			return 0, rdata, errors.New("No END field found when UnMarshaling")
 		}
-		fieldLength := byteToInt(records[fieldStart : fieldStart+4])
+		fieldLength := int(binary.LittleEndian.Uint32(records[fieldStart : fieldStart+4]))
 		btype := records[fieldStart+4 : fieldStart+5][0]
 		data := records[fieldStart+5 : fieldStart+fieldLength+5]
 		rdata = append(rdata, data...)

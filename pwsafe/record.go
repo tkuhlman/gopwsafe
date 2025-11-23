@@ -1,6 +1,7 @@
 package pwsafe
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -155,15 +156,15 @@ func (r *Record) setField(id byte, data []byte) error {
 	case recordPassword:
 		r.Password = string(data)
 	case recordCreateTime:
-		r.CreateTime = time.Unix(int64(byteToInt(data)), 0)
+		r.CreateTime = time.Unix(int64(binary.LittleEndian.Uint32(data)), 0)
 	case recordPasswordModTime:
 		r.PasswordModTime = string(data)
 	case recordAccessTime:
-		r.AccessTime = time.Unix(int64(byteToInt(data)), 0)
+		r.AccessTime = time.Unix(int64(binary.LittleEndian.Uint32(data)), 0)
 	case recordPasswordExpiry:
-		r.PasswordExpiry = time.Unix(int64(byteToInt(data)), 0)
+		r.PasswordExpiry = time.Unix(int64(binary.LittleEndian.Uint32(data)), 0)
 	case recordModTime:
-		r.ModTime = time.Unix(int64(byteToInt(data)), 0)
+		r.ModTime = time.Unix(int64(binary.LittleEndian.Uint32(data)), 0)
 	case recordURL:
 		r.URL = string(data)
 	case recordAutotype:

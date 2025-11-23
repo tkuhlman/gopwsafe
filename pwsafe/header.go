@@ -1,6 +1,7 @@
 package pwsafe
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"slices"
@@ -110,7 +111,7 @@ func (h *header) setField(id byte, data []byte) error {
 	case headerTree:
 		h.Tree = string(data)
 	case headerLastSave:
-		h.LastSave = time.Unix(int64(byteToInt(data)), 0)
+		h.LastSave = time.Unix(int64(binary.LittleEndian.Uint32(data)), 0)
 	case headerLastSaveBy:
 		h.LastSaveBy = data
 	case headerLastSaveUser:
@@ -190,7 +191,7 @@ func UnmarshalHeader(data []byte) (header, int, []byte, error) {
 		if fieldStart+5 > len(data) {
 			return h, 0, rdata, errors.New("No END field found when UnMarshaling")
 		}
-		fieldLength := byteToInt(data[fieldStart : fieldStart+4])
+		fieldLength := int(binary.LittleEndian.Uint32(data[fieldStart : fieldStart+4]))
 		btype := data[fieldStart+4 : fieldStart+5][0]
 		fieldData := data[fieldStart+5 : fieldStart+fieldLength+5]
 		rdata = append(rdata, fieldData...)

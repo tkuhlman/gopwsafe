@@ -158,13 +158,3 @@ func (db *V3) calculateStretchKey(passwd string) {
 	}
 	db.StretchedKey = stretched
 }
-
-// TODO I may be able to replaces this with, binary.BigEndian.Uint32 or similar
-func byteToInt(b []byte) int {
-	bint := uint32(b[0])
-	for i := 1; i < len(b); i++ {
-		shift := uint(i) * 8
-		bint = bint | uint32(b[i])<<shift
-	}
-	return int(bint)
-}

@@ -55,24 +55,8 @@ func (db *V3) Encrypt(dbBuf io.Writer) error {
 
 	// marshal the core db values
 
-	/* TODO consider switching to a bytes buffer
-	unencryptedBuf := &bytes.Buffer{}
-
-	// TODO MarshalBinary will not work because I need to return to calculate the HMAC bytes as well, see the function to caculate the HMAC and continue from there.
-	header, err := db.Header.MarshalBinary(hmacBuf)
-	if err!= nil {
-		return fmt.Errorf("error marshalling header: %w", err)
-	}
-	if _, err := unencryptedBuf.Write(header); err != nil {
-		return err
-	}
-	*/
 	var unencryptedBytes []byte
 	// Note the version field needs to be first and is required
-	// headerFields := structs.Fields(db.Header)
-	//todo it is a bad assumption that version is the last item in the slice, fix so version is first
-	//ordered := structs.Fields(db)
-	//headerFields := append(ordered[:len(ordered)-2], ordered[len(ordered)-1])
 
 	headerBytes, headerValues := db.Header.marshal()
 	unencryptedBytes = append(unencryptedBytes, headerBytes...)
