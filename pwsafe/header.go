@@ -61,34 +61,34 @@ func newHeader(name string) header {
 
 func (h header) Equal(other header) (bool, error) {
 	if h.Description != other.Description {
-		return false, fmt.Errorf("Description fields not equal, %v != %v", h.Description, other.Description)
+		return false, fmt.Errorf("description fields not equal, %v != %v", h.Description, other.Description)
 	}
 	if !slices.Equal(h.EmptyGroups, other.EmptyGroups) {
-		return false, fmt.Errorf("EmptyGroups fields not equal, %v != %v", h.EmptyGroups, other.EmptyGroups)
+		return false, fmt.Errorf("emptyGroups fields not equal, %v != %v", h.EmptyGroups, other.EmptyGroups)
 	}
 	if h.Filters != other.Filters {
-		return false, fmt.Errorf("Filters fields not equal, %v != %v", h.Filters, other.Filters)
+		return false, fmt.Errorf("filters fields not equal, %v != %v", h.Filters, other.Filters)
 	}
 	if h.Name != other.Name {
-		return false, fmt.Errorf("Name fields not equal, %v != %v", h.Name, other.Name)
+		return false, fmt.Errorf("name fields not equal, %v != %v", h.Name, other.Name)
 	}
 	if h.PasswordPolicy != other.PasswordPolicy {
-		return false, fmt.Errorf("PasswordPolicy fields not equal, %v != %v", h.PasswordPolicy, other.PasswordPolicy)
+		return false, fmt.Errorf("passwordPolicy fields not equal, %v != %v", h.PasswordPolicy, other.PasswordPolicy)
 	}
 	if h.Preferences != other.Preferences {
-		return false, fmt.Errorf("Preferences fields not equal, %v != %v", h.Preferences, other.Preferences)
+		return false, fmt.Errorf("preferences fields not equal, %v != %v", h.Preferences, other.Preferences)
 	}
 	if h.RecentyUsed != other.RecentyUsed {
-		return false, fmt.Errorf("RecentyUsed fields not equal, %v != %v", h.RecentyUsed, other.RecentyUsed)
+		return false, fmt.Errorf("recentyUsed fields not equal, %v != %v", h.RecentyUsed, other.RecentyUsed)
 	}
 	if h.Tree != other.Tree {
-		return false, fmt.Errorf("Tree fields not equal, %q != %q", h.Tree, other.Tree)
+		return false, fmt.Errorf("tree fields not equal, %q != %q", h.Tree, other.Tree)
 	}
 	if h.UUID != other.UUID {
 		return false, fmt.Errorf("UUID fields not equal, %v != %v", h.UUID, other.UUID)
 	}
 	if h.Version != other.Version {
-		return false, fmt.Errorf("Version fields not equal, %v != %v", h.Version, other.Version)
+		return false, fmt.Errorf("version fields not equal, %v != %v", h.Version, other.Version)
 	}
 
 	return true, nil
@@ -132,7 +132,7 @@ func (h *header) setField(id byte, data []byte) error {
 	case headerEmptyGroups:
 		h.EmptyGroups = append(h.EmptyGroups, string(data))
 	default:
-		return fmt.Errorf("Encountered unknown Header Field type - %v", id)
+		return fmt.Errorf("encountered unknown Header Field type - %v", id)
 	}
 	return nil
 }
@@ -201,7 +201,7 @@ func UnmarshalHeader(data []byte) (header, int, []byte, error) {
 	fieldStart := 0
 	for {
 		if fieldStart+5 > len(data) {
-			return h, 0, rdata, errors.New("No END field found when UnMarshaling")
+			return h, 0, rdata, errors.New("no END field found when UnMarshaling")
 		}
 		fieldLength := int(binary.LittleEndian.Uint32(data[fieldStart : fieldStart+4]))
 		btype := data[fieldStart+4 : fieldStart+5][0]

@@ -36,7 +36,7 @@ func TestKeys(t *testing.T) {
 
 func TestInvalidFile(t *testing.T) {
 	_, err := OpenPWSafeFile("./db.go", "password")
-	assert.Equal(t, err, errors.New("File is not a valid Password Safe v3 file"))
+	assert.Equal(t, err, errors.New("file is not a valid Password Safe v3 file"))
 	_, err = OpenPWSafeFile("./notafile", "password")
 	assert.NotNil(t, err)
 }

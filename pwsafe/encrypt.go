@@ -104,7 +104,7 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte, err error) {
 
 		// for each record UUID, Title and Password fields are mandatory all others are optional
 		if record.Title == "" || record.Password == "" {
-			return nil, nil, fmt.Errorf("Title or Password is not set, invalid record, title %s", record.Title)
+			return nil, nil, fmt.Errorf("title or password is not set, invalid record, title %s", record.Title)
 		}
 
 		// finally call marshalRecord for this record

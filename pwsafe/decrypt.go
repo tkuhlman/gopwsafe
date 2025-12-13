@@ -21,7 +21,7 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 		return cr.BytesRead, err
 	}
 	if string(tag) != "PWS3" {
-		return cr.BytesRead, errors.New("File is not a valid Password Safe v3 file")
+		return cr.BytesRead, errors.New("file is not a valid Password Safe v3 file")
 	}
 
 	// Read the Salt
@@ -41,7 +41,7 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 		return cr.BytesRead, err
 	}
 	if keyHash != sha256.Sum256(db.StretchedKey[:]) {
-		return cr.BytesRead, errors.New("Invalid Password")
+		return cr.BytesRead, errors.New("invalid password")
 	}
 
 	//extract the encryption and hmac keys
@@ -89,20 +89,20 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	//UnMarshal the decrypted DB, first the header
 	header, hdrSize, headerHMACData, err := UnmarshalHeader(decryptedDB)
 	if err != nil {
-		return cr.BytesRead, errors.New("Error parsing the unencrypted header - " + err.Error())
+		return cr.BytesRead, errors.New("error parsing the unencrypted header - " + err.Error())
 	}
 	db.Header = header
 
 	_, recordHMACData, err := db.unmarshalRecords(decryptedDB[hdrSize:])
 	if err != nil {
-		return cr.BytesRead, errors.New("Error parsing the unencrypted records - " + err.Error())
+		return cr.BytesRead, errors.New("error parsing the unencrypted records - " + err.Error())
 	}
 	hmacData := append(headerHMACData, recordHMACData...)
 
 	// Verify HMAC - The HMAC is only calculated on the header/field values not length/type
 	db.calculateHMAC(hmacData)
 	if !hmac.Equal(db.HMAC[:], expectedHMAC) {
-		return cr.BytesRead, errors.New("Error Calculated HMAC does not match read HMAC")
+		return cr.BytesRead, errors.New("error calculated HMAC does not match read HMAC")
 	}
 
 	return cr.BytesRead, nil
@@ -152,14 +152,14 @@ func (db *V3) unmarshalRecords(records []byte) (int, []byte, error) {
 		recordLength, recordData, err := unmarshalRecord(records[recordStart:], record)
 		db.Records[record.Title] = *record
 		if err != nil {
-			return recordStart, hmacData, errors.New("Error parsing record - " + err.Error())
+			return recordStart, hmacData, errors.New("error parsing record - " + err.Error())
 		}
 		hmacData = append(hmacData, recordData...)
 		recordStart += recordLength
 	}
 
 	if recordStart > len(records) {
-		return recordStart, hmacData, errors.New("Encountered a record with invalid length")
+		return recordStart, hmacData, errors.New("encountered a record with invalid length")
 	}
 	return recordStart, hmacData, nil
 }
@@ -172,7 +172,7 @@ func unmarshalRecord(records []byte, setter fieldSetter) (int, []byte, error) {
 	fieldStart := 0
 	for {
 		if fieldStart > len(records) {
-			return 0, rdata, errors.New("No END field found when UnMarshaling")
+			return 0, rdata, errors.New("no END field found when UnMarshaling")
 		}
 		fieldLength := int(binary.LittleEndian.Uint32(records[fieldStart : fieldStart+4]))
 		btype := records[fieldStart+4 : fieldStart+5][0]

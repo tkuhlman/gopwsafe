@@ -64,7 +64,7 @@ func TestUnmarshalHeader_MissingEndField(t *testing.T) {
 
 	assert.NotNil(t, err, "UnmarshalHeader should return an error for missing END field")
 	// Based on header.go, the error for running out of data before END is found:
-	assert.Equal(t, "No END field found when UnMarshaling", err.Error(), "Error message mismatch")
+	assert.Equal(t, "no END field found when UnMarshaling", err.Error(), "Error message mismatch")
 }
 
 func TestUnmarshalHeader_UnknownFieldType(t *testing.T) {
@@ -88,7 +88,7 @@ func TestUnmarshalHeader_UnknownFieldType(t *testing.T) {
 
 	assert.NotNil(t, err, "UnmarshalHeader should return an error for unknown field type")
 	// Based on header.go, the error for unknown field type:
-	expectedError := fmt.Sprintf("Encountered unknown Header Field type - %v", 0xFE)
+	expectedError := fmt.Sprintf("encountered unknown Header Field type - %v", 0xFE)
 	assert.Equal(t, expectedError, err.Error(), "Error message mismatch")
 }
 
@@ -125,13 +125,13 @@ func TestUnmarshalHeader_EmptyOrTooShortInput(t *testing.T) {
 		emptyData := []byte{}
 		_, _, _, err := UnmarshalHeader(emptyData)
 		assert.NotNil(t, err, "Should return error with empty data slice")
-		assert.Equal(t, "No END field found when UnMarshaling", err.Error())
+		assert.Equal(t, "no END field found when UnMarshaling", err.Error())
 	})
 
 	t.Run("Too short for field header", func(t *testing.T) {
 		shortData := []byte{0x01, 0x02, 0x03} // Only 3 bytes
 		_, _, _, err := UnmarshalHeader(shortData)
 		assert.NotNil(t, err, "Should return error with data slice too short for a field header")
-		assert.Equal(t, "No END field found when UnMarshaling", err.Error())
+		assert.Equal(t, "no END field found when UnMarshaling", err.Error())
 	})
 }

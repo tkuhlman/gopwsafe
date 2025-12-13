@@ -30,7 +30,7 @@ func TestSimpleDB(t *testing.T) {
 func TestBadHMAC(t *testing.T) {
 	// This test relies on the simple password db found at ./test_db/badHMAC.dat
 	_, err := OpenPWSafeFile("./test_dbs/badHMAC.dat", "password")
-	assert.Equal(t, errors.New("Error Calculated HMAC does not match read HMAC"), err)
+	assert.Equal(t, errors.New("error calculated HMAC does not match read HMAC"), err)
 }
 
 func TestThreeDB(t *testing.T) {
@@ -125,7 +125,7 @@ func TestDBModifications(t *testing.T) {
 }
 func TestBadPassword(t *testing.T) {
 	_, err := OpenPWSafeFile("./test_dbs/simple.dat", "badpass")
-	assert.Equal(t, err, errors.New("Invalid Password"))
+	assert.Equal(t, err, errors.New("invalid password"))
 }
 
 func TestRecordFieldVariations_EmptyFields(t *testing.T) {
