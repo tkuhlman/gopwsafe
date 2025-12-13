@@ -1,6 +1,7 @@
 package pwsafe
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -206,19 +207,30 @@ func (r *Record) setField(id byte, data []byte) error {
 }
 
 // marshal returns the binary format for the record and the values used for hmac calculations
-func (r *Record) marshal() (record []byte, totalDataBytes []byte) {
+func (r *Record) marshal() ([]byte, []byte) {
+	var recordBuf bytes.Buffer
+	var hmacBuf bytes.Buffer
+
 	// Helper to append a field
-	appendField := func(id byte, data []byte) {
-		if len(data) == 0 {
+	appendField := func(id byte, data any) {
+		size := binary.Size(data)
+		if size <= 0 {
 			return
 		}
-		totalDataBytes = append(totalDataBytes, data...)
-		record = append(record, intToBytes(len(data))...)
-		record = append(record, id)
-		record = append(record, data...)
-		usedBlockSpace := (len(data) + 5) % twofish.BlockSize
+		// Write to HMAC buffer
+		binary.Write(&hmacBuf, binary.LittleEndian, data)
+
+		// Write length
+		binary.Write(&recordBuf, binary.LittleEndian, uint32(size))
+		// Write ID
+		recordBuf.WriteByte(id)
+		// Write Data
+		binary.Write(&recordBuf, binary.LittleEndian, data)
+
+		// Write Padding
+		usedBlockSpace := (size + 5) % twofish.BlockSize
 		if usedBlockSpace != 0 {
-			record = append(record, pseudoRandmonBytes(twofish.BlockSize-usedBlockSpace)...)
+			recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - usedBlockSpace))
 		}
 	}
 
@@ -229,17 +241,17 @@ func (r *Record) marshal() (record []byte, totalDataBytes []byte) {
 	appendField(recordNotes, []byte(r.Notes))
 	appendField(recordPassword, []byte(r.Password))
 	if !r.CreateTime.IsZero() {
-		appendField(recordCreateTime, intToBytes(int(r.CreateTime.Unix())))
+		appendField(recordCreateTime, uint32(r.CreateTime.Unix()))
 	}
 	appendField(recordPasswordModTime, []byte(r.PasswordModTime))
 	if !r.AccessTime.IsZero() {
-		appendField(recordAccessTime, intToBytes(int(r.AccessTime.Unix())))
+		appendField(recordAccessTime, uint32(r.AccessTime.Unix()))
 	}
 	if !r.PasswordExpiry.IsZero() {
-		appendField(recordPasswordExpiry, intToBytes(int(r.PasswordExpiry.Unix())))
+		appendField(recordPasswordExpiry, uint32(r.PasswordExpiry.Unix()))
 	}
 	if !r.ModTime.IsZero() {
-		appendField(recordModTime, intToBytes(int(r.ModTime.Unix())))
+		appendField(recordModTime, uint32(r.ModTime.Unix()))
 	}
 	appendField(recordURL, []byte(r.URL))
 	appendField(recordAutotype, []byte(r.Autotype))
@@ -256,9 +268,9 @@ func (r *Record) marshal() (record []byte, totalDataBytes []byte) {
 	appendField(recordPasswordPolicyName, []byte(r.PasswordPolicyName))
 
 	// End of entry
-	record = append(record, []byte{0, 0, 0, 0}...)
-	record = append(record, recordEndOfEntry)
-	record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
+	recordBuf.Write([]byte{0, 0, 0, 0})
+	recordBuf.WriteByte(recordEndOfEntry)
+	recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - 5))
 
-	return record, totalDataBytes
+	return recordBuf.Bytes(), hmacBuf.Bytes()
 }

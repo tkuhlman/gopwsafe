@@ -1,6 +1,7 @@
 package pwsafe
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -137,19 +138,30 @@ func (h *header) setField(id byte, data []byte) error {
 }
 
 // marshal returns the binary format for the header and the values used for hmac calculations
-func (h *header) marshal() (record []byte, totalDataBytes []byte) {
+func (h *header) marshal() ([]byte, []byte) {
+	var recordBuf bytes.Buffer
+	var hmacBuf bytes.Buffer
+
 	// Helper to append a field
-	appendField := func(id byte, data []byte) {
-		if len(data) == 0 {
+	appendField := func(id byte, data any) {
+		size := binary.Size(data)
+		if size <= 0 {
 			return
 		}
-		totalDataBytes = append(totalDataBytes, data...)
-		record = append(record, intToBytes(len(data))...)
-		record = append(record, id)
-		record = append(record, data...)
-		usedBlockSpace := (len(data) + 5) % twofish.BlockSize
+		// Write to HMAC buffer
+		binary.Write(&hmacBuf, binary.LittleEndian, data)
+
+		// Write length
+		binary.Write(&recordBuf, binary.LittleEndian, uint32(size))
+		// Write ID
+		recordBuf.WriteByte(id)
+		// Write Data
+		binary.Write(&recordBuf, binary.LittleEndian, data)
+
+		// Write Padding
+		usedBlockSpace := (size + 5) % twofish.BlockSize
 		if usedBlockSpace != 0 {
-			record = append(record, pseudoRandmonBytes(twofish.BlockSize-usedBlockSpace)...)
+			recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - usedBlockSpace))
 		}
 	}
 
@@ -159,7 +171,7 @@ func (h *header) marshal() (record []byte, totalDataBytes []byte) {
 	appendField(headerPreferences, []byte(h.Preferences))
 	appendField(headerTree, []byte(h.Tree))
 	if !h.LastSave.IsZero() {
-		appendField(headerLastSave, intToBytes(int(h.LastSave.Unix())))
+		appendField(headerLastSave, uint32(h.LastSave.Unix()))
 	}
 	appendField(headerLastSaveBy, h.LastSaveBy)
 	appendField(headerLastSaveUser, h.LastSaveUser)
@@ -174,11 +186,11 @@ func (h *header) marshal() (record []byte, totalDataBytes []byte) {
 	}
 
 	// End of entry
-	record = append(record, []byte{0, 0, 0, 0}...)
-	record = append(record, headerEndOfEntry)
-	record = append(record, pseudoRandmonBytes(twofish.BlockSize-5)...)
+	recordBuf.Write([]byte{0, 0, 0, 0})
+	recordBuf.WriteByte(headerEndOfEntry)
+	recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - 5))
 
-	return record, totalDataBytes
+	return recordBuf.Bytes(), hmacBuf.Bytes()
 }
 
 // UnmarshalHeader takes a byte slice and unmarshals it into a header struct, also returning the next position in the data and raw bytes

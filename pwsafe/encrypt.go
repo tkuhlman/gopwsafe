@@ -149,11 +149,3 @@ func (db *V3) refreshEncryptedKeys(buf io.Writer) error {
 	}
 	return nil
 }
-
-// TODO get rid of this just use binary.Write
-// intToBytes Converts an int to byte array
-func intToBytes(num int) []byte {
-	intBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(intBytes, uint32(num))
-	return intBytes
-}
