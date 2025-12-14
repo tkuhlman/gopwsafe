@@ -73,7 +73,10 @@ func FuzzRecordURL(f *testing.F) {
 
 func fuzzRoundTrip(t *testing.T, r *Record, getter func(*Record) string, original string) {
 	// 1. Marshal the record
-	data, _ := r.marshal()
+	data, _, err := r.marshal()
+	if err != nil {
+		t.Fatalf("Failed to marshal record: %v", err)
+	}
 
 	// 2. Unmarshal into a new record
 	// We need to simulate the "end of enty" that might be expected if unmarshalRecord doesn't handle single fragments well,
@@ -81,7 +84,7 @@ func fuzzRoundTrip(t *testing.T, r *Record, getter func(*Record) string, origina
 	// The marshal() method appends recordEndOfEntry.
 
 	newR := &Record{}
-	_, _, err := unmarshalRecord(data, newR)
+	_, _, err = unmarshalRecord(data, newR)
 	if err != nil {
 		// If the string is massive, we might hit size limits (though binary.Write handles int sizes).
 		// For general strings, it should work.

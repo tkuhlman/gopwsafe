@@ -10,8 +10,10 @@ import (
 	"golang.org/x/crypto/twofish"
 )
 
-// Record field constants
 const (
+	PasswordExpiryIntervalMax = 3650
+
+	// Record field constants
 	recordUUID                   = 0x01
 	recordGroup                  = 0x02
 	recordTitle                  = 0x03
@@ -49,7 +51,7 @@ type Record struct {
 	Notes                  string    // 0x05
 	Password               string    // 0x06
 	PasswordExpiry         time.Time // 0x0a
-	PasswordExpiryInterval [4]byte   // 0x11
+	PasswordExpiryInterval uint32    // 0x11
 	PasswordHistory        string    // 0x0f
 	PasswordModTime        string    // 0x08
 	PasswordPolicy         string    // 0x10
@@ -131,7 +133,7 @@ func (r Record) Equal(otherRecord Record, skipTimes bool) (bool, error) {
 			return false, fmt.Errorf("records don't match, ModTime: %v != %v", r.ModTime, otherRecord.ModTime)
 		}
 		if r.UUID != otherRecord.UUID {
-			return false, fmt.Errorf("Records don't match, UUID: %v != %v", r.UUID, otherRecord.UUID)
+			return false, fmt.Errorf("records don't match, UUID: %v != %v", r.UUID, otherRecord.UUID)
 		}
 	}
 
@@ -178,7 +180,12 @@ func (r *Record) setField(id byte, data []byte) error {
 		if len(data) != 4 {
 			return errors.New("invalid length for PasswordExpiryInterval")
 		}
-		copy(r.PasswordExpiryInterval[:], data)
+		interval := binary.LittleEndian.Uint32(data)
+		if interval > PasswordExpiryIntervalMax {
+			r.PasswordExpiryInterval = 0
+		} else {
+			r.PasswordExpiryInterval = interval
+		}
 	case recordRunCommand:
 		r.RunCommand = string(data)
 	case recordDoubleClickAction:
@@ -207,7 +214,7 @@ func (r *Record) setField(id byte, data []byte) error {
 }
 
 // marshal returns the binary format for the record and the values used for hmac calculations
-func (r *Record) marshal() ([]byte, []byte) {
+func (r *Record) marshal() ([]byte, []byte, error) {
 	var recordBuf bytes.Buffer
 	var hmacBuf bytes.Buffer
 
@@ -230,7 +237,7 @@ func (r *Record) marshal() ([]byte, []byte) {
 		// Write Padding
 		usedBlockSpace := (size + 5) % twofish.BlockSize
 		if usedBlockSpace != 0 {
-			recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - usedBlockSpace))
+			recordBuf.Write(pseudoRandomBytes(twofish.BlockSize - usedBlockSpace))
 		}
 	}
 
@@ -257,7 +264,11 @@ func (r *Record) marshal() ([]byte, []byte) {
 	appendField(recordAutotype, []byte(r.Autotype))
 	appendField(recordPasswordHistory, []byte(r.PasswordHistory))
 	appendField(recordPasswordPolicy, []byte(r.PasswordPolicy))
-	appendField(recordPasswordExpiryInterval, r.PasswordExpiryInterval[:])
+	if r.PasswordExpiryInterval > 0 && r.PasswordExpiryInterval <= PasswordExpiryIntervalMax {
+		appendField(recordPasswordExpiryInterval, r.PasswordExpiryInterval)
+	} else if r.PasswordExpiryInterval > PasswordExpiryIntervalMax {
+		return nil, nil, fmt.Errorf("PasswordExpiryInterval %d exceeds maximum of %d", r.PasswordExpiryInterval, PasswordExpiryIntervalMax)
+	}
 	appendField(recordRunCommand, []byte(r.RunCommand))
 	appendField(recordDoubleClickAction, r.DoubleClickAction[:])
 	appendField(recordEmail, []byte(r.Email))
@@ -270,7 +281,7 @@ func (r *Record) marshal() ([]byte, []byte) {
 	// End of entry
 	recordBuf.Write([]byte{0, 0, 0, 0})
 	recordBuf.WriteByte(recordEndOfEntry)
-	recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - 5))
+	recordBuf.Write(pseudoRandomBytes(twofish.BlockSize - 5))
 
-	return recordBuf.Bytes(), hmacBuf.Bytes()
+	return recordBuf.Bytes(), hmacBuf.Bytes(), nil
 }

@@ -33,7 +33,7 @@ type V3 struct {
 func NewV3(name, password string) *V3 {
 	var db V3
 	db.Header = newHeader(name)
-	db.Records = make(map[string]Record, 0)
+	db.Records = make(map[string]Record)
 
 	// Set the password
 	db.SetPassword(password)

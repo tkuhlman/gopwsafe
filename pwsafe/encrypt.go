@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	pseudoRand "math/rand"
 	"time"
 
 	"golang.org/x/crypto/twofish"
@@ -100,7 +99,10 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte, err error) {
 		}
 
 		// finally call marshalRecord for this record
-		rBytes, hmacBytes := record.marshal()
+		rBytes, hmacBytes, err := record.marshal()
+		if err != nil {
+			return nil, nil, err
+		}
 		records = append(records, rBytes...)
 		dataBytes = append(dataBytes, hmacBytes...)
 	}
@@ -109,13 +111,16 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte, err error) {
 }
 
 // Generate size bytes of pseudo random data
-func pseudoRandmonBytes(size int) (r []byte) {
-	for i := 0; i < size; i += 8 {
-		bytesRand := make([]byte, 16)
-		binary.PutVarint(bytesRand, pseudoRand.Int63())
-		r = append(r, bytesRand...)
+// Generate size bytes of pseudo random data
+func pseudoRandomBytes(size int) (r []byte) {
+	r = make([]byte, size)
+	_, err := rand.Read(r)
+	if err != nil {
+		// Fallback to zero padding if rand fails, though this should be rare/impossible in most envs
+		// Best effort for padding
+		return r
 	}
-	return r[:size]
+	return r
 }
 
 // re-calculate and add to the db new encryption key and hmac key then encrypt with and return the encrypted bytes

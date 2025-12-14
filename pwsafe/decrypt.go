@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/pborman/uuid"
@@ -182,6 +183,9 @@ func unmarshalRecord(records []byte, setter fieldSetter) (int, []byte, error) {
 		}
 		fieldLength := int(binary.LittleEndian.Uint32(records[fieldStart : fieldStart+4]))
 		btype := records[fieldStart+4 : fieldStart+5][0]
+		if fieldStart+fieldLength+5 > len(records) {
+			return 0, rdata, fmt.Errorf("invalid field length %d at offset %d, exceeds records length %d", fieldLength, fieldStart, len(records))
+		}
 		data := records[fieldStart+5 : fieldStart+fieldLength+5]
 		rdata = append(rdata, data...)
 		fieldStart += fieldLength + 5

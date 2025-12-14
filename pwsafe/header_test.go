@@ -115,9 +115,10 @@ func TestUnmarshalHeader_FieldLengthExceedsData(t *testing.T) {
 	// UnmarshalHeader will try to read `fieldStart+5 : fieldStart+fieldLength+5`.
 	// If fieldLength is 255, this will be fieldStart+5 : fieldStart+255+5.
 	// This is expected to panic due to out-of-bounds slice access.
-	assert.Panics(t, func() {
-		_, _, _, _ = UnmarshalHeader(headerBytes)
-	}, "Should panic when declared field length exceeds available data")
+	// UnmarshalHeader should now return an error instead of panicking
+	_, _, _, err := UnmarshalHeader(headerBytes)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid field length", "Error should indicate invalid field length")
 }
 
 func TestUnmarshalHeader_EmptyOrTooShortInput(t *testing.T) {

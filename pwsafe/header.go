@@ -161,7 +161,7 @@ func (h *header) marshal() ([]byte, []byte) {
 		// Write Padding
 		usedBlockSpace := (size + 5) % twofish.BlockSize
 		if usedBlockSpace != 0 {
-			recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - usedBlockSpace))
+			recordBuf.Write(pseudoRandomBytes(twofish.BlockSize - usedBlockSpace))
 		}
 	}
 
@@ -188,7 +188,7 @@ func (h *header) marshal() ([]byte, []byte) {
 	// End of entry
 	recordBuf.Write([]byte{0, 0, 0, 0})
 	recordBuf.WriteByte(headerEndOfEntry)
-	recordBuf.Write(pseudoRandmonBytes(twofish.BlockSize - 5))
+	recordBuf.Write(pseudoRandomBytes(twofish.BlockSize - 5))
 
 	return recordBuf.Bytes(), hmacBuf.Bytes()
 }
@@ -205,6 +205,9 @@ func UnmarshalHeader(data []byte) (header, int, []byte, error) {
 		}
 		fieldLength := int(binary.LittleEndian.Uint32(data[fieldStart : fieldStart+4]))
 		btype := data[fieldStart+4 : fieldStart+5][0]
+		if fieldStart+fieldLength+5 > len(data) {
+			return h, fieldStart, rdata, fmt.Errorf("invalid field length %d at offset %d, exceeds data length %d", fieldLength, fieldStart, len(data))
+		}
 		fieldData := data[fieldStart+5 : fieldStart+fieldLength+5]
 		rdata = append(rdata, fieldData...)
 		fieldStart += fieldLength + 5
