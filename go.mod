@@ -1,12 +1,11 @@
 module github.com/tkuhlman/gopwsafe
 
-go 1.23.4
+go 1.25.5
 
 require (
 	github.com/pborman/uuid v1.2.1
-	github.com/stretchr/testify v1.10.0
-	golang.org/x/crypto v0.33.0
-	gopkg.in/yaml.v2 v2.4.0
+	github.com/stretchr/testify v1.11.1
+	golang.org/x/crypto v0.46.0
 )
 
 require (
