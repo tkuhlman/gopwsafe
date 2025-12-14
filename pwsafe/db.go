@@ -132,13 +132,16 @@ func (db *V3) SetRecord(record Record) {
 		record.CreateTime = now
 	}
 
+	if prs && record.CreateTime.IsZero() {
+		record.CreateTime = oldRecord.CreateTime
+	}
+
 	if record.UUID == [16]byte{} {
 		record.UUID = [16]byte(uuid.NewRandom().Array())
 	}
 	record.ModTime = now
 	db.Records[record.Title] = record
 	db.LastMod = now
-	// todo add checking of db and record times to the tests
 }
 
 // calculateHMAC calculate and set db.HMAC for the unencrypted data using HMACKey

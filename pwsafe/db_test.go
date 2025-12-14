@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -39,4 +40,34 @@ func TestInvalidFile(t *testing.T) {
 	assert.Equal(t, err, errors.New("file is not a valid Password Safe v3 file"))
 	_, err = OpenPWSafeFile("./notafile", "password")
 	assert.NotNil(t, err)
+}
+
+func TestSetRecordTimes(t *testing.T) {
+	db := NewV3("test", "password")
+	record := Record{Title: "Test Record", Password: "password"}
+
+	// Test new record
+	db.SetRecord(record)
+	savedRecord, ok := db.Records["Test Record"]
+	assert.True(t, ok)
+	assert.False(t, savedRecord.CreateTime.IsZero())
+	assert.False(t, savedRecord.ModTime.IsZero())
+	assert.False(t, db.LastMod.IsZero())
+
+	// Capture times
+	createTime := savedRecord.CreateTime
+	modTime := savedRecord.ModTime
+	dbLastMod := db.LastMod
+
+	// Sleep to ensure time difference
+	time.Sleep(1 * time.Second)
+
+	// Test update record
+	record.Password = "newpassword"
+	db.SetRecord(record)
+	updatedRecord, ok := db.Records["Test Record"]
+	assert.True(t, ok)
+	assert.Equal(t, createTime, updatedRecord.CreateTime)
+	assert.True(t, updatedRecord.ModTime.After(modTime))
+	assert.True(t, db.LastMod.After(dbLastMod))
 }
