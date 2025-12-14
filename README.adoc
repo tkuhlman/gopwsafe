@@ -2,12 +2,10 @@
 :toc:
 :toc-placement: preamble
 
-image:https://coveralls.io/repos/tkuhlman/gopwsafe/badge.svg?branch=master&service=github["Coverage Status",link="https://coveralls.io/github/tkuhlman/gopwsafe?branch=master"]
 image:https://goreportcard.com/badge/github.com/tkuhlman/gopwsafe["Go Report Card",link="https://goreportcard.com/report/github.com/tkuhlman/gopwsafe"]
-image:https://godoc.org/github.com/tkuhlman/gopwsafe?status.svg["GoDoc",link="https://godoc.org/github.com/tkuhlman/gopwsafe"]
+image:https://pkg.go.dev/badge/github.com/tkuhlman/gopwsafe.svg["Go Reference",link="https://pkg.go.dev/github.com/tkuhlman/gopwsafe"]
 
 A password safe written in go using and implementing the http://pwsafe.org/[password safe] version 3 database.
-Simply download and run, no install needed.
 
 The pwsafe package contains interfaces for reading/writing to Password Safe v3 databases.
 
