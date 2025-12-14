@@ -10,8 +10,6 @@ import (
 	pseudoRand "math/rand"
 	"time"
 
-	"github.com/pborman/uuid"
-
 	"golang.org/x/crypto/twofish"
 )
 
@@ -95,12 +93,6 @@ func (db *V3) Encrypt(dbBuf io.Writer) error {
 // marshalRecords return the binary format for the Records as specified in the spec and the record values used for hmac calculations
 func (db *V3) marshalRecords() (records []byte, dataBytes []byte, err error) {
 	for _, record := range db.Records {
-		// if uuid is not set calculate
-		//todo I should assume the UUID is set. I do for new dbs but don't check on reading from disk, I
-		// should check it is unique also when opening more than one in the gui
-		if record.UUID == [16]byte{} {
-			db.Header.UUID = [16]byte(uuid.NewRandom().Array())
-		}
 
 		// for each record UUID, Title and Password fields are mandatory all others are optional
 		if record.Title == "" || record.Password == "" {

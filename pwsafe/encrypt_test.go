@@ -32,6 +32,7 @@ func TestSaveSimpleDB(t *testing.T) {
 
 	// On write dest gets version set but orig doesn't have it so just set to the same here
 	orig.Header.Version = dest.Header.Version
+	orig.Header.UUID = dest.Header.UUID
 	// I expect the stretchedkey, salt, encryption key, hmac key and CBCIV to have changed
 	// iter changes also but won't necessarily always.
 	equal, err = orig.Equal(dest)

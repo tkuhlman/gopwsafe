@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/pborman/uuid"
 	"golang.org/x/crypto/twofish"
 )
 
@@ -103,6 +104,11 @@ func (db *V3) Decrypt(reader io.Reader, passwd string) (int, error) {
 	db.calculateHMAC(hmacData)
 	if !hmac.Equal(db.HMAC[:], expectedHMAC) {
 		return cr.BytesRead, errors.New("error calculated HMAC does not match read HMAC")
+	}
+
+	// Ensure the DB has a UUID
+	if db.Header.UUID == [16]byte{} {
+		db.Header.UUID = [16]byte(uuid.NewRandom().Array())
 	}
 
 	return cr.BytesRead, nil
