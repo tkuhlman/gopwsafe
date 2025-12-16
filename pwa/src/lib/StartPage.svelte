@@ -63,10 +63,14 @@
             // Usually you store the handle and request permission again on next load.
             // For simplicity, we just store name/date here for list, but we'd need the handle to re-open easily.
             // Key storage of handles:
-            await set("recentFiles", [
-                { name: currentHandle.name, date: new Date().toISOString() },
-                ...recentFiles.slice(0, 4),
-            ]);
+            const newRecent = {
+                name: currentHandle.name,
+                date: new Date().toISOString(),
+            };
+            const otherRecents = recentFiles.filter(
+                (r) => r.name !== currentHandle.name,
+            );
+            await set("recentFiles", [newRecent, ...otherRecents.slice(0, 4)]);
             await set("lastHandle", currentHandle);
 
             dispatch("opened");
@@ -147,6 +151,7 @@
                     type="password"
                     bind:value={password}
                     placeholder="Password"
+                    autofocus
                     on:keydown={(e) => e.key === "Enter" && unlock()}
                 />
                 <button on:click={unlock} disabled={isLoading}>

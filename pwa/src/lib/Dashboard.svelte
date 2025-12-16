@@ -13,7 +13,7 @@
     let groupedItems = {};
 
     dbItems.subscribe((val) => {
-        items = val;
+        items = val || [];
         filterItems();
     });
 
@@ -168,6 +168,7 @@
         display: flex;
         height: 100vh;
         width: 100%;
+        text-align: left;
     }
     .sidebar {
         width: 300px;

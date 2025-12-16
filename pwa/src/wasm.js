@@ -47,7 +47,8 @@ export function getDatabaseData() {
     if (typeof res === 'string' && (res.startsWith("database not open") || res.startsWith("json marshal error"))) {
         throw new Error(res);
     }
-    return JSON.parse(res);
+    const parsed = JSON.parse(res);
+    return parsed || [];
 }
 
 export function getRecordData(title) {
