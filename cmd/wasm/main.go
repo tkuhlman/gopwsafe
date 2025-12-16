@@ -100,12 +100,60 @@ func getRecord(this js.Value, args []js.Value) interface{} {
 	return string(jsonData)
 }
 
+func createDatabase(this js.Value, args []js.Value) interface{} {
+	if len(args) != 1 {
+		return "invalid arguments: expected (password)"
+	}
+	password := args[0].String()
+
+	newDB := pwsafe.NewV3("", password)
+	db = newDB
+	return nil
+}
+
+func getDBInfo(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+	// Return header info
+	// db.Header contains the info.
+	type DBInfo struct {
+		Version     string `json:"version"`
+		UUID        string `json:"uuid"`
+		Description string `json:"description"`
+		What        string `json:"what"`
+		When        string `json:"when"`
+		Who         string `json:"who"`
+	}
+
+	// UUID to string
+	uuidStr := fmt.Sprintf("%x", db.Header.UUID)
+
+	info := DBInfo{
+		Version:     fmt.Sprintf("%x", db.Header.Version),
+		UUID:        uuidStr,
+		Description: db.Header.Description,
+		What:        string(db.Header.LastSaveBy),
+		When:        db.Header.LastSave.String(),
+		Who:         string(db.Header.LastSaveUser),
+	}
+
+	jsonData, err := json.Marshal(info)
+	if err != nil {
+		return fmt.Sprintf("json marshal error: %s", err)
+	}
+
+	return string(jsonData)
+}
+
 func main() {
 	c := make(chan struct{}, 0)
 
 	js.Global().Set("openDB", js.FuncOf(openDB))
 	js.Global().Set("getDBData", js.FuncOf(getDBData))
 	js.Global().Set("getRecord", js.FuncOf(getRecord))
+	js.Global().Set("createDatabase", js.FuncOf(createDatabase))
+	js.Global().Set("getDBInfo", js.FuncOf(getDBInfo))
 	// js.Global().Set("saveDB", js.FuncOf(saveDB))
 	// js.Global().Set("addRecord", js.FuncOf(addRecord))
 	// js.Global().Set("updateRecord", js.FuncOf(updateRecord))

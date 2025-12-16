@@ -1,7 +1,9 @@
 <script>
     import { createEventDispatcher } from "svelte";
     import { dbItems, selectedFile } from "../store.js";
-    import { getRecordData } from "../wasm.js";
+
+    import { getRecordData, getDatabaseInfo } from "../wasm.js";
+    import Menu from "./Menu.svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -11,10 +13,15 @@
     let selectedRecord = null;
     let showPassword = false;
     let groupedItems = {};
+    let searchInput; // Reference for autofocus
 
     dbItems.subscribe((val) => {
         items = val || [];
         filterItems();
+        // Autofocus search when items are loaded (DB opened)
+        setTimeout(() => {
+            if (searchInput) searchInput.focus();
+        }, 100);
     });
 
     function filterItems() {
@@ -78,12 +85,53 @@
     function save() {
         alert("Save functionality not yet implemented in V1");
     }
+
+    function showDBInfo() {
+        try {
+            const info = getDatabaseInfo();
+            const msg = `
+DB Info:
+Description: ${info.description}
+Version: ${info.version}
+UUID: ${info.uuid}
+Last Save: ${info.when} by ${info.who} using ${info.what}
+            `;
+            alert(msg);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to get DB info");
+        }
+    }
 </script>
 
 <div class="dashboard">
     <div class="sidebar">
         <div class="toolbar">
+            <Menu let:close>
+                <button
+                    on:click={() => {
+                        close();
+                        save();
+                    }}>Save DB</button
+                >
+                <button
+                    on:click={() => {
+                        close();
+                        showDBInfo();
+                    }}>DB Info</button
+                >
+                <hr
+                    style="border: 0; border-top: 1px solid #444; margin: 5px 0;"
+                />
+                <button
+                    on:click={() => {
+                        close();
+                        dispatch("close");
+                    }}>Close DB</button
+                >
+            </Menu>
             <input
+                bind:this={searchInput}
                 type="text"
                 placeholder="Search..."
                 bind:value={searchTerm}
@@ -108,15 +156,18 @@
                 </details>
             {/each}
         </div>
-        <div class="footer">
-            <button on:click={() => dispatch("close")}>Close DB</button>
-        </div>
     </div>
 
-    <div class="main-content">
+    <div class="main-content" class:mobile-open={!!selectedRecord}>
         {#if selectedRecord}
             <div class="record-details">
-                <h2>{selectedRecord.Title}</h2>
+                <div class="details-header">
+                    <button
+                        class="close-details"
+                        on:click={() => (selectedRecord = null)}>✕</button
+                    >
+                    <h2>{selectedRecord.Title}</h2>
+                </div>
                 <div class="field">
                     <label>Group</label>
                     <div>{selectedRecord.Group}</div>
@@ -180,6 +231,9 @@
     .toolbar {
         padding: 10px;
         border-bottom: 1px solid #333;
+        display: flex;
+        gap: 10px;
+        align-items: center;
     }
     .toolbar input {
         width: 100%;
@@ -224,6 +278,41 @@
         padding: 20px;
         overflow-y: auto;
         background: #1e1e1e;
+    }
+    .details-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .close-details {
+        background: none;
+        border: none;
+        color: #ccc;
+        font-size: 1.5rem;
+        cursor: pointer;
+        display: none; /* Hidden on desktop */
+    }
+    @media (max-width: 768px) {
+        .sidebar {
+            width: 100%;
+            height: 100vh;
+        }
+        .main-content {
+            position: fixed; /* Overlay */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: translateX(100%); /* Hidden by default */
+            transition: transform 0.3s ease-in-out;
+            z-index: 2000;
+        }
+        .main-content.mobile-open {
+            transform: translateX(0);
+        }
+        .close-details {
+            display: block;
+        }
     }
     .record-details {
         max-width: 800px;

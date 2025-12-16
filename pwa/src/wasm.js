@@ -58,3 +58,22 @@ export function getRecordData(title) {
     }
     return JSON.parse(res);
 }
+
+export function createDatabase(password) {
+    const err = window.createDatabase(password);
+    if (err) {
+        throw new Error(err);
+    }
+}
+
+export function getDatabaseInfo() {
+    const res = window.getDBInfo();
+    if (typeof res === 'string' && res.startsWith("database not open")) {
+        throw new Error(res);
+    }
+    // Try to parse JSON.
+    if (typeof res === 'string' && res.startsWith("json marshal error")) {
+        throw new Error(res);
+    }
+    return JSON.parse(res);
+}

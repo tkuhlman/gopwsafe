@@ -1,8 +1,10 @@
 <script>
     import { onMount, createEventDispatcher } from "svelte";
     import { get, set } from "idb-keyval";
-    import { openDatabase, getDatabaseData } from "../wasm.js";
+
+    import { openDatabase, getDatabaseData, createDatabase } from "../wasm.js";
     import { selectedFile, dbItems } from "../store.js";
+    import Menu from "./Menu.svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -10,7 +12,9 @@
     let error = "";
     let isLoading = false;
     let recentFiles = [];
+
     let currentHandle = null;
+    let isCreating = false; // Mode switch for "Create New DB"
 
     onMount(async () => {
         const recents = await get("recentFiles");
@@ -123,12 +127,85 @@
         alert("Please select the file again.");
         openFile();
     }
+
+    async function createDB() {
+        if (!password) {
+            error = "Password cannot be empty";
+            return;
+        }
+        isLoading = true;
+        error = "";
+        try {
+            createDatabase(password);
+
+            // We have an in-memory DB now.
+            // We need to set items presumably empty
+            const items = getDatabaseData();
+            dbItems.set(items);
+
+            // For the file handle, strictly speaking we don't have one yet until we save.
+            // But the app expects one for "selectedFile".
+            // Let's create a dummy one or handle null
+            selectedFile.set({
+                handle: null,
+                name: "New Database",
+            });
+
+            dispatch("opened");
+        } catch (e) {
+            console.error(e);
+            error = "Failed to create DB: " + e.message;
+        } finally {
+            isLoading = false;
+        }
+    }
 </script>
 
 <div class="start-page">
-    <h1>Password Safe</h1>
+    <div class="header-row">
+        <h1>Password Safe</h1>
+        <Menu let:close>
+            <button
+                on:click={() => {
+                    close();
+                    isCreating = true;
+                    currentHandle = null;
+                    password = "";
+                    error = "";
+                }}>Create New DB</button
+            >
+        </Menu>
+    </div>
 
-    {#if !currentHandle}
+    {#if isCreating}
+        <div class="login-box">
+            <h2>Create New Database</h2>
+            <p>Enter a password for the new database.</p>
+            <div class="input-group">
+                <input
+                    type="password"
+                    bind:value={password}
+                    placeholder="New Password"
+                    autofocus
+                    on:keydown={(e) => e.key === "Enter" && createDB()}
+                />
+                <button on:click={createDB} disabled={isLoading}>
+                    {isLoading ? "Creating..." : "Create"}
+                </button>
+            </div>
+            {#if error}
+                <div class="error">{error}</div>
+            {/if}
+            <button
+                class="secondary"
+                on:click={() => {
+                    isCreating = false;
+                    password = "";
+                    error = "";
+                }}>Back</button
+            >
+        </div>
+    {:else if !currentHandle}
         <div class="actions">
             <button on:click={openFile}>Open Database File</button>
         </div>
@@ -192,6 +269,15 @@
         justify-content: center;
         flex-grow: 1;
         padding: 2rem;
+    }
+    .header-row {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    .header-row h1 {
+        margin: 0;
     }
     .actions button {
         font-size: 1.2rem;
