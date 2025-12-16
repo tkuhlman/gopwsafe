@@ -26,3 +26,7 @@ dist-ssr
 
 # Generated public assets
 public
+
+# Playwright
+test-results/
+playwright-report/
