@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test('has title', async ({ page }) => {
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    page.on('pageerror', exception => console.log('PAGE ERROR:', exception));
     await page.goto('/');
 
     // Expect a title "to contain" a substring.

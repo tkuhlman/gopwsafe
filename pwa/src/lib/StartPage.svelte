@@ -70,9 +70,20 @@
             const otherRecents = recentFiles.filter(
                 (r) => r.name !== currentHandle.name,
             );
-            await set("recentFiles", [newRecent, ...otherRecents.slice(0, 4)]);
-            await set("lastHandle", currentHandle);
+            try {
+                await set("recentFiles", [
+                    newRecent,
+                    ...otherRecents.slice(0, 4),
+                ]);
+                await set("lastHandle", currentHandle);
+            } catch (err) {
+                console.warn(
+                    "Failed to update recent files or last handle",
+                    err,
+                );
+            }
 
+            console.log("Dispatching opened event");
             dispatch("opened");
         } catch (e) {
             console.error(e);
