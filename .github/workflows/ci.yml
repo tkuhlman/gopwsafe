@@ -50,15 +50,15 @@ jobs:
         GOOS: js
         GOARCH: wasm
       run: |
-        go test -c -o gopwsafe.wasm ./cmd/wasm
-        gzip gopwsafe.wasm
+        go build -o ./pwa/public/gopwsafe.wasm ./cmd/wasm
+        gzip ./pwa/public/gopwsafe.wasm
 
     - name: Upload WASM artifact
       if: startsWith(github.ref, 'refs/tags/')
       uses: actions/upload-artifact@v4
       with:
         name: wasm-binary
-        path: gopwsafe.wasm.gz
+        path: ./pwa/public/gopwsafe.wasm.gz
 
   test-pwa:
     needs: test-wasm
