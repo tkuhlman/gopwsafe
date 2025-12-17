@@ -14,6 +14,8 @@
     import Menu from "./Menu.svelte";
     import Modal from "./Modal.svelte";
 
+    import DBInfo from "./DBInfo.svelte";
+
     const dispatch = createEventDispatcher();
 
     let items = [];
@@ -279,8 +281,22 @@
             const info = getDatabaseInfo();
             triggerModal({
                 title: "Database Info",
-                message: JSON.stringify(info, null, 2),
+                component: DBInfo,
+                props: {
+                    info: info,
+                    filename: $selectedFile ? $selectedFile.name : "",
+                },
+                confirmLabel: "Close", // Or hide the confirm button? DBInfo has its own Save button.
+                // If we want to hide Modal footer buttons, we might need more Modal config.
+                // For now, "Close" acts as cancel/close.
+                type: "info", // "info" isn't a standard type in Modal yet, but it falls back to primary/alert logic maybe?
+                // Actually Modal type controls button styles.
+                // Let's use 'alert' type so we only have one button effectively?
+                // Waait, DBInfo has a "Save" button inside it.
+                // If the user clicks Save in DBInfo, it dispatches 'save'.
+                // We should probably just have a "Close" button in the modal footer.
                 type: "alert",
+                confirmLabel: "Close",
             });
         } catch (e) {
             console.error(e);
@@ -326,11 +342,32 @@
         confirmLabel={modalConfig.confirmLabel}
         cancelLabel={modalConfig.cancelLabel}
         on:confirm={() => {
-            showModal = false;
             if (modalConfig.onConfirm) modalConfig.onConfirm();
+            showModal = false;
         }}
         on:cancel={() => (showModal = false)}
-    />
+    >
+        {#if modalConfig.component}
+            <svelte:component
+                this={modalConfig.component}
+                {...modalConfig.props}
+                on:save={() => {
+                    showModal = false;
+                    isDirty = true; // Mark DB as dirty after info update (though main.go modifies in-memory DB directly too)
+                    // Actually, main.go modifies the struct. saveDB() marshals that struct.
+                    // So we should mark as dirty.
+                    triggerModal({
+                        title: "Success",
+                        message:
+                            "Detail updated. Don't forget to save the database file.",
+                        type: "alert",
+                    });
+                }}
+            />
+        {:else}
+            <p>{modalConfig.message}</p>
+        {/if}
+    </Modal>
 {/if}
 
 <div class="dashboard">

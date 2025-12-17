@@ -103,8 +103,16 @@ export function updateRecord(oldTitle, record) {
     }
 }
 
+
 export function deleteRecord(title) {
     const err = window.deleteRecord(title);
+    if (err) {
+        throw new Error(err);
+    }
+}
+
+export function updateDBInfo(name, description) {
+    const err = window.updateDBInfo(name, description);
     if (err) {
         throw new Error(err);
     }

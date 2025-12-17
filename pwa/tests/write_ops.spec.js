@@ -42,9 +42,9 @@ test.describe('Database Write Operations', () => {
         await expect(page.locator('.tree')).not.toContainText('Test Record'); // Old title gone
 
         // 4. Delete Record
-        // 4. Delete Record
         await page.click('text=Delete Record');
         await page.click('button:has-text("Delete")'); // Click Delete in Modal
+        await expect(page.locator('.backdrop')).not.toBeVisible();
 
         // Verify gone
         await expect(page.locator('.tree')).not.toContainText('Updated Record');

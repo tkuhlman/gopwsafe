@@ -121,6 +121,7 @@ func getDBInfo(this js.Value, args []js.Value) interface{} {
 	type DBInfo struct {
 		Version     string `json:"version"`
 		UUID        string `json:"uuid"`
+		Name        string `json:"name"`
 		Description string `json:"description"`
 		What        string `json:"what"`
 		When        string `json:"when"`
@@ -133,6 +134,7 @@ func getDBInfo(this js.Value, args []js.Value) interface{} {
 	info := DBInfo{
 		Version:     fmt.Sprintf("%x", db.Header.Version),
 		UUID:        uuidStr,
+		Name:        db.Header.Name,
 		Description: db.Header.Description,
 		What:        string(db.Header.LastSaveBy),
 		When:        db.Header.LastSave.String(),
@@ -147,6 +149,23 @@ func getDBInfo(this js.Value, args []js.Value) interface{} {
 	return string(jsonData)
 }
 
+func updateDBInfo(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+	if len(args) != 2 {
+		return "invalid arguments: expected (name, description)"
+	}
+
+	name := args[0].String()
+	description := args[1].String()
+
+	db.Header.Name = name
+	db.Header.Description = description
+
+	return nil
+}
+
 func main() {
 	c := make(chan struct{}, 0)
 
@@ -159,6 +178,7 @@ func main() {
 	js.Global().Set("addRecord", js.FuncOf(addRecord))
 	js.Global().Set("updateRecord", js.FuncOf(updateRecord))
 	js.Global().Set("deleteRecord", js.FuncOf(deleteRecord))
+	js.Global().Set("updateDBInfo", js.FuncOf(updateDBInfo))
 
 	fmt.Println("WASM initialized")
 	<-c

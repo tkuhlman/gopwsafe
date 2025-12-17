@@ -69,7 +69,16 @@ test.describe('UI Improvements', () => {
         await page.getByText('DB Info').click();
 
         await expect(page.getByText('Database Info')).toBeVisible();
-        await page.locator('.modal button.primary').click();
+        await expect(page.getByText('Database Info')).toBeVisible();
+        await page.locator('.modal .footer button').click();
+
+        // 3. Save DB Check
+        // Menu is likely still open because alert doesn't close DOM elements usually, but let's check
+        // ... (truncated in my mind, but I need to match TargetContent for tool)
+        // Oops, I can't replace non-contiguous blocks with replace_file_content.
+        // I need to only replace the first block here, then second block.
+        // Or use multi_replace. 
+        // Let's use multi_replace.
 
         // 3. Save DB Check
         // Menu is likely still open because alert doesn't close DOM elements usually, but let's check
@@ -100,11 +109,86 @@ test.describe('UI Improvements', () => {
         // 4. Close DB Check
         // If dirty state is implemented, we might get a dialog on close if we didn't save.
         // But here we just saved, so it should be clean.
-        if (!await page.getByText('Close DB').isVisible()) {
-            await page.locator('.hamburger').click();
-        }
         await page.getByText('Close DB').click();
         await expect(page.locator('.start-page h1')).toHaveText('Password Safe');
+    });
+
+    test('should update db info', async ({ page }) => {
+        // Load DB
+        const buffer = fs.readFileSync(threeDbPath);
+        const data = [...buffer];
+
+        await page.addInitScript((fileData) => {
+            (window as any).showOpenFilePicker = async () => {
+                const blob = new Blob([new Uint8Array(fileData)], { type: 'application/octet-stream' });
+                const file = new File([blob], 'three.dat');
+                return [{
+                    getFile: async () => file,
+                    createWritable: async () => ({
+                        write: async () => { },
+                        close: async () => { }
+                    }),
+                    name: 'three.dat'
+                }];
+            };
+        });
+        // Passing data as argument to addInitScript was missing in functionality copy-paste, fixing:
+        await page.addInitScript((fileData) => {
+            // Redefining just to be safe with closure capture if above didn't work, 
+            // but actually above 'data' variable capture in closure might not work across isolated context?
+            // Playwright addInitScript arguments are passed.
+            (window as any).mockData = fileData;
+        }, data);
+
+        // Re-do the mock properly with argument
+        await page.addInitScript((fileData) => {
+            (window as any).showOpenFilePicker = async () => {
+                const blob = new Blob([new Uint8Array(fileData)], { type: 'application/octet-stream' });
+                const file = new File([blob], 'three.dat');
+                return [{
+                    getFile: async () => file,
+                    createWritable: async () => ({
+                        write: async () => { },
+                        close: async () => { }
+                    }),
+                    name: 'three.dat'
+                }];
+            };
+        }, data);
+
+        await page.goto('/');
+        await page.getByText('Open Database File').click();
+        await page.getByPlaceholder('Password').fill('three3#;');
+        await page.getByRole('button', { name: 'Unlock' }).click();
+
+        // Open DB Info
+        await page.locator('.hamburger').click();
+        await page.getByText('DB Info').click();
+
+        // Check fields
+        const modal = page.locator('.modal');
+        await expect(modal).toBeVisible();
+        // Wait for content to load
+        // Wait for content to load
+        await expect(modal.getByPlaceholder('Database Name')).toBeVisible();
+
+        await expect(modal.getByLabel('Filename')).toHaveValue('three.dat');
+
+        // Use placeholder if label is tricky, but label should work now with IDs.
+        // Let's stick to label but ensure we wait.
+        // Use placeholder for robustness
+        await expect(modal.getByPlaceholder('Database Name')).toBeEditable();
+        await expect(modal.getByPlaceholder('Description')).toBeEditable();
+
+        // Edit
+        await modal.getByPlaceholder('Database Name').fill('Updated Name');
+        await modal.getByPlaceholder('Description').fill('Updated Description');
+        await modal.getByRole('button', { name: 'Save' }).click();
+
+        // Verify Success Alert
+        // The modal content changes to a generic success message
+        await expect(page.getByText('Detail updated. Don\'t forget to save the database file.')).toBeVisible();
+        await page.locator('.modal .footer button').click();
     });
 
     test('should handle mobile layout', async ({ page }) => {

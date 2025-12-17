@@ -27,12 +27,20 @@
     on:keydown={(e) => e.key === "Escape" && onCancel()}
     transition:fade
 >
-    <div class="modal" transition:fly={{ y: -50, duration: 300 }}>
+    <!-- svelte-ignore a11y-click-events-have-key-events -->
+    <!-- svelte-ignore a11y-no-static-element-interactions -->
+    <div
+        class="modal"
+        transition:fly={{ y: -50, duration: 300 }}
+        on:click|stopPropagation
+    >
         <div class="header">
             <h3>{title}</h3>
         </div>
         <div class="body">
-            <p>{message}</p>
+            <slot>
+                <p>{message}</p>
+            </slot>
         </div>
         <div class="footer">
             {#if type !== "alert"}
