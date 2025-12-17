@@ -37,13 +37,13 @@ jobs:
         node-version: '20'
 
     - name: Copy wasm_exec.js
-      run: cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
+      run: cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ./pwa/public/
 
     - name: Run WASM tests
       env:
         GOOS: js
         GOARCH: wasm
-      run: go test -exec="node $(pwd)/wasm_exec.js" -v ./...
+      run: go test -exec="node ./pwa/public/wasm_exec.js" -v ./...
 
     - name: Build WASM artifact
       env:
