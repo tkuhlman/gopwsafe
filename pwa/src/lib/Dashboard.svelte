@@ -2,7 +2,15 @@
     import { createEventDispatcher } from "svelte";
     import { dbItems, selectedFile } from "../store.js";
 
-    import { getRecordData, getDatabaseInfo } from "../wasm.js";
+    import {
+        getRecordData,
+        getDatabaseInfo,
+        saveDatabase,
+        addRecord,
+        updateRecord,
+        deleteRecord,
+        getDatabaseData,
+    } from "../wasm.js";
     import Menu from "./Menu.svelte";
 
     const dispatch = createEventDispatcher();
@@ -11,11 +19,14 @@
     let filteredItems = [];
     let searchTerm = "";
     let selectedRecord = null;
+    let oldTitle = ""; // Track for renames
     let showPassword = false;
     let groupedItems = {};
     let searchInput; // Reference for autofocus
     let copyUserSuccess = false;
     let copyPassSuccess = false;
+    let isNewRecord = false;
+    let isDirty = false;
 
     function handleKeydown(event) {
         if (!selectedRecord) return;
@@ -87,50 +98,174 @@
 
     function selectItem(item) {
         try {
-            // fetch full details
-            // item.title is the key
             const rec = getRecordData(item.title);
             selectedRecord = rec;
+            oldTitle = rec.Title; // Store original title
             showPassword = false;
+            isNewRecord = false;
         } catch (e) {
             console.error(e);
             alert("Failed to load record details");
         }
     }
 
+    function createNewRecord() {
+        // Template for new record
+        selectedRecord = {
+            Title: "New Record",
+            Group: "",
+            Username: "",
+            Password: "",
+            URL: "",
+            Notes: "",
+            // Add other fields as necessary with defaults
+            UUID: Array(16).fill(0),
+            CreateTime: new Date().toISOString(),
+            ModTime: new Date().toISOString(),
+        };
+        oldTitle = "";
+        showPassword = true;
+        isNewRecord = true;
+    }
+
+    // Bind this to the new record event from the menu
+    $: {
+        // This is a bit of a hack to listen to events from Menu if passed via props,
+        // but here Menu is a component in the markup.
+        // We'll handle the event in the markup.
+    }
+
     function formatDate(str) {
         if (!str) return "";
-        return new Date(str).toLocaleString();
-    }
-
-    // Save isn't implemented in WASM/Go yet properly for updates, just read-only per initial simplified prompt?
-    // "The main view will also need a menu for showing DB metadata and adding new entries as well as saving."
-    // "If this is too large of an initial task the first version could be read only."
-    // I have NOT implemented saveDB fully in Go side yet (just referenced it).
-    // I will check Go implementation.
-    // Actually I implemented `openDB`, `getDBData`, `getRecord` in Go. `saveDB` is commented out.
-    // So for now, it IS read-only.
-
-    function save() {
-        alert("Save functionality not yet implemented in V1");
-    }
-
-    function showDBInfo() {
         try {
-            const info = getDatabaseInfo();
-            const msg = `
-DB Info:
-Description: ${info.description}
-Version: ${info.version}
-UUID: ${info.uuid}
-Last Save: ${info.when} by ${info.who} using ${info.what}
-            `;
-            alert(msg);
+            return new Date(str).toLocaleString();
         } catch (e) {
-            console.error(e);
-            alert("Failed to get DB info");
+            return str;
         }
     }
+
+    async function save() {
+        try {
+            const data = saveDatabase(); // Uint8Array
+            let handle = $selectedFile ? $selectedFile.handle : null;
+
+            if (!handle) {
+                // Save As
+                handle = await window.showSaveFilePicker({
+                    suggestedName: $selectedFile
+                        ? $selectedFile.name
+                        : "pwsafe.psafe3",
+                    types: [
+                        {
+                            description: "Password Safe DB",
+                            accept: {
+                                "application/octet-stream": [".psafe3", ".dat"],
+                            },
+                        },
+                    ],
+                });
+            }
+
+            // Write to file
+            const writable = await handle.createWritable();
+            await writable.write(data);
+            await writable.close();
+
+            alert("Database saved successfully!");
+            isDirty = false;
+
+            // update store if it was a new file
+            if (!$selectedFile || $selectedFile.handle !== handle) {
+                selectedFile.update((s) => ({
+                    ...s,
+                    handle: handle,
+                    name: handle.name,
+                }));
+            }
+        } catch (e) {
+            console.error("Save failed", e);
+            if (e.name !== "AbortError") {
+                alert("Failed to save: " + e.message);
+            }
+        }
+    }
+
+    function saveRecord() {
+        try {
+            if (!selectedRecord.Title) {
+                alert("Title is required");
+                return;
+            }
+
+            // Update mod time
+            selectedRecord.ModTime = new Date().toISOString();
+
+            if (isNewRecord) {
+                addRecord(selectedRecord);
+            } else {
+                updateRecord(oldTitle, selectedRecord);
+            }
+
+            // Refresh list
+            const items = getDatabaseData();
+            dbItems.set(items);
+
+            // Re-select to refresh state (or update oldTitle)
+            oldTitle = selectedRecord.Title;
+            isNewRecord = false;
+            isDirty = true;
+        } catch (e) {
+            console.error(e);
+            alert("Failed to save record: " + e.message);
+        }
+    }
+
+    function deleteCurrentRecord() {
+        if (
+            !confirm(
+                `Are you sure you want to delete "${selectedRecord.Title}"?`,
+            )
+        )
+            return;
+
+        try {
+            deleteRecord(selectedRecord.Title);
+            selectedRecord = null;
+            isNewRecord = false;
+            isDirty = true;
+
+            // Refresh list
+            const items = getDatabaseData();
+            dbItems.set(items);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to delete record: " + e.message);
+        }
+    }
+
+    // ... (showDBInfo) to remain as alert for now
+
+    function closeDb() {
+        if (isDirty) {
+            if (
+                !confirm(
+                    "You have unsaved changes. Are you sure you want to close without saving?",
+                )
+            ) {
+                return;
+            }
+        }
+        dispatch("close");
+        isDirty = false;
+    }
+
+    // Warn on tab close
+    window.addEventListener("beforeunload", (e) => {
+        if (isDirty) {
+            e.preventDefault();
+            e.returnValue = "";
+        }
+    });
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -139,6 +274,12 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
     <div class="sidebar">
         <div class="toolbar">
             <Menu let:close>
+                <button
+                    on:click={() => {
+                        close();
+                        createNewRecord();
+                    }}>New Record</button
+                >
                 <button
                     on:click={() => {
                         close();
@@ -157,10 +298,18 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
                 <button
                     on:click={() => {
                         close();
-                        dispatch("close");
+                        closeDb();
                     }}>Close DB</button
                 >
             </Menu>
+            <!-- Visual Indicator for Dirty State (e.g. dot on menu or title?) 
+                 Since we don't have a title bar here (it's in toolbar), maybe add a dot next to Menu?
+                 Or just next to Save DB button inside?
+            -->
+            {#if isDirty}
+                <span class="dirty-indicator" title="Unsaved Changes">●</span>
+            {/if}
+
             <input
                 bind:this={searchInput}
                 type="text"
@@ -169,6 +318,7 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
                 on:input={filterItems}
             />
         </div>
+
         <div class="tree">
             {#each Object.keys(groupedItems) as group}
                 <details open>
@@ -197,16 +347,35 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
                         class="close-details"
                         on:click={() => (selectedRecord = null)}>✕</button
                     >
-                    <h2>{selectedRecord.Title}</h2>
+                    <h2>{isNewRecord ? "New Record" : selectedRecord.Title}</h2>
                 </div>
+
+                <div class="field">
+                    <label>Title</label>
+                    <input
+                        type="text"
+                        bind:value={selectedRecord.Title}
+                        placeholder="Title"
+                    />
+                </div>
+
                 <div class="field">
                     <label>Group</label>
-                    <div>{selectedRecord.Group}</div>
+                    <input
+                        type="text"
+                        bind:value={selectedRecord.Group}
+                        placeholder="Group"
+                    />
                 </div>
+
                 <div class="field">
                     <label>Username</label>
                     <div class="field-row">
-                        <div>{selectedRecord.Username}</div>
+                        <input
+                            type="text"
+                            bind:value={selectedRecord.Username}
+                            placeholder="Username"
+                        />
                         <button
                             class="icon-btn"
                             on:click={() =>
@@ -248,8 +417,8 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
                     <div class="password-row">
                         <input
                             type={showPassword ? "text" : "password"}
-                            value={selectedRecord.Password}
-                            readonly
+                            bind:value={selectedRecord.Password}
+                            placeholder="Password"
                         />
                         <button on:click={() => (showPassword = !showPassword)}>
                             {showPassword ? "Hide" : "Show"}
@@ -292,15 +461,42 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
                 </div>
                 <div class="field">
                     <label>URL</label>
-                    <div>
-                        <a href={selectedRecord.URL} target="_blank"
-                            >{selectedRecord.URL}</a
-                        >
+                    <div class="field-row">
+                        <input
+                            type="text"
+                            bind:value={selectedRecord.URL}
+                            placeholder="URL"
+                        />
+                        {#if selectedRecord.URL}
+                            <a
+                                href={selectedRecord.URL}
+                                target="_blank"
+                                class="icon-btn"
+                                title="Open URL"
+                            >
+                                ↗
+                            </a>
+                        {/if}
                     </div>
                 </div>
                 <div class="field">
                     <label>Notes</label>
-                    <pre>{selectedRecord.Notes}</pre>
+                    <textarea
+                        bind:value={selectedRecord.Notes}
+                        rows="5"
+                        placeholder="Notes"
+                    ></textarea>
+                </div>
+
+                <div class="actions-row">
+                    <button class="primary" on:click={saveRecord}
+                        >Save Record</button
+                    >
+                    {#if !isNewRecord}
+                        <button class="danger" on:click={deleteCurrentRecord}
+                            >Delete Record</button
+                        >
+                    {/if}
                 </div>
 
                 <hr />
@@ -420,13 +616,29 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
         margin: 0 auto;
     }
     .field {
-        margin-bottom: 15px;
+        margin-bottom: 20px;
     }
     .field label {
         display: block;
         color: #888;
         font-size: 0.9em;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
+    }
+    .field input[type="text"],
+    .field input[type="password"],
+    .field textarea {
+        width: 100%;
+        padding: 8px;
+        background: #333;
+        border: 1px solid #444;
+        color: #fff;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+    .field input:focus,
+    .field textarea:focus {
+        border-color: #007bff;
+        outline: none;
     }
     .password-row {
         display: flex;
@@ -434,16 +646,15 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
     }
     .password-row input {
         flex: 1;
-        background: #333;
-        border: 1px solid #444;
-        color: #fff;
-        padding: 5px;
     }
-    pre {
+    pre,
+    textarea {
         background: #2d2d2d;
         padding: 10px;
         border-radius: 4px;
         white-space: pre-wrap;
+        font-family: inherit;
+        resize: vertical;
     }
     .empty-state {
         display: flex;
@@ -476,6 +687,37 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
         font-size: 0.9em;
         animation: fadeOut 2s forwards;
     }
+    .actions-row {
+        margin-top: 30px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    button.primary {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+    button.primary:hover {
+        background: #0056b3;
+    }
+    button.danger {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+    button.danger:hover {
+        background: #a71d2a;
+    }
+
     @keyframes fadeOut {
         0% {
             opacity: 1;

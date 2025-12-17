@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"syscall/js"
+	"time"
 
 	"github.com/tkuhlman/gopwsafe/pwsafe"
 )
@@ -154,10 +155,135 @@ func main() {
 	js.Global().Set("getRecord", js.FuncOf(getRecord))
 	js.Global().Set("createDatabase", js.FuncOf(createDatabase))
 	js.Global().Set("getDBInfo", js.FuncOf(getDBInfo))
-	// js.Global().Set("saveDB", js.FuncOf(saveDB))
-	// js.Global().Set("addRecord", js.FuncOf(addRecord))
-	// js.Global().Set("updateRecord", js.FuncOf(updateRecord))
+	js.Global().Set("saveDB", js.FuncOf(saveDB))
+	js.Global().Set("addRecord", js.FuncOf(addRecord))
+	js.Global().Set("updateRecord", js.FuncOf(updateRecord))
+	js.Global().Set("deleteRecord", js.FuncOf(deleteRecord))
 
 	fmt.Println("WASM initialized")
 	<-c
+}
+
+// RecordDTO is a data transfer object for Record to/from JSON
+type RecordDTO struct {
+	AccessTime             string   `json:"accessTime"`
+	Autotype               string   `json:"autotype"`
+	CreateTime             string   `json:"createTime"`
+	DoubleClickAction      [2]byte  `json:"doubleClickAction"`
+	Email                  string   `json:"email"`
+	Group                  string   `json:"group"`
+	ModTime                string   `json:"modTime"`
+	Notes                  string   `json:"notes"`
+	Password               string   `json:"password"`
+	PasswordExpiry         string   `json:"passwordExpiry"`
+	PasswordExpiryInterval uint32   `json:"passwordExpiryInterval"`
+	PasswordHistory        string   `json:"passwordHistory"`
+	PasswordModTime        string   `json:"passwordModTime"`
+	PasswordPolicy         string   `json:"passwordPolicy"`
+	PasswordPolicyName     string   `json:"passwordPolicyName"`
+	ProtectedEntry         byte     `json:"protectedEntry"`
+	RunCommand             string   `json:"runCommand"`
+	ShiftDoubleClickAction [2]byte  `json:"shiftDoubleClickAction"`
+	Title                  string   `json:"title"`
+	Username               string   `json:"username"`
+	URL                    string   `json:"url"`
+	UUID                   [16]byte `json:"uuid"`
+}
+
+func (dto *RecordDTO) toRecord() (pwsafe.Record, error) {
+	var r pwsafe.Record
+	r.AccessTime, _ = time.Parse(time.RFC3339, dto.AccessTime)
+	r.Autotype = dto.Autotype
+	r.CreateTime, _ = time.Parse(time.RFC3339, dto.CreateTime)
+	r.DoubleClickAction = dto.DoubleClickAction
+	r.Email = dto.Email
+	r.Group = dto.Group
+	r.ModTime, _ = time.Parse(time.RFC3339, dto.ModTime)
+	r.Notes = dto.Notes
+	r.Password = dto.Password
+	r.PasswordExpiry, _ = time.Parse(time.RFC3339, dto.PasswordExpiry)
+	r.PasswordExpiryInterval = dto.PasswordExpiryInterval
+	r.PasswordHistory = dto.PasswordHistory
+	r.PasswordModTime = dto.PasswordModTime
+	r.PasswordPolicy = dto.PasswordPolicy
+	r.PasswordPolicyName = dto.PasswordPolicyName
+	r.ProtectedEntry = dto.ProtectedEntry
+	r.RunCommand = dto.RunCommand
+	r.ShiftDoubleClickAction = dto.ShiftDoubleClickAction
+	r.Title = dto.Title
+	r.Username = dto.Username
+	r.URL = dto.URL
+	r.UUID = dto.UUID
+
+	return r, nil
+}
+
+func saveDB(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+
+	var buf bytes.Buffer
+	if err := db.Encrypt(&buf); err != nil {
+		return fmt.Sprintf("failed to encrypt db: %s", err)
+	}
+
+	// Return Uint8Array
+	dst := js.Global().Get("Uint8Array").New(buf.Len())
+	js.CopyBytesToJS(dst, buf.Bytes())
+	return dst
+}
+
+func addRecord(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+	if len(args) != 1 {
+		return "invalid arguments: expected (recordJSON)"
+	}
+
+	var dto RecordDTO
+	if err := json.Unmarshal([]byte(args[0].String()), &dto); err != nil {
+		return fmt.Sprintf("json unmarshal error: %s", err)
+	}
+
+	record, _ := dto.toRecord()
+	db.SetRecord(record)
+	return nil
+}
+
+func updateRecord(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+	if len(args) != 2 {
+		return "invalid arguments: expected (oldTitle, recordJSON)"
+	}
+
+	oldTitle := args[0].String()
+	var dto RecordDTO
+	if err := json.Unmarshal([]byte(args[1].String()), &dto); err != nil {
+		return fmt.Sprintf("json unmarshal error: %s", err)
+	}
+
+	record, _ := dto.toRecord()
+
+	if oldTitle != record.Title {
+		db.DeleteRecord(oldTitle)
+	}
+	db.SetRecord(record)
+	return nil
+}
+
+func deleteRecord(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+	if len(args) != 1 {
+		return "invalid arguments: expected (title)"
+	}
+
+	title := args[0].String()
+	db.DeleteRecord(title)
+	return nil
 }

@@ -77,3 +77,35 @@ export function getDatabaseInfo() {
     }
     return JSON.parse(res);
 }
+
+export function saveDatabase() {
+    const res = window.saveDB();
+    if (typeof res === 'string') {
+        throw new Error(res);
+    }
+    return res; // Uint8Array
+}
+
+export function addRecord(record) {
+    // record is object, convert to JSON string
+    const json = JSON.stringify(record);
+    const err = window.addRecord(json);
+    if (err) {
+        throw new Error(err);
+    }
+}
+
+export function updateRecord(oldTitle, record) {
+    const json = JSON.stringify(record);
+    const err = window.updateRecord(oldTitle, json);
+    if (err) {
+        throw new Error(err);
+    }
+}
+
+export function deleteRecord(title) {
+    const err = window.deleteRecord(title);
+    if (err) {
+        throw new Error(err);
+    }
+}
