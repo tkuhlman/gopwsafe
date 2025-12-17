@@ -14,6 +14,35 @@
     let showPassword = false;
     let groupedItems = {};
     let searchInput; // Reference for autofocus
+    let copyUserSuccess = false;
+    let copyPassSuccess = false;
+
+    function handleKeydown(event) {
+        if (!selectedRecord) return;
+
+        if ((event.ctrlKey || event.metaKey) && event.key === "u") {
+            event.preventDefault();
+            copyToClipboard(selectedRecord.Username, "user");
+        } else if ((event.ctrlKey || event.metaKey) && event.key === "p") {
+            event.preventDefault();
+            copyToClipboard(selectedRecord.Password, "pass");
+        }
+    }
+
+    async function copyToClipboard(text, type) {
+        try {
+            await navigator.clipboard.writeText(text);
+            if (type === "user") {
+                copyUserSuccess = true;
+                setTimeout(() => (copyUserSuccess = false), 2000);
+            } else if (type === "pass") {
+                copyPassSuccess = true;
+                setTimeout(() => (copyPassSuccess = false), 2000);
+            }
+        } catch (err) {
+            console.error("Failed to copy!", err);
+        }
+    }
 
     dbItems.subscribe((val) => {
         items = val || [];
@@ -104,6 +133,8 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
     }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 <div class="dashboard">
     <div class="sidebar">
         <div class="toolbar">
@@ -174,7 +205,43 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
                 </div>
                 <div class="field">
                     <label>Username</label>
-                    <div>{selectedRecord.Username}</div>
+                    <div class="field-row">
+                        <div>{selectedRecord.Username}</div>
+                        <button
+                            class="icon-btn"
+                            on:click={() =>
+                                copyToClipboard(
+                                    selectedRecord.Username,
+                                    "user",
+                                )}
+                            title="Copy Username"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                ><rect
+                                    x="9"
+                                    y="9"
+                                    width="13"
+                                    height="13"
+                                    rx="2"
+                                    ry="2"
+                                ></rect><path
+                                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                ></path></svg
+                            >
+                        </button>
+                        {#if copyUserSuccess}
+                            <span class="copy-feedback">Copied!</span>
+                        {/if}
+                    </div>
                 </div>
                 <div class="field">
                     <label>Password</label>
@@ -187,6 +254,40 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
                         <button on:click={() => (showPassword = !showPassword)}>
                             {showPassword ? "Hide" : "Show"}
                         </button>
+                        <button
+                            class="icon-btn"
+                            on:click={() =>
+                                copyToClipboard(
+                                    selectedRecord.Password,
+                                    "pass",
+                                )}
+                            title="Copy Password"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                ><rect
+                                    x="9"
+                                    y="9"
+                                    width="13"
+                                    height="13"
+                                    rx="2"
+                                    ry="2"
+                                ></rect><path
+                                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                ></path></svg
+                            >
+                        </button>
+                        {#if copyPassSuccess}
+                            <span class="copy-feedback">Copied!</span>
+                        {/if}
                     </div>
                 </div>
                 <div class="field">
@@ -350,5 +451,40 @@ Last Save: ${info.when} by ${info.who} using ${info.what}
         align-items: center;
         justify-content: center;
         color: #666;
+    }
+    .field-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .icon-btn {
+        background: none;
+        border: none;
+        color: #ccc;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        border-radius: 4px;
+    }
+    .icon-btn:hover {
+        background: #333;
+        color: #fff;
+    }
+    .copy-feedback {
+        color: #4caf50;
+        font-size: 0.9em;
+        animation: fadeOut 2s forwards;
+    }
+    @keyframes fadeOut {
+        0% {
+            opacity: 1;
+        }
+        70% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0;
+        }
     }
 </style>
