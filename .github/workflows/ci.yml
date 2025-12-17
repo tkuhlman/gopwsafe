@@ -45,7 +45,7 @@ jobs:
       env:
         GOOS: js
         GOARCH: wasm
-      run: go test -exec="node ./pwa/public/wasm_exec.js" -v ./...
+      run: go test -exec="node $(pwd)/pwa/public/wasm_exec.js" -v ./...
 
     - name: Build WASM artifact
       env:
