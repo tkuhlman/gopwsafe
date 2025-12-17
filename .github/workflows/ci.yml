@@ -52,7 +52,7 @@ jobs:
         GOOS: js
         GOARCH: wasm
       run: |
-        go build -o ./pwa/public/gopwsafe.wasm ./cmd/wasm
+        go build -ldflags "-X github.com/tkuhlman/gopwsafe/pwsafe.Version=${{ github.ref_name }}" -o ./pwa/public/gopwsafe.wasm ./cmd/wasm
         gzip ./pwa/public/gopwsafe.wasm
 
     - name: Upload build artifacts for PWA tests

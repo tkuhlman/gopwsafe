@@ -12,11 +12,14 @@ import (
 	"golang.org/x/crypto/twofish"
 )
 
+var Version = "dev"
+
 // Encrypt Encrypt the data in the db building it up in memory then writing to the writer, returns bytesWritten, error
 func (db *V3) Encrypt(dbBuf io.Writer) error {
 	//update the LastSave time in the DB
 	db.Header.LastSave = time.Now()
 	db.Header.Version = [2]byte{0x10, 0x03} // DB Format version 0x0310
+	db.Header.LastSaveBy = []byte("github.com/tkuhlman/gopwsafe " + Version)
 
 	// Set unencrypted DB headers
 	if err := binary.Write(dbBuf, binary.LittleEndian, []byte("PWS3")); err != nil {
@@ -110,8 +113,7 @@ func (db *V3) marshalRecords() (records []byte, dataBytes []byte, err error) {
 	return records, dataBytes, nil
 }
 
-// Generate size bytes of pseudo random data
-// Generate size bytes of pseudo random data
+// pseudoRandomBytes generates a slice of bytes filled with pseudo random data
 func pseudoRandomBytes(size int) (r []byte) {
 	r = make([]byte, size)
 	_, err := rand.Read(r)
