@@ -12,6 +12,7 @@
         getDatabaseData,
     } from "../wasm.js";
     import Menu from "./Menu.svelte";
+    import Modal from "./Modal.svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -26,7 +27,28 @@
     let copyUserSuccess = false;
     let copyPassSuccess = false;
     let isNewRecord = false;
+
     let isDirty = false;
+
+    let showModal = false;
+    let modalConfig = {
+        title: "",
+        message: "",
+        type: "confirm",
+        confirmLabel: "OK",
+        cancelLabel: "Cancel",
+        onConfirm: () => {},
+    };
+
+    function triggerModal(config) {
+        modalConfig = {
+            confirmLabel: "OK",
+            cancelLabel: "Cancel",
+            type: "confirm",
+            ...config,
+        };
+        showModal = true;
+    }
 
     function handleKeydown(event) {
         if (!selectedRecord) return;
@@ -171,7 +193,11 @@
             await writable.write(data);
             await writable.close();
 
-            alert("Database saved successfully!");
+            triggerModal({
+                title: "Success",
+                message: "Database saved successfully!",
+                type: "alert",
+            });
             isDirty = false;
 
             // update store if it was a new file
@@ -221,13 +247,18 @@
     }
 
     function deleteCurrentRecord() {
-        if (
-            !confirm(
-                `Are you sure you want to delete "${selectedRecord.Title}"?`,
-            )
-        )
-            return;
+        triggerModal({
+            title: "Delete Record",
+            message: `Are you sure you want to delete "${selectedRecord.Title}"?`,
+            type: "danger",
+            confirmLabel: "Delete",
+            onConfirm: () => {
+                performDelete();
+            },
+        });
+    }
 
+    function performDelete() {
         try {
             deleteRecord(selectedRecord.Title);
             selectedRecord = null;
@@ -243,17 +274,34 @@
         }
     }
 
-    // ... (showDBInfo) to remain as alert for now
+    function showDBInfo() {
+        try {
+            const info = getDatabaseInfo();
+            triggerModal({
+                title: "Database Info",
+                message: JSON.stringify(info, null, 2),
+                type: "alert",
+            });
+        } catch (e) {
+            console.error(e);
+            alert("Failed to get DB info: " + e.message);
+        }
+    }
 
     function closeDb() {
         if (isDirty) {
-            if (
-                !confirm(
+            triggerModal({
+                title: "Unsaved Changes",
+                message:
                     "You have unsaved changes. Are you sure you want to close without saving?",
-                )
-            ) {
-                return;
-            }
+                confirmLabel: "Close without saving",
+                type: "confirm",
+                onConfirm: () => {
+                    dispatch("close");
+                    isDirty = false;
+                },
+            });
+            return;
         }
         dispatch("close");
         isDirty = false;
@@ -269,6 +317,21 @@
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
+
+{#if showModal}
+    <Modal
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmLabel={modalConfig.confirmLabel}
+        cancelLabel={modalConfig.cancelLabel}
+        on:confirm={() => {
+            showModal = false;
+            if (modalConfig.onConfirm) modalConfig.onConfirm();
+        }}
+        on:cancel={() => (showModal = false)}
+    />
+{/if}
 
 <div class="dashboard">
     <div class="sidebar">

@@ -66,12 +66,10 @@ test.describe('UI Improvements', () => {
 
         // 2. DB Info Check
         await page.locator('.hamburger').click();
-
-        page.once('dialog', dialog => {
-            expect(dialog.message()).toContain('DB Info:');
-            dialog.dismiss();
-        });
         await page.getByText('DB Info').click();
+
+        await expect(page.getByText('Database Info')).toBeVisible();
+        await page.locator('.modal button.primary').click();
 
         // 3. Save DB Check
         // Menu is likely still open because alert doesn't close DOM elements usually, but let's check
