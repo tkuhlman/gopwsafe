@@ -37,7 +37,9 @@ jobs:
         node-version: '20'
 
     - name: Copy wasm_exec.js
-      run: cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ./pwa/public/
+      run: |
+        mkdir -p ./pwa/public
+        cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ./pwa/public/
 
     - name: Run WASM tests
       env:
