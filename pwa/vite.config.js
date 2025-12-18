@@ -8,7 +8,7 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['wasm_exec.js', 'gopwsafe.wasm.gz', 'lock-combined.svg', 'lock-foreground.svg'],
+      includeAssets: ['wasm_exec.js', 'gopwsafe.wasm.gz', 'lock-combined.svg', 'lock-foreground.svg', 'pwa-icon.png'],
       manifest: {
         name: 'GoPasswordSafe',
         short_name: 'GoPWSafe',
@@ -29,6 +29,16 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any'
+          },
+          {
+            src: 'pwa-icon.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-icon.png',
+            sizes: '512x512',
+            type: 'image/png'
           }
         ]
       },
