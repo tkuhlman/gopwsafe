@@ -8,22 +8,27 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['vite.svg', 'wasm_exec.js', 'gopwsafe.wasm.gz'],
+      includeAssets: ['wasm_exec.js', 'gopwsafe.wasm.gz', 'lock-combined.svg', 'lock-foreground.svg'],
       manifest: {
         name: 'GoPasswordSafe',
         short_name: 'GoPWSafe',
         description: 'Password Safe PWA powered by Go and WASM',
         theme_color: '#ffffff',
+        display: 'standalone',
+        background_color: '#ffffff',
+        start_url: '/gopwsafe/',
         icons: [
           {
-            src: 'vite.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml'
+            src: 'lock-combined.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'maskable'
           },
           {
-            src: 'vite.svg',
+            src: 'lock-foreground.svg',
             sizes: '512x512',
-            type: 'image/svg+xml'
+            type: 'image/svg+xml',
+            purpose: 'any'
           }
         ]
       },

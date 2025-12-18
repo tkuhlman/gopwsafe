@@ -25,7 +25,10 @@ dist-ssr
 *.sw?
 
 # Generated public assets
-public
+public/wasm_exec.js
+public/gopwsafe.wasm
+public/gopwsafe.wasm.gz
+public/vite.svg
 
 # Playwright
 test-results/
