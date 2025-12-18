@@ -1,6 +1,15 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'child_process'
+
+// Get version from git
+let version = '0.0.0-dev'
+try {
+  version = execSync('git describe --tags --dirty --always').toString().trim()
+} catch (e) {
+  console.warn('Could not get git version:', e)
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -53,5 +62,8 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(version)
   }
 })

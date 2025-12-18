@@ -14,6 +14,9 @@
     function close() {
         isOpen = false;
     }
+
+    // @ts-ignore
+    const appVersion = __APP_VERSION__;
 </script>
 
 <div class="menu-container">
@@ -27,6 +30,7 @@
         <div class="backdrop" on:click={close}></div>
         <div class="menu-dropdown">
             <slot {close}></slot>
+            <div class="menu-footer">v{appVersion}</div>
         </div>
     {/if}
 </div>
@@ -98,5 +102,14 @@
     }
     :global(.menu-dropdown button:hover) {
         background: #37373d;
+    }
+
+    .menu-footer {
+        padding: 5px 15px;
+        color: #888;
+        font-size: 0.8em;
+        text-align: right;
+        border-top: 1px solid #333;
+        margin-top: 5px;
     }
 </style>
