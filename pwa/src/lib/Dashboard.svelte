@@ -746,6 +746,8 @@
     }
     .password-row input {
         flex: 1;
+        width: auto;
+        min-width: 0;
     }
     pre,
     textarea {
@@ -767,6 +769,11 @@
         display: flex;
         align-items: center;
         gap: 10px;
+    }
+    .field-row input {
+        flex: 1;
+        width: auto; /* Override the 100% from general input selector */
+        min-width: 0;
     }
     .icon-btn {
         background: none;
