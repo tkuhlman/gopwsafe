@@ -1,8 +1,11 @@
 export async function loadWasm() {
     const go = new Go();
 
-    // Fetch and decompress
-    const response = await fetch("/gopwsafe.wasm.gz");
+    // Fetch the WASM file
+    // Note: On GitHub Pages, .gz files are served as application/gzip without Content-Encoding: gzip
+    // On local Vite dev server, it serves with Content-Encoding: gzip
+    const response = await fetch("/gopwsafe/gopwsafe.wasm.gz");
+
     if (!response.ok) {
         console.error("Failed to fetch WASM:", response.status, response.statusText, response.url);
         throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
@@ -10,23 +13,54 @@ export async function loadWasm() {
 
     let instance;
     try {
-        // Try streaming instantiation. This works if the server sends the correct Content-Type (application/wasm)
-        // and handles compression (Content-Encoding: gzip) transparently, which Vite does.
-        const result = await WebAssembly.instantiateStreaming(response, go.importObject);
+        // Check if the browser already handled the decompression (local dev)
+        // or if we need to do it manually (GitHub Pages)
+        let source = response;
+        const contentEncoding = response.headers.get("Content-Encoding");
+
+        // If it's gzipped and NOT automatically decompressed (no content-encoding header acting as transport encoding),
+        // or if it explicitly says it is gzipped content that hasn't been undone.
+        // GitHub pages just serves the file. Let's look at the magic number or filename if we really want to be sure,
+        // but simpler is to try/catch or just checking if we can stream it.
+
+        // Strategy:
+        // 1. If we are on a platform that serves correct headers (Vite), instantiateStreaming works.
+        // 2. If we are on GH Pages, it serves as a binary blob.
+
+        // Let's try to detect if we need to decompress.
+        // A simple heuristic: if the URL ends in .gz and Content-Encoding is NOT gzip, we probably need to decompress.
+        if (response.url.endsWith(".gz") && contentEncoding !== "gzip") {
+            const ds = new DecompressionStream("gzip");
+            const decompressedStream = response.body.pipeThrough(ds);
+            // Create a new Response with the decompressed stream and correct content type
+            source = new Response(decompressedStream, { headers: { "Content-Type": "application/wasm" } });
+        }
+
+        const result = await WebAssembly.instantiateStreaming(source, go.importObject);
         instance = result.instance;
     } catch (e) {
-        console.warn("instantiateStreaming failed, falling back to arrayBuffer", e);
-        // Fallback: This might be needed if Content-Type is wrong or other streaming issues.
-        // We clone headers? No, response body is used. If streaming failed mid-way, response might be disturbed.
-        // But usually instantiateStreaming checks mime type first.
-        // If response is disturbed we can't retry. Ideally we should have cloned it if we wanted to retry.
-        // But simpler: just throw/log for now or try a fresh fetch if we really wanted to be robust.
-        // For now, let's assume if streaming fails, we might need to handle the "manual decompression" case 
-        // ONLY if we know it failed due to "magic header" (meaning it was compressed but browser didn't decompress).
+        console.warn("instantiateStreaming failed, trying fallback", e);
+        // Fallback for environments where streaming fails or manual decompression setup above failed
+        // We will simple fetch, arrayBuffer, (decompress if needed), and instantiate.
+        // Since we already consumed the body in the try block if we piped it, we can't easily retry with the same response object.
+        // So we might need to re-fetch or just handle the error.
 
-        // HOWEVER, since we know Vite serves it correctly, let's stick to the standard path.
-        // If we really need to support raw .gz serving without headers, we would check the error or try-catch block differently.
-        throw e;
+        // Retrying with a fresh fetch for the fallback is safest.
+        // This is a robust fallback for "everything else".
+        const response2 = await fetch("/gopwsafe/gopwsafe.wasm.gz");
+        let buffer = await response2.arrayBuffer();
+
+        // Manual magic bytes check for GZIP (1f 8b)
+        const view = new Uint8Array(buffer);
+        if (view[0] === 0x1f && view[1] === 0x8b) {
+            console.log("Manual decompression required for fallback");
+            const ds = new DecompressionStream("gzip");
+            const stream = new Blob([buffer]).stream().pipeThrough(ds);
+            buffer = await new Response(stream).arrayBuffer();
+        }
+
+        const result = await WebAssembly.instantiate(buffer, go.importObject);
+        instance = result.instance;
     }
 
     go.run(instance);

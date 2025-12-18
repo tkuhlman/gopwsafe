@@ -9,7 +9,9 @@ A password safe written in go using and implementing the http://pwsafe.org/[pass
 
 The pwsafe package is a library for reading/writing to Password Safe v3 databases.
 The pwa directory contains a [Svelte](https://svelte.dev) frontend for the pwsafe package that can be installed locally as a Progressive Web App (PWA).
-The pwa works great both on mobile or desktop and when installed is fully available offline offline.
+The pwa works great both on mobile or desktop and when installed is fully available offline.
+Try it out at https://backgroundprocess.com/gopwsafe
+
 
 == References
 - V3 Password Safe Specification - https://github.com/pwsafe/pwsafe/blob/master/docs/formatV3.txt
