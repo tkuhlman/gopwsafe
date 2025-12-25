@@ -46,3 +46,81 @@ func TestRecord_PasswordExpiryInterval(t *testing.T) {
 		assert.Contains(t, err.Error(), "exceeds maximum")
 	})
 }
+
+func TestRecord_OwnSymbolsForPassword(t *testing.T) {
+	t.Run("Set and Get OwnSymbolsForPassword", func(t *testing.T) {
+		r := &Record{}
+		symbols := "!@#$%^&*()"
+		
+		err := r.setField(recordOwnSymbolsForPassword, []byte(symbols))
+		assert.NoError(t, err)
+		assert.Equal(t, symbols, r.OwnSymbolsForPassword)
+	})
+
+	t.Run("Marshal and Unmarshal OwnSymbolsForPassword", func(t *testing.T) {
+		r1 := &Record{
+			Title:                 "Test Entry",
+			Username:              "testuser",
+			Password:              "testpass",
+			OwnSymbolsForPassword: "!@#$%^&*()-_=+[]{}",
+		}
+
+		// Marshal the record
+		marshaled, _, err := r1.marshal()
+		assert.NoError(t, err)
+		assert.NotNil(t, marshaled)
+
+		// Verify the field is in the marshaled data
+		// The marshaled data should contain our symbols
+		assert.Contains(t, string(marshaled), r1.OwnSymbolsForPassword)
+	})
+
+	t.Run("Empty OwnSymbolsForPassword", func(t *testing.T) {
+		r := &Record{
+			Title:                 "Test Entry",
+			Username:              "testuser",
+			Password:              "testpass",
+			OwnSymbolsForPassword: "",
+		}
+
+		// Marshal should work with empty string
+		marshaled, _, err := r.marshal()
+		assert.NoError(t, err)
+		assert.NotNil(t, marshaled)
+	})
+
+	t.Run("Record Equality with OwnSymbolsForPassword", func(t *testing.T) {
+		r1 := &Record{
+			Title:                 "Test",
+			OwnSymbolsForPassword: "!@#$",
+		}
+		r2 := &Record{
+			Title:                 "Test",
+			OwnSymbolsForPassword: "!@#$",
+		}
+		r3 := &Record{
+			Title:                 "Test",
+			OwnSymbolsForPassword: "different",
+		}
+
+		// r1 and r2 should be equal
+		equal, err := r1.Equal(*r2, true)
+		assert.NoError(t, err)
+		assert.True(t, equal)
+
+		// r1 and r3 should not be equal
+		equal, err = r1.Equal(*r3, true)
+		assert.False(t, equal)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "OwnSymbolsForPassword")
+	})
+
+	t.Run("UTF-8 Symbols", func(t *testing.T) {
+		r := &Record{}
+		symbols := "§±¿×÷"
+		
+		err := r.setField(recordOwnSymbolsForPassword, []byte(symbols))
+		assert.NoError(t, err)
+		assert.Equal(t, symbols, r.OwnSymbolsForPassword)
+	})
+}
