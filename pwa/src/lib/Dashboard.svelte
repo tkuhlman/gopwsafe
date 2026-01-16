@@ -105,6 +105,12 @@
     });
 
     function filterItems() {
+        console.log(
+            "filterItems called. searchTerm:",
+            searchTerm,
+            "Total items:",
+            items.length,
+        );
         if (!searchTerm) {
             filteredItems = items;
         } else {
@@ -114,6 +120,10 @@
                     i.title.toLowerCase().includes(lower) ||
                     i.group.toLowerCase().includes(lower),
             );
+        }
+        console.log("Filtered items count:", filteredItems.length);
+        if (filteredItems.length === 0 && items.length > 0) {
+            console.log("First item title:", items[0].title);
         }
         groupItems(filteredItems);
     }
@@ -134,12 +144,15 @@
             );
         });
         groupedItems = grouped;
+        console.log("Grouped items keys:", Object.keys(grouped));
     }
 
     function selectItem(item) {
+        console.log("selectItem called for:", item.title);
         try {
             const rec = getRecordData(item.title);
             selectedRecord = rec;
+            console.log("Record loaded:", rec ? rec.Title : "null");
             oldTitle = rec.Title; // Store original title
             showPassword = false;
             isNewRecord = false;
@@ -346,6 +359,43 @@
             e.returnValue = "";
         }
     });
+    function handleTreeNavigation(e) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            // Find all visible focusable items
+            // We need to look at the entire tree from the container perspective
+            const tree = document.querySelector(".tree");
+            if (!tree) return;
+
+            const focusable = Array.from(
+                tree.querySelectorAll('summary, li[tabindex="0"]'),
+            );
+
+            const visibleFocusable = focusable.filter((el) => {
+                let parent = el.parentElement;
+                while (parent && parent !== tree) {
+                    if (parent.tagName === "DETAILS" && !parent.open)
+                        return false;
+                    parent = parent.parentElement;
+                }
+                return true;
+            });
+
+            const idx = visibleFocusable.indexOf(e.target);
+            if (idx === -1) return;
+
+            if (e.key === "ArrowDown") {
+                const next = visibleFocusable[idx + 1];
+                if (next) next.focus();
+            } else if (e.key === "ArrowUp") {
+                const prev = visibleFocusable[idx - 1];
+                if (prev) prev.focus();
+                else if (idx === 0) {
+                    searchInput.focus();
+                }
+            }
+        }
+    }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -432,19 +482,48 @@
                 placeholder="Search..."
                 bind:value={searchTerm}
                 on:input={filterItems}
+                on:keydown={(e) => {
+                    if (e.key === "Enter") {
+                        if (filteredItems.length === 1) {
+                            selectItem(filteredItems[0]);
+                            e.target.blur();
+                        }
+                    } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        const tree = document.querySelector(".tree");
+                        const firstFocusable = tree.querySelector(
+                            'summary, li[tabindex="0"]',
+                        );
+                        if (firstFocusable) {
+                            firstFocusable.focus();
+                        }
+                    } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                    }
+                }}
             />
         </div>
 
         <div class="tree">
             {#each Object.keys(groupedItems) as group}
                 <details open>
-                    <summary>{group}</summary>
+                    <summary tabindex="0" on:keydown={handleTreeNavigation}
+                        >{group}</summary
+                    >
                     <ul>
                         {#each groupedItems[group] as item}
                             <li
+                                tabindex="0"
                                 class:selected={selectedRecord &&
                                     selectedRecord.Title === item.title}
                                 on:click={() => selectItem(item)}
+                                on:keydown={(e) => {
+                                    if (e.key === "Enter") {
+                                        selectItem(item);
+                                    } else {
+                                        handleTreeNavigation(e);
+                                    }
+                                }}
                             >
                                 {item.title}
                             </li>
