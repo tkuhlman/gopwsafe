@@ -34,6 +34,7 @@ const (
 	recordDoubleClickAction      = 0x13
 	recordEmail                  = 0x14
 	recordProtectedEntry         = 0x15
+	recordOwnSymbolsForPassword  = 0x16
 	recordShiftDoubleClickAction = 0x17
 	recordPasswordPolicyName     = 0x18
 	recordEndOfEntry             = 0xff
@@ -49,6 +50,7 @@ type Record struct {
 	Group                  string    // 0x02
 	ModTime                time.Time // 0x0c
 	Notes                  string    // 0x05
+	OwnSymbolsForPassword  string    // 0x16
 	Password               string    // 0x06
 	PasswordExpiry         time.Time // 0x0a
 	PasswordExpiryInterval uint32    // 0x11
@@ -120,6 +122,9 @@ func (r Record) Equal(otherRecord Record, skipTimes bool) (bool, error) {
 	}
 	if r.URL != otherRecord.URL {
 		return false, fmt.Errorf("records don't match, URL: %v != %v", r.URL, otherRecord.URL)
+	}
+	if r.OwnSymbolsForPassword != otherRecord.OwnSymbolsForPassword {
+		return false, fmt.Errorf("records don't match, OwnSymbolsForPassword: %v != %v", r.OwnSymbolsForPassword, otherRecord.OwnSymbolsForPassword)
 	}
 
 	if !skipTimes {
@@ -200,6 +205,8 @@ func (r *Record) setField(id byte, data []byte) error {
 			return errors.New("invalid length for ProtectedEntry")
 		}
 		r.ProtectedEntry = data[0]
+	case recordOwnSymbolsForPassword:
+		r.OwnSymbolsForPassword = string(data)
 	case recordShiftDoubleClickAction:
 		if len(data) != 2 {
 			return errors.New("invalid length for ShiftDoubleClickAction")
@@ -275,6 +282,7 @@ func (r *Record) marshal() ([]byte, []byte, error) {
 	if r.ProtectedEntry != 0 {
 		appendField(recordProtectedEntry, []byte{r.ProtectedEntry})
 	}
+	appendField(recordOwnSymbolsForPassword, []byte(r.OwnSymbolsForPassword))
 	appendField(recordShiftDoubleClickAction, r.ShiftDoubleClickAction[:])
 	appendField(recordPasswordPolicyName, []byte(r.PasswordPolicyName))
 
