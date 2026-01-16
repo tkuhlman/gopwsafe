@@ -65,6 +65,7 @@
             if (tag !== "input" && tag !== "textarea") {
                 event.preventDefault();
                 searchInput.focus();
+                searchInput.select();
                 return;
             }
         }
@@ -782,7 +783,6 @@
         color: #ccc;
         font-size: 1.5rem;
         cursor: pointer;
-        display: none; /* Hidden on desktop */
     }
     @media (max-width: 768px) {
         .sidebar {
