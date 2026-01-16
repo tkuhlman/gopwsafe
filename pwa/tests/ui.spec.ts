@@ -235,4 +235,46 @@ test.describe('UI Improvements', () => {
         await expect(mainContent).not.toHaveClass(/mobile-open/);
     });
 
+    test('should focus search on / shortcut', async ({ page }) => {
+        // Load DB
+        const buffer = fs.readFileSync(threeDbPath);
+        const data = [...buffer];
+
+        await page.addInitScript((fileData) => {
+            (window as any).showOpenFilePicker = async () => {
+                const blob = new Blob([new Uint8Array(fileData)], { type: 'application/octet-stream' });
+                const file = new File([blob], 'three.dat');
+                return [{
+                    getFile: async () => file,
+                    createWritable: async () => ({
+                        write: async () => { },
+                        close: async () => { }
+                    }),
+                    name: 'three.dat'
+                }];
+            };
+        }, data);
+
+        await page.goto('/');
+        await page.getByText('Open Database File').click();
+        await page.getByPlaceholder('Password').fill('three3#;');
+        await page.getByRole('button', { name: 'Unlock' }).click();
+
+        // Wait for dashboard and initial autofocus
+        await expect(page.locator('.sidebar')).toBeVisible();
+        await expect(page.getByPlaceholder('Search...')).toBeFocused();
+
+        // Blur search by clicking tree
+        await page.locator('.tree').click();
+        await expect(page.getByPlaceholder('Search...')).not.toBeFocused();
+
+        // Press / to focus
+        await page.keyboard.press('/');
+        await expect(page.getByPlaceholder('Search...')).toBeFocused();
+
+        // Verify typing / works while focused (shortcut ignored)
+        await page.keyboard.type('/');
+        await expect(page.getByPlaceholder('Search...')).toHaveValue('/');
+    });
+
 });

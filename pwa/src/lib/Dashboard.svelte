@@ -53,6 +53,22 @@
     }
 
     function handleKeydown(event) {
+        // Global shortcuts
+        if (
+            event.key === "/" &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey
+        ) {
+            const tag = document.activeElement.tagName.toLowerCase();
+            // Ignore if typing in an input or textarea
+            if (tag !== "input" && tag !== "textarea") {
+                event.preventDefault();
+                searchInput.focus();
+                return;
+            }
+        }
+
         if (!selectedRecord) return;
 
         if ((event.ctrlKey || event.metaKey) && event.key === "u") {
