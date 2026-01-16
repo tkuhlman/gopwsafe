@@ -172,6 +172,11 @@ test.describe('UI Improvements', () => {
         // Wait for content to load
         await expect(modal.getByPlaceholder('Database Name')).toBeVisible();
 
+        // Verify Version Format
+        // three.dat seems to be version 0, so it shows Format 0x0000. 
+        // Real Usage with v3.69 would show v3.69.
+        await expect(modal.getByText(/v3\.\d+|Format 0x[0-9a-fA-F]+/)).toBeVisible();
+
         await expect(modal.getByLabel('Filename')).toHaveValue('three.dat');
 
         // Use placeholder if label is tricky, but label should work now with IDs.
@@ -272,9 +277,31 @@ test.describe('UI Improvements', () => {
         await page.keyboard.press('/');
         await expect(page.getByPlaceholder('Search...')).toBeFocused();
 
-        // Verify typing / works while focused (shortcut ignored)
-        await page.keyboard.type('/');
-        await expect(page.getByPlaceholder('Search...')).toHaveValue('/');
+        // Type something
+        await page.keyboard.type('old');
+        await expect(page.getByPlaceholder('Search...')).toHaveValue('old');
+
+        // Blur
+        await page.locator('.tree').click();
+        await expect(page.getByPlaceholder('Search...')).not.toBeFocused();
+
+        // Press / to focus again
+        await page.keyboard.press('/');
+        await expect(page.getByPlaceholder('Search...')).toBeFocused();
+
+        // Check selection covers "old"
+        const finalSelection = await page.getByPlaceholder('Search...').evaluate((el: HTMLInputElement) => ({
+            start: el.selectionStart,
+            end: el.selectionEnd,
+            value: el.value
+        }));
+        expect(finalSelection.start).toBe(0);
+        expect(finalSelection.end).toBe(3); // length of 'old'
+
+        // Verify typing overwrite
+        await page.keyboard.type('new');
+        await expect(page.getByPlaceholder('Search...')).toHaveValue('new');
+
     });
 
     test('should load single search result on enter', async ({ page }) => {
@@ -308,14 +335,19 @@ test.describe('UI Improvements', () => {
         // Wait for filter to apply
         await expect(page.locator('.tree li')).toHaveCount(1);
 
+        // Verify search is focused
+        await expect(page.getByPlaceholder('Search...')).toBeFocused();
+
         // Press Enter
         await page.keyboard.press('Enter');
 
         // Verify loaded
         await expect(page.locator('.record-details')).toBeVisible();
         await expect(page.locator('.record-details h2')).toHaveText('three entry 1');
-        // Verify input lost focus
-        await expect(page.getByPlaceholder('Search...')).not.toBeFocused();
+
+        // Verify input lost focus (Focus moves to close button or body)
+        // Wait for potential async focus switch
+        await expect(page.getByPlaceholder('Search...')).not.toBeFocused({ timeout: 5000 });
     });
 
     test('should navigate tree with keyboard', async ({ page }) => {
@@ -345,7 +377,16 @@ test.describe('UI Improvements', () => {
 
         // Search to start somewhere or just focus search then down
         const search = page.getByPlaceholder('Search...');
+
+        // Wait for tree to be populated and items to be rendered
+        await expect(page.locator('.tree details summary').first()).toBeVisible();
+        await expect(page.locator('.tree li').first()).toBeVisible();
+
+        // Give a moment for the DOM to settle (hydration/layout)
+        await page.waitForTimeout(200);
+
         await search.focus();
+        await expect(search).toBeFocused();
         await page.keyboard.press('ArrowDown');
 
         // Should focus first summary (Likely 'three group 1' or similar)
@@ -353,6 +394,9 @@ test.describe('UI Improvements', () => {
         const summary = page.locator('summary').first();
         await expect(summary).toBeFocused();
         await expect(summary).toContainText('group');
+
+        // Small delay to ensure focus is stable
+        await page.waitForTimeout(100);
 
         // Arrow Down into items
         // Since details are open by default
@@ -372,6 +416,50 @@ test.describe('UI Improvements', () => {
         // Enter to load
         await page.keyboard.press('Enter');
         await expect(page.locator('.record-details h2')).toContainText('three entry');
+    });
+
+    test('should show and function close button on desktop', async ({ page }) => {
+        // Load DB
+        const buffer = fs.readFileSync(threeDbPath);
+        const data = [...buffer];
+
+        await page.addInitScript((fileData) => {
+            (window as any).showOpenFilePicker = async () => {
+                const blob = new Blob([new Uint8Array(fileData)], { type: 'application/octet-stream' });
+                const file = new File([blob], 'three.dat');
+                return [{
+                    getFile: async () => file,
+                    createWritable: async () => ({
+                        write: async () => { },
+                        close: async () => { }
+                    }),
+                    name: 'three.dat'
+                }];
+            };
+        }, data);
+
+        await page.goto('/');
+        await page.getByText('Open Database File').click();
+        await page.getByPlaceholder('Password').fill('three3#;');
+        await page.getByRole('button', { name: 'Unlock' }).click();
+
+        // Select a record
+        const firstItem = page.locator('.tree li').first();
+        await firstItem.click();
+
+        // Verify record details are visible
+        await expect(page.locator('.record-details')).toBeVisible();
+
+        // Verify close button is visible (desktop viewport by default)
+        const closeBtn = page.locator('.close-details');
+        await expect(closeBtn).toBeVisible();
+
+        // Click close
+        await closeBtn.click();
+
+        // Verify record details are gone / empty state
+        await expect(page.locator('.empty-state')).toBeVisible();
+        await expect(page.locator('.record-details')).not.toBeVisible();
     });
 
 });

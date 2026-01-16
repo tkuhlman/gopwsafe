@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"syscall/js"
@@ -131,8 +132,37 @@ func getDBInfo(this js.Value, args []js.Value) interface{} {
 	// UUID to string
 	uuidStr := fmt.Sprintf("%x", db.Header.UUID)
 
+	// Map of known versions
+	versionMap := map[uint16]string{
+		0x0300: "3.01",
+		0x0301: "3.03",
+		0x0302: "3.09",
+		0x0303: "3.12",
+		0x0304: "3.13",
+		0x0305: "3.14",
+		0x0306: "3.19",
+		0x0307: "3.22",
+		0x0308: "3.25",
+		0x0309: "3.26",
+		0x030A: "3.28",
+		0x030B: "3.29",
+		0x030C: "3.29",
+		0x030D: "3.30",
+		0x030E: "3.47",
+		0x030F: "3.68",
+		0x0310: "3.69",
+	}
+
+	versionVal := binary.LittleEndian.Uint16(db.Header.Version[:])
+	versionStr := versionMap[versionVal]
+	if versionStr == "" {
+		versionStr = fmt.Sprintf("Format 0x%04x", versionVal)
+	} else {
+		versionStr = "v" + versionStr
+	}
+
 	info := DBInfo{
-		Version:     fmt.Sprintf("%x", db.Header.Version),
+		Version:     versionStr,
 		UUID:        uuidStr,
 		Name:        db.Header.Name,
 		Description: db.Header.Description,

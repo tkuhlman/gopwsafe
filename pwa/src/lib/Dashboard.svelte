@@ -272,8 +272,14 @@
             oldTitle = selectedRecord.Title;
             isNewRecord = false;
             isDirty = true;
+
+            // Clear search if we updated the title so it doesn't get filtered out if it no longer matches
+            if (searchTerm) {
+                searchTerm = "";
+                filterItems();
+            }
         } catch (e) {
-            console.error(e);
+            console.error("saveRecord failed:", e);
             alert("Failed to save record: " + e.message);
         }
     }
@@ -375,7 +381,12 @@
             const visibleFocusable = focusable.filter((el) => {
                 let parent = el.parentElement;
                 while (parent && parent !== tree) {
-                    if (parent.tagName === "DETAILS" && !parent.open)
+                    // Check both property and attribute for robustness
+                    if (
+                        parent.tagName === "DETAILS" &&
+                        !parent.open &&
+                        !parent.hasAttribute("open")
+                    )
                         return false;
                     parent = parent.parentElement;
                 }
@@ -383,11 +394,35 @@
             });
 
             const idx = visibleFocusable.indexOf(e.target);
-            if (idx === -1) return;
+
+            if (idx === -1) {
+                // Try finding by activeElement if target mismatch
+                const idx2 = visibleFocusable.indexOf(document.activeElement);
+                if (idx2 !== -1) {
+                    // Use idx2
+                    if (e.key === "ArrowDown") {
+                        const next = visibleFocusable[idx2 + 1];
+                        if (next) {
+                            next.focus();
+                        }
+                    } else if (e.key === "ArrowUp") {
+                        const prev = visibleFocusable[idx2 - 1];
+                        if (prev) {
+                            prev.focus();
+                        } else if (idx2 === 0) searchInput.focus();
+                    }
+                    return;
+                }
+                return;
+            }
 
             if (e.key === "ArrowDown") {
                 const next = visibleFocusable[idx + 1];
-                if (next) next.focus();
+                if (next) {
+                    next.focus();
+                } else {
+                    // No next item
+                }
             } else if (e.key === "ArrowUp") {
                 const prev = visibleFocusable[idx - 1];
                 if (prev) prev.focus();
@@ -487,11 +522,25 @@
                     if (e.key === "Enter") {
                         if (filteredItems.length === 1) {
                             selectItem(filteredItems[0]);
-                            e.target.blur();
+                            // Move focus to details view for accessibility and to satisfy tests
+                            // Wait for DOM update
+                            setTimeout(() => {
+                                const closeBtn =
+                                    document.querySelector(".close-details");
+                                if (closeBtn) {
+                                    closeBtn.focus();
+                                } else {
+                                    // If for some reason close button isn't there, blur search
+                                    e.target.blur();
+                                }
+                            }, 50);
                         }
                     } else if (e.key === "ArrowDown") {
                         e.preventDefault();
                         const tree = document.querySelector(".tree");
+                        if (!tree) {
+                            return;
+                        }
                         const firstFocusable = tree.querySelector(
                             'summary, li[tabindex="0"]',
                         );

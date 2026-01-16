@@ -2,9 +2,6 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Database Write Operations', () => {
     test('Create DB, Add, Update, Delete Record', async ({ page }) => {
-        page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-        page.on('pageerror', exception => console.log(`PAGE ERROR: "${exception}"`));
-
         // 1. Create New Database
         await page.goto('/');
         await page.click('button[aria-label="Menu"]');
