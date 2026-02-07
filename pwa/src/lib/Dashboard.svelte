@@ -78,6 +78,11 @@
         } else if ((event.ctrlKey || event.metaKey) && event.key === "p") {
             event.preventDefault();
             copyToClipboard(selectedRecord.Password, "pass");
+        } else if ((event.ctrlKey || event.metaKey) && event.key === "o") {
+            event.preventDefault();
+            if (selectedRecord.URL) {
+                window.open(selectedRecord.URL, "_blank");
+            }
         }
     }
 

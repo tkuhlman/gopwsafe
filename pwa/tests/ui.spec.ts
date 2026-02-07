@@ -462,4 +462,52 @@ test.describe('UI Improvements', () => {
         await expect(page.locator('.record-details')).not.toBeVisible();
     });
 
+    test('should open url on ctrl+o', async ({ page }) => {
+        // Load DB
+        const buffer = fs.readFileSync(threeDbPath);
+        const data = [...buffer];
+
+        await page.addInitScript((fileData) => {
+            (window as any).showOpenFilePicker = async () => {
+                const blob = new Blob([new Uint8Array(fileData)], { type: 'application/octet-stream' });
+                const file = new File([blob], 'three.dat');
+                return [{
+                    getFile: async () => file,
+                    createWritable: async () => ({
+                        write: async () => { },
+                        close: async () => { }
+                    }),
+                    name: 'three.dat'
+                }];
+            };
+        }, data);
+
+        await page.goto('/');
+        await page.getByText('Open Database File').click();
+        await page.getByPlaceholder('Password').fill('three3#;');
+        await page.getByRole('button', { name: 'Unlock' }).click();
+
+        // Create a record with a URL
+        await page.locator('.hamburger').click();
+        await page.getByText('New Record').click();
+
+        await page.getByPlaceholder('Title').fill('URL Test Record');
+        await page.getByPlaceholder('URL').fill('https://example.com');
+        await page.getByRole('button', { name: 'Save Record' }).click();
+
+        // Mock window.open
+        await page.evaluate(() => {
+            (window as any).open = (url: string) => {
+                (window as any).lastOpenUrl = url;
+            };
+        });
+
+        // Trigger Ctrl+O
+        await page.keyboard.press('Control+o');
+
+        // Verify
+        const url = await page.evaluate(() => (window as any).lastOpenUrl);
+        expect(url).toBe('https://example.com');
+    });
+
 });
