@@ -633,7 +633,7 @@
                                     selectedRecord.Username,
                                     "user",
                                 )}
-                            title="Copy Username"
+                            title="Copy Username (Ctrl+U)"
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -680,7 +680,7 @@
                                     selectedRecord.Password,
                                     "pass",
                                 )}
-                            title="Copy Password"
+                            title="Copy Password (Ctrl+P)"
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -722,7 +722,7 @@
                                 href={selectedRecord.URL}
                                 target="_blank"
                                 class="icon-btn"
-                                title="Open URL"
+                                title="Open URL (Ctrl+O)"
                             >
                                 ↗
                             </a>
