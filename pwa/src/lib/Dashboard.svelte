@@ -29,6 +29,7 @@
     let searchInput; // Reference for autofocus
     let copyUserSuccess = false;
     let copyPassSuccess = false;
+    let copyUrlSuccess = false;
     let isNewRecord = false;
 
     let isDirty = false;
@@ -36,6 +37,28 @@
 
     let generator;
     let showGenOptions = false;
+
+    let contextMenu = null; // { x, y, rec }
+
+    function openContextMenu(e, item) {
+        e.preventDefault();
+        try {
+            const rec = getRecordData(item.title);
+            contextMenu = { x: e.clientX, y: e.clientY, rec };
+        } catch (err) {
+            console.error("Context menu: failed to load record", err);
+        }
+    }
+
+    async function contextCopy(text) {
+        contextMenu = null;
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (err) {
+            console.error("Failed to copy", err);
+        }
+    }
 
     let collapseAtStartup = localStorage.getItem('collapseAtStartup') === 'true';
     function toggleCollapseAtStartup() {
@@ -64,6 +87,10 @@
     }
 
     function handleKeydown(event) {
+        if (event.key === "Escape" && contextMenu) {
+            contextMenu = null;
+            return;
+        }
         // Global shortcuts
         if (
             event.key === "/" &&
@@ -106,6 +133,9 @@
             } else if (type === "pass") {
                 copyPassSuccess = true;
                 setTimeout(() => (copyPassSuccess = false), 2000);
+            } else if (type === "url") {
+                copyUrlSuccess = true;
+                setTimeout(() => (copyUrlSuccess = false), 2000);
             }
         } catch (err) {
             console.error("Failed to copy!", err);
@@ -465,7 +495,7 @@
     }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window on:keydown={handleKeydown} on:click={() => { if (contextMenu) contextMenu = null; }} />
 
 {#if showModal}
     <Modal
@@ -599,6 +629,7 @@
                                 class:selected={selectedRecord &&
                                     selectedRecord.Title === item.title}
                                 on:click={() => selectItem(item)}
+                                on:contextmenu={(e) => openContextMenu(e, item)}
                                 on:keydown={(e) => {
                                     if (e.key === "Enter") {
                                         selectItem(item);
@@ -648,10 +679,11 @@
                 </div>
 
                 <div class="field">
-                    <label for="record-username">Username</label>
+                    <button type="button" class="field-label-btn" title="Click to copy" on:click={() => copyToClipboard(selectedRecord.Username, 'user')} on:contextmenu|preventDefault={() => copyToClipboard(selectedRecord.Username, 'user')}>Username</button>
                     <div class="field-row">
                         <input
                             id="record-username"
+                            aria-label="Username"
                             type="text"
                             bind:value={selectedRecord.Username}
                             placeholder="Username"
@@ -693,10 +725,11 @@
                     </div>
                 </div>
                 <div class="field">
-                    <label for="record-password">Password</label>
+                    <button type="button" class="field-label-btn" title="Click to copy" on:click={() => copyToClipboard(selectedRecord.Password, 'pass')} on:contextmenu|preventDefault={() => copyToClipboard(selectedRecord.Password, 'pass')}>Password</button>
                     <div class="password-row">
                         <input
                             id="record-password"
+                            aria-label="Password"
                             type={showPassword ? "text" : "password"}
                             bind:value={selectedRecord.Password}
                             placeholder="Password"
@@ -762,10 +795,11 @@
                     }}
                 />
                 <div class="field">
-                    <label for="record-url">URL</label>
+                    <button type="button" class="field-label-btn" title="Click to copy" on:click={() => copyToClipboard(selectedRecord.URL, 'url')} on:contextmenu|preventDefault={() => copyToClipboard(selectedRecord.URL, 'url')}>URL</button>
                     <div class="field-row">
                         <input
                             id="record-url"
+                            aria-label="URL"
                             type="text"
                             bind:value={selectedRecord.URL}
                             placeholder="URL"
@@ -779,6 +813,16 @@
                             >
                                 ↗
                             </a>
+                            <button
+                                class="icon-btn"
+                                on:click={() => copyToClipboard(selectedRecord.URL, 'url')}
+                                title="Copy URL"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            </button>
+                            {#if copyUrlSuccess}
+                                <span class="copy-feedback">Copied!</span>
+                            {/if}
                         {/if}
                     </div>
                 </div>
@@ -814,6 +858,29 @@
         {/if}
     </div>
 </div>
+
+{#if contextMenu}
+    <div
+        class="context-menu"
+        role="menu"
+        tabindex="-1"
+        style="left:{contextMenu.x}px;top:{contextMenu.y}px"
+        on:click|stopPropagation
+        on:keydown|stopPropagation
+    >
+        <button on:click={() => contextCopy(contextMenu.rec.Username)}>
+            Copy Username
+        </button>
+        <button on:click={() => contextCopy(contextMenu.rec.Password)}>
+            Copy Password
+        </button>
+        {#if contextMenu.rec.URL}
+            <button on:click={() => contextCopy(contextMenu.rec.URL)}>
+                Copy URL
+            </button>
+        {/if}
+    </div>
+{/if}
 
 <style>
     .dashboard {
@@ -926,6 +993,21 @@
         font-size: 0.9em;
         margin-bottom: 6px;
     }
+    .field-label-btn {
+        display: block;
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 0.9em;
+        margin-bottom: 6px;
+        padding: 0;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: left;
+    }
+    .field-label-btn:hover {
+        color: #bbb;
+    }
     .field input[type="text"],
     .field input[type="password"],
     .field textarea {
@@ -1036,5 +1118,29 @@
         100% {
             opacity: 0;
         }
+    }
+    .context-menu {
+        position: fixed;
+        z-index: 2000;
+        background: #252526;
+        border: 1px solid #444;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        padding: 4px 0;
+        min-width: 160px;
+    }
+    .context-menu button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        color: #e0e0e0;
+        padding: 8px 14px;
+        cursor: pointer;
+        font-size: 0.9em;
+    }
+    .context-menu button:hover {
+        background: #37373d;
     }
 </style>
