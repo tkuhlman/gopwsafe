@@ -888,63 +888,38 @@
                 <div class="field">
                     <button type="button" class="field-label-btn" title="Click to copy" on:click={() => copyToClipboard(selectedRecord.Password, 'pass')} on:contextmenu|preventDefault={() => copyToClipboard(selectedRecord.Password, 'pass')}>Password</button>
                     <div class="password-row">
-                        <input
-                            id="record-password"
-                            aria-label="Password"
-                            type={showPassword ? "text" : "password"}
-                            bind:value={selectedRecord.Password}
-                            placeholder="Password"
-                        />
-                        <button on:click={() => (showPassword = !showPassword)}>
-                            {showPassword ? "Hide" : "Show"}
-                        </button>
-                        <button class="generate-btn" on:click={() => generator.generate()}>
-                            <span class="generate-text">Generate</span>
-                            <svg class="generate-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-                                <path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/>
-                                <path d="M16 16h.01"/><path d="M12 12h.01"/>
-                            </svg>
-                        </button>
-                        <button class="icon-btn" on:click={() => (showGenOptions = !showGenOptions)} title="Generator options">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                            </svg>
-                        </button>
-                        <button
-                            class="icon-btn"
-                            on:click={() =>
-                                copyToClipboard(
-                                    selectedRecord.Password,
-                                    "pass",
-                                )}
-                            title="Copy Password (Ctrl+P)"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                ><rect
-                                    x="9"
-                                    y="9"
-                                    width="13"
-                                    height="13"
-                                    rx="2"
-                                    ry="2"
-                                ></rect><path
-                                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                                ></path></svg
+                        <div class="password-input-row">
+                            <input
+                                id="record-password"
+                                aria-label="Password"
+                                type={showPassword ? "text" : "password"}
+                                bind:value={selectedRecord.Password}
+                                placeholder="Password"
+                            />
+                            <button
+                                class="icon-btn"
+                                on:click={() => copyToClipboard(selectedRecord.Password, "pass")}
+                                title="Copy Password (Ctrl+P)"
                             >
-                        </button>
-                        {#if copyPassSuccess}
-                            <span class="copy-feedback">Copied!</span>
-                        {/if}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            </button>
+                            {#if copyPassSuccess}
+                                <span class="copy-feedback">Copied!</span>
+                            {/if}
+                        </div>
+                        <div class="password-actions">
+                            <button on:click={() => (showPassword = !showPassword)}>
+                                {showPassword ? "Hide" : "Show"}
+                            </button>
+                            <button class="generate-btn" on:click={() => generator.generate()}>
+                                Generate
+                            </button>
+                            <button class="icon-btn" on:click={() => (showGenOptions = !showGenOptions)} title="Generator options">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <PasswordGenerator
@@ -1164,10 +1139,7 @@
         font-size: 1.5rem;
         cursor: pointer;
     }
-    .generate-icon { display: none; }
     @media (max-width: 768px) {
-        .generate-text { display: none; }
-        .generate-icon { display: inline-flex; align-items: center; vertical-align: middle; }
         .sidebar {
             width: 100%;
             height: 100vh;
@@ -1235,12 +1207,23 @@
     }
     .password-row {
         display: flex;
-        gap: 10px;
+        flex-direction: column;
+        gap: 6px;
     }
-    .password-row input {
+    .password-input-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .password-input-row input {
         flex: 1;
-        width: auto;
         min-width: 0;
+        width: auto;
+    }
+    .password-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     textarea {
         background: #2d2d2d;
