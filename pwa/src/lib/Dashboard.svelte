@@ -92,7 +92,6 @@
     let copyUrlSuccess = false;
     let isNewRecord = false;
     let showHistory = false;
-    let historyRevealedSet = new Set();
 
     let isDirty = false;
     let isSaving = false;
@@ -313,7 +312,6 @@
             showGenOptions = false;
             clearGhosts();
             showHistory = false;
-            historyRevealedSet = new Set();
         } catch (e) {
             console.error(e);
             alert("Failed to load record details");
@@ -947,20 +945,7 @@
                                     {#each [...hist.entries].reverse() as entry}
                                         <div class="history-entry">
                                             <span class="history-date">{formatDate(new Date(entry.timestamp * 1000).toISOString())}</span>
-                                            <span class="history-pw">
-                                                {historyRevealedSet.has(entry.timestamp) ? entry.password : '••••••••'}
-                                            </span>
-                                            <button
-                                                class="icon-btn"
-                                                on:click={() => {
-                                                    if (historyRevealedSet.has(entry.timestamp)) {
-                                                        historyRevealedSet.delete(entry.timestamp);
-                                                    } else {
-                                                        historyRevealedSet.add(entry.timestamp);
-                                                    }
-                                                    historyRevealedSet = historyRevealedSet;
-                                                }}
-                                            >{historyRevealedSet.has(entry.timestamp) ? 'Hide' : 'Show'}</button>
+                                            <span class="history-pw">{entry.password}</span>
                                             <button
                                                 class="icon-btn"
                                                 title="Copy"
