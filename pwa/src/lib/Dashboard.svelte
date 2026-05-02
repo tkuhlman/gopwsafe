@@ -1,5 +1,6 @@
 <script>
     import { createEventDispatcher } from "svelte";
+    import { slide } from "svelte/transition";
     import { dbItems, selectedFile } from "../store.js";
 
     import {
@@ -34,6 +35,49 @@
         };
     }
 
+    // Password history field format: fmmnnTLPTLP...
+    //   f=enabled(1/0), mm=maxEntries(hex), nn=count(hex)
+    //   each entry: T=timestamp(8hex) L=pwLen(4hex) P=password
+    function parsePasswordHistory(raw) {
+        if (!raw || raw.length < 5) return null;
+        const enabled = raw[0] === '1';
+        const max = parseInt(raw.slice(1, 3), 16) || 10;
+        const count = parseInt(raw.slice(3, 5), 16);
+        const entries = [];
+        let pos = 5;
+        for (let i = 0; i < count; i++) {
+            if (pos + 12 > raw.length) break;
+            const timestamp = parseInt(raw.slice(pos, pos + 8), 16);
+            pos += 8;
+            const len = parseInt(raw.slice(pos, pos + 4), 16);
+            pos += 4;
+            if (pos + len > raw.length) break;
+            entries.push({ timestamp, password: raw.slice(pos, pos + len) });
+            pos += len;
+        }
+        return { enabled, max, entries };
+    }
+
+    function serializePasswordHistory(h) {
+        const body = h.entries.map(e => {
+            const t = Math.floor(e.timestamp).toString(16).padStart(8, '0');
+            const l = e.password.length.toString(16).padStart(4, '0');
+            return t + l + e.password;
+        }).join('');
+        return (h.enabled ? '1' : '0')
+            + h.max.toString(16).padStart(2, '0')
+            + h.entries.length.toString(16).padStart(2, '0')
+            + body;
+    }
+
+    function pushPasswordHistory(raw, oldPassword) {
+        let h = parsePasswordHistory(raw) ?? { enabled: true, max: 10, entries: [] };
+        if (!h.enabled) return raw;
+        h.entries.push({ timestamp: Date.now() / 1000, password: oldPassword });
+        while (h.entries.length > h.max) h.entries.shift();
+        return serializePasswordHistory(h);
+    }
+
     let items = [];
     let filteredItems = [];
     let searchTerm = "";
@@ -47,6 +91,8 @@
     let copyPassSuccess = false;
     let copyUrlSuccess = false;
     let isNewRecord = false;
+    let showHistory = false;
+    let historyRevealedSet = new Set();
 
     let isDirty = false;
     let isSaving = false;
@@ -266,6 +312,8 @@
             isNewRecord = false;
             showGenOptions = false;
             clearGhosts();
+            showHistory = false;
+            historyRevealedSet = new Set();
         } catch (e) {
             console.error(e);
             alert("Failed to load record details");
@@ -291,6 +339,8 @@
         isNewRecord = true;
         showGenOptions = false;
         clearGhosts();
+        showHistory = false;
+        historyRevealedSet = new Set();
     }
 
     // Bind this to the new record event from the menu
@@ -381,6 +431,13 @@
             if (isNewRecord) {
                 addRecord(selectedRecord);
             } else {
+                const oldRec = getRecordData(oldTitle);
+                if (oldRec && oldRec.Password !== selectedRecord.Password) {
+                    selectedRecord.PasswordHistory = pushPasswordHistory(
+                        selectedRecord.PasswordHistory,
+                        oldRec.Password,
+                    );
+                }
                 updateRecord(oldTitle, selectedRecord);
             }
 
@@ -897,7 +954,52 @@
                         selectedRecord.Password = e.detail;
                         showPassword = true;
                     }}
-                />
+                >
+                    {#if !isNewRecord && selectedRecord.PasswordHistory}
+                        {@const hist = parsePasswordHistory(selectedRecord.PasswordHistory)}
+                        {#if hist && hist.entries.length > 0}
+                            <hr class="panel-divider" />
+                            <button
+                                type="button"
+                                class="history-toggle-btn"
+                                on:click={() => (showHistory = !showHistory)}
+                            >
+                                Show {hist.entries.length} previous password{hist.entries.length === 1 ? '' : 's'}
+                                <span>{showHistory ? '▲' : '▶'}</span>
+                            </button>
+                            {#if showHistory}
+                                <div class="history-list" transition:slide={{ duration: 150 }}>
+                                    {#each [...hist.entries].reverse() as entry}
+                                        <div class="history-entry">
+                                            <span class="history-date">{formatDate(new Date(entry.timestamp * 1000).toISOString())}</span>
+                                            <span class="history-pw">
+                                                {historyRevealedSet.has(entry.timestamp) ? entry.password : '••••••••'}
+                                            </span>
+                                            <button
+                                                class="icon-btn"
+                                                on:click={() => {
+                                                    if (historyRevealedSet.has(entry.timestamp)) {
+                                                        historyRevealedSet.delete(entry.timestamp);
+                                                    } else {
+                                                        historyRevealedSet.add(entry.timestamp);
+                                                    }
+                                                    historyRevealedSet = historyRevealedSet;
+                                                }}
+                                            >{historyRevealedSet.has(entry.timestamp) ? 'Hide' : 'Show'}</button>
+                                            <button
+                                                class="icon-btn"
+                                                title="Copy"
+                                                on:click={() => copyToClipboard(entry.password, 'hist')}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                            </button>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+                        {/if}
+                    {/if}
+                </PasswordGenerator>
                 <div class="field">
                     <button type="button" class="field-label-btn" title="Click to copy" on:click={() => copyToClipboard(selectedRecord.URL, 'url')} on:contextmenu|preventDefault={() => copyToClipboard(selectedRecord.URL, 'url')}>URL</button>
                     <div class="field-row">
@@ -1187,6 +1289,61 @@
         color: #4caf50;
         font-size: 0.9em;
         animation: fadeOut 2s forwards;
+    }
+    .panel-divider {
+        border: none;
+        border-top: 1px solid #3a3a3a;
+        margin: 8px 0 6px;
+    }
+    .history-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 0.8em;
+        padding: 2px 0;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: left;
+    }
+    .history-toggle-btn:hover {
+        color: #bbb;
+    }
+    .history-list {
+        margin-top: 6px;
+        border: 1px solid #333;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .history-entry {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-bottom: 1px solid #2a2a2a;
+        font-size: 0.85em;
+    }
+    .history-entry:last-child {
+        border-bottom: none;
+    }
+    .history-entry:nth-child(odd) {
+        background: #252525;
+    }
+    .history-date {
+        color: #666;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .history-pw {
+        flex: 1;
+        font-family: monospace;
+        color: #ccc;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .actions-row {
         margin-top: 30px;
