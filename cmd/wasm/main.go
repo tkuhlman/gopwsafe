@@ -196,6 +196,23 @@ func updateDBInfo(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
+func searchRecords(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+	if len(args) != 2 {
+		return "invalid arguments: expected (query, namesOnly)"
+	}
+	query := args[0].String()
+	namesOnly := args[1].Bool()
+	titles := db.Search(query, namesOnly)
+	jsonData, err := json.Marshal(titles)
+	if err != nil {
+		return fmt.Sprintf("json marshal error: %s", err)
+	}
+	return string(jsonData)
+}
+
 func main() {
 	c := make(chan struct{}, 0)
 
@@ -209,6 +226,7 @@ func main() {
 	js.Global().Set("updateRecord", js.FuncOf(updateRecord))
 	js.Global().Set("deleteRecord", js.FuncOf(deleteRecord))
 	js.Global().Set("updateDBInfo", js.FuncOf(updateDBInfo))
+	js.Global().Set("searchRecords", js.FuncOf(searchRecords))
 
 	fmt.Println("WASM initialized")
 	<-c
