@@ -19,6 +19,19 @@
 
     const dispatch = createEventDispatcher();
 
+    function autoGrow(node) {
+        function resize() {
+            node.style.height = 'auto';
+            node.style.height = node.scrollHeight + 'px';
+        }
+        node.addEventListener('input', resize);
+        resize();
+        return {
+            update() { setTimeout(resize, 0); },
+            destroy() { node.removeEventListener('input', resize); },
+        };
+    }
+
     let items = [];
     let filteredItems = [];
     let searchTerm = "";
@@ -39,7 +52,6 @@
     let showGenOptions = false;
 
     let contextMenu = null; // { x, y, rec }
-
     function openContextMenu(e, item) {
         e.preventDefault();
         try {
@@ -841,8 +853,8 @@
                     <textarea
                         id="record-notes"
                         bind:value={selectedRecord.Notes}
-                        rows="5"
                         placeholder="Notes"
+                        use:autoGrow={selectedRecord}
                     ></textarea>
                 </div>
 
@@ -1049,7 +1061,11 @@
         border-radius: 4px;
         white-space: pre-wrap;
         font-family: inherit;
-        resize: vertical;
+        resize: none;
+        line-height: 1.5;
+        min-height: calc(5 * 1.5em + 20px);
+        max-height: calc(20 * 1.5em + 20px);
+        overflow-y: auto;
     }
     .empty-state {
         display: flex;
