@@ -629,6 +629,16 @@
                                 class:selected={selectedRecord &&
                                     selectedRecord.Title === item.title}
                                 on:click={() => selectItem(item)}
+                                on:dblclick={async () => {
+                                    try {
+                                        const rec = getRecordData(item.title);
+                                        if (rec && rec.Password) {
+                                            await copyToClipboard(rec.Password, 'pass');
+                                        }
+                                    } catch (err) {
+                                        console.error("Double-click copy failed", err);
+                                    }
+                                }}
                                 on:contextmenu={(e) => openContextMenu(e, item)}
                                 on:keydown={(e) => {
                                     if (e.key === "Enter") {
