@@ -92,6 +92,7 @@
     let copyUrlSuccess = false;
     let isNewRecord = false;
     let showHistory = false;
+    let historyRevealedSet = new Set();
 
     let isDirty = false;
     let isSaving = false;
