@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/lock-combined.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- CSP: scripts only from self + wasm-unsafe-eval (required for WebAssembly compilation).
+         style unsafe-inline needed for Svelte's dynamic inline styles (context menu position, hr dividers).
+         frame-ancestors must be an HTTP header; cannot be set here on GitHub Pages. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <title>Password Safe</title>
     <script src="/wasm_exec.js"></script>
   </head>
