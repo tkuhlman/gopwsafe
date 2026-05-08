@@ -104,12 +104,12 @@ func TestRecord_OwnSymbolsForPassword(t *testing.T) {
 		}
 
 		// r1 and r2 should be equal
-		equal, err := r1.Equal(*r2, true)
+		equal, err := recordEqual(*r1, *r2)
 		assert.NoError(t, err)
 		assert.True(t, equal)
 
 		// r1 and r3 should not be equal
-		equal, err = r1.Equal(*r3, true)
+		equal, err = recordEqual(*r1, *r3)
 		assert.False(t, equal)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "OwnSymbolsForPassword")

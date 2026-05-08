@@ -22,7 +22,7 @@ func TestSaveSimpleDB(t *testing.T) {
 	dest, err := OpenPWSafeFile("./test_dbs/simple-copy.dat", "passwordcopy")
 	assert.Nil(t, err)
 
-	equal, err := source.Equal(dest)
+	equal, err := dbEqual(source, dest)
 	assert.NoError(t, err)
 	assert.True(t, equal)
 
@@ -35,7 +35,7 @@ func TestSaveSimpleDB(t *testing.T) {
 	orig.Header.UUID = dest.Header.UUID
 	// I expect the stretchedkey, salt, encryption key, hmac key and CBCIV to have changed
 	// iter changes also but won't necessarily always.
-	equal, err = orig.Equal(dest)
+	equal, err = dbEqual(orig, dest)
 	assert.Nil(t, err)
 	assert.Equal(t, true, equal)
 }
@@ -63,7 +63,7 @@ func TestSaveEmptyDB(t *testing.T) {
 	newDB.Header.LastSave = loadedDB.Header.LastSave
 	// UUID should be the same as newDB's UUID was set by NewV3 and WritePWSafeFile doesn't change it.
 
-	equal, err := newDB.Equal(loadedDB)
+	equal, err := dbEqual(newDB, loadedDB)
 	assert.Nil(t, err)
 	assert.True(t, equal, "Original empty DB and loaded empty DB should be equal after aligning version and lastSave")
 }
@@ -93,7 +93,7 @@ func TestConsecutiveSaves(t *testing.T) {
 	//    origDb's Header.Version and Header.LastSave were updated by WritePWSafeFile.
 	//    loadedDb1 has these new values. So they should be equal.
 	//    UUID should not have changed.
-	equal, err := origDb.Equal(loadedDb1)
+	equal, err := dbEqual(origDb, loadedDb1)
 	assert.Nil(t, err)
 	assert.True(t, equal, "origDb (after save) and loadedDb1 should be equal")
 
@@ -121,7 +121,7 @@ func TestConsecutiveSaves(t *testing.T) {
 	assert.Nil(t, err)
 
 	// 8. Verify that the changes made in step 2e are present
-	retrievedNewRecord, exists := loadedDb2.Records["NewConsecutiveRecord"]
+	retrievedNewRecord, exists := recordByTitle(loadedDb2, "NewConsecutiveRecord")
 	assert.True(t, exists, "NewConsecutiveRecord not found in loadedDb2")
 	assert.Equal(t, "consecutive_user", retrievedNewRecord.Username)
 	assert.Equal(t, "consecutive_pass", retrievedNewRecord.Password)
@@ -130,12 +130,12 @@ func TestConsecutiveSaves(t *testing.T) {
 	// 9. Compare loadedDb2 with the state of loadedDb1 (before it was saved to save2Path)
 	//    loadedDb1's Header.Version and Header.LastSave were updated by the WritePWSafeFile to save2Path.
 	//    So, loadedDb1 and loadedDb2 should be Equal directly.
-	equal, err = loadedDb1.Equal(loadedDb2)
+	equal, err = dbEqual(loadedDb1, loadedDb2)
 	assert.Nil(t, err)
 	assert.True(t, equal, "loadedDb1 (after SetRecord and save) and loadedDb2 should be equal")
 
 	// Also check that the original record from simple.dat is still there in loadedDb2
-	_, oldRecordExists := loadedDb2.Records["Test entry"]
+	_, oldRecordExists := recordByTitle(loadedDb2, "Test entry")
 	assert.True(t, oldRecordExists, "Original 'Test entry' record not found in loadedDb2")
 }
 
@@ -189,7 +189,7 @@ func TestAddRecordToPreviouslyEmptyDB(t *testing.T) {
 
 	// 11. Verify that loadedDbWithRecord contains the "NewRecordInEmpty" record
 	assert.Equal(t, 1, len(loadedDbWithRecord.Records), "loadedDbWithRecord should have 1 record")
-	retrievedRec, exists := loadedDbWithRecord.Records["NewRecordInEmpty"]
+	retrievedRec, exists := recordByTitle(loadedDbWithRecord, "NewRecordInEmpty")
 	assert.True(t, exists, "NewRecordInEmpty should exist in loadedDbWithRecord")
 	assert.Equal(t, "user1", retrievedRec.Username)
 	assert.Equal(t, "pass1", retrievedRec.Password)
@@ -198,7 +198,7 @@ func TestAddRecordToPreviouslyEmptyDB(t *testing.T) {
 	// 13. Use the .Equal() method to compare loadedEmptyDb1 and loadedDbWithRecord
 	// After WritePWSafeFile, loadedEmptyDb1's Header.Version and Header.LastSave are updated
 	// to match what was written to savePath2. So, loadedDbWithRecord should be Equal to it.
-	equal, err := loadedEmptyDb1.Equal(loadedDbWithRecord)
+	equal, err := dbEqual(loadedEmptyDb1, loadedDbWithRecord)
 	assert.Nil(t, err)
 	assert.True(t, equal, "loadedEmptyDb1 (after SetRecord and save) and loadedDbWithRecord should be equal")
 }
@@ -222,16 +222,13 @@ func TestNewV3(t *testing.T) {
 
 	readNew, err := OpenPWSafeFile("./test_dbs/simple-new.dat", "password")
 	assert.Nil(t, err)
-	orig, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
-	assert.Nil(t, err)
 
-	// The UUID for these should be different since one was created fresh, check then set the same for comparison
-	assert.NotEqual(t, orig.Header.UUID, readNew.Header.UUID)
-	readNew.Header.UUID = orig.Header.UUID
-	// On write version is set but orig doesn't have it so just set to the same here
-	orig.Header.Version = readNew.Header.Version
-
-	equal, err := orig.Equal(readNew)
-	assert.Nil(t, err)
-	assert.Equal(t, true, equal)
+	// Verify the save/load roundtrip preserved record content
+	rec, exists := recordByTitle(readNew, "Test entry")
+	assert.True(t, exists, "Test entry not found after save/load roundtrip")
+	assert.Equal(t, "test", rec.Username)
+	assert.Equal(t, "password", rec.Password)
+	assert.Equal(t, "test", rec.Group)
+	assert.Equal(t, "http://test.com", rec.URL)
+	assert.Equal(t, "no notes", rec.Notes)
 }

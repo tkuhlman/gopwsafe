@@ -47,8 +47,8 @@ func TestSetRecordTimes(t *testing.T) {
 	record := Record{Title: "Test Record", Password: "password"}
 
 	// Test new record
-	db.SetRecord(record)
-	savedRecord, ok := db.Records["Test Record"]
+	key := db.SetRecord(record)
+	savedRecord, ok := db.Records[key]
 	assert.True(t, ok)
 	assert.False(t, savedRecord.CreateTime.IsZero())
 	assert.False(t, savedRecord.ModTime.IsZero())
@@ -63,9 +63,9 @@ func TestSetRecordTimes(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Test update record
-	record.Password = "newpassword"
-	db.SetRecord(record)
-	updatedRecord, ok := db.Records["Test Record"]
+	savedRecord.Password = "newpassword"
+	db.SetRecord(savedRecord)
+	updatedRecord, ok := db.Records[key]
 	assert.True(t, ok)
 	assert.Equal(t, createTime, updatedRecord.CreateTime)
 	assert.True(t, updatedRecord.ModTime.After(modTime))

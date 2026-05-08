@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/pborman/uuid"
@@ -57,41 +56,6 @@ func newHeader(name string) header {
 		// Set the DB version
 		Version: [2]byte{0x0E, 0x03},
 	}
-}
-
-func (h header) Equal(other header) (bool, error) {
-	if h.Description != other.Description {
-		return false, fmt.Errorf("description fields not equal, %v != %v", h.Description, other.Description)
-	}
-	if !slices.Equal(h.EmptyGroups, other.EmptyGroups) {
-		return false, fmt.Errorf("emptyGroups fields not equal, %v != %v", h.EmptyGroups, other.EmptyGroups)
-	}
-	if h.Filters != other.Filters {
-		return false, fmt.Errorf("filters fields not equal, %v != %v", h.Filters, other.Filters)
-	}
-	if h.Name != other.Name {
-		return false, fmt.Errorf("name fields not equal, %v != %v", h.Name, other.Name)
-	}
-	if h.PasswordPolicy != other.PasswordPolicy {
-		return false, fmt.Errorf("passwordPolicy fields not equal, %v != %v", h.PasswordPolicy, other.PasswordPolicy)
-	}
-	if h.Preferences != other.Preferences {
-		return false, fmt.Errorf("preferences fields not equal, %v != %v", h.Preferences, other.Preferences)
-	}
-	if h.RecentyUsed != other.RecentyUsed {
-		return false, fmt.Errorf("recentyUsed fields not equal, %v != %v", h.RecentyUsed, other.RecentyUsed)
-	}
-	if h.Tree != other.Tree {
-		return false, fmt.Errorf("tree fields not equal, %q != %q", h.Tree, other.Tree)
-	}
-	if h.UUID != other.UUID {
-		return false, fmt.Errorf("UUID fields not equal, %v != %v", h.UUID, other.UUID)
-	}
-	if h.Version != other.Version {
-		return false, fmt.Errorf("version fields not equal, %v != %v", h.Version, other.Version)
-	}
-
-	return true, nil
 }
 
 // setField sets the field value based on the ID

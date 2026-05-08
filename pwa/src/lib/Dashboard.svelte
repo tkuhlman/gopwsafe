@@ -6,8 +6,7 @@
         getRecordData,
         getDatabaseInfo,
         saveDatabase,
-        addRecord,
-        updateRecord,
+        updateRecordFields,
         deleteRecord,
         getDatabaseData,
         searchRecords,
@@ -33,12 +32,36 @@
         };
     }
 
+    // Password history field format: fmmnnTLPTLP...
+    //   f=enabled(1/0), mm=maxEntries(hex), nn=count(hex)
+    //   each entry: T=timestamp(8hex) L=pwLen(4hex) P=password
+    function parsePasswordHistory(raw) {
+        if (!raw || raw.length < 5) return null;
+        const enabled = raw[0] === '1';
+        const max = parseInt(raw.slice(1, 3), 16) || 10;
+        const count = parseInt(raw.slice(3, 5), 16);
+        const entries = [];
+        let pos = 5;
+        for (let i = 0; i < count; i++) {
+            if (pos + 12 > raw.length) break;
+            const timestamp = parseInt(raw.slice(pos, pos + 8), 16);
+            pos += 8;
+            const len = parseInt(raw.slice(pos, pos + 4), 16);
+            pos += 4;
+            if (pos + len > raw.length) break;
+            entries.push({ timestamp, password: raw.slice(pos, pos + len) });
+            pos += len;
+        }
+        return { enabled, max, entries };
+    }
+
+
     let items = [];
     let filteredItems = [];
     let searchTerm = "";
     let searchNamesOnly = localStorage.getItem('searchNamesOnly') !== 'false';
     let selectedRecord = null;
-    let oldTitle = ""; // Track for renames
+    let selectedUUID = "";
     let showPassword = false;
     let groupedItems = {};
     let searchInput; // Reference for autofocus
@@ -48,6 +71,7 @@
     let isNewRecord = false;
 
     let isDirty = false;
+    let isRecordDirty = false;
     let isSaving = false;
 
     let generator;
@@ -57,7 +81,7 @@
     function openContextMenu(e, item) {
         e.preventDefault();
         try {
-            const rec = getRecordData(item.title);
+            const rec = getRecordData(item.uuid);
             contextMenu = { x: e.clientX, y: e.clientY, rec };
         } catch (err) {
             console.error("Context menu: failed to load record", err);
@@ -169,8 +193,8 @@
         if (!searchTerm.trim()) {
             filteredItems = items;
         } else {
-            const matchedTitles = new Set(searchRecords(searchTerm, searchNamesOnly));
-            filteredItems = items.filter(i => matchedTitles.has(i.title));
+            const matchedUUIDs = new Set(searchRecords(searchTerm, searchNamesOnly));
+            filteredItems = items.filter(i => matchedUUIDs.has(i.uuid));
         }
         groupItems(filteredItems);
     }
@@ -197,10 +221,10 @@
     function selectItem(item) {
         console.log("selectItem called for:", item.title);
         try {
-            const rec = getRecordData(item.title);
+            const rec = getRecordData(item.uuid);
             selectedRecord = rec;
-            console.log("Record loaded:", rec ? rec.Title : "null");
-            oldTitle = rec.Title; // Store original title
+            selectedUUID = item.uuid;
+            isRecordDirty = false;
             showPassword = false;
             isNewRecord = false;
             showGenOptions = false;
@@ -224,7 +248,8 @@
             CreateTime: new Date().toISOString(),
             ModTime: new Date().toISOString(),
         };
-        oldTitle = "";
+        isRecordDirty = false;
+        selectedUUID = "";
         showPassword = true;
         isNewRecord = true;
         showGenOptions = false;
@@ -306,27 +331,25 @@
     }
 
     async function saveRecord() {
+        await performSave();
+        return true;
+    }
+
+    async function performSave() {
         try {
-            if (!selectedRecord.Title) {
-                alert("Title is required");
-                return;
-            }
-
-            // Update mod time
-            selectedRecord.ModTime = new Date().toISOString();
-
-            if (isNewRecord) {
-                addRecord(selectedRecord);
-            } else {
-                updateRecord(oldTitle, selectedRecord);
-            }
+            selectedUUID = updateRecordFields(isNewRecord ? "" : selectedUUID, {
+                Title:    selectedRecord.Title,
+                Group:    selectedRecord.Group,
+                Username: selectedRecord.Username,
+                Password: selectedRecord.Password,
+                URL:      selectedRecord.URL,
+                Notes:    selectedRecord.Notes,
+            });
 
             // Refresh list
             const items = getDatabaseData();
             dbItems.set(items);
 
-            // Re-select to refresh state (or update oldTitle)
-            oldTitle = selectedRecord.Title;
             isNewRecord = false;
             isDirty = true;
 
@@ -357,7 +380,7 @@
 
     async function performDelete() {
         try {
-            deleteRecord(selectedRecord.Title);
+            deleteRecord(selectedUUID);
             selectedRecord = null;
             isNewRecord = false;
             isDirty = true;
@@ -634,15 +657,13 @@
                         {#each groupedItems[group] as item}
                             <li
                                 role="option"
-                                aria-selected={!!(selectedRecord &&
-                                    selectedRecord.Title === item.title)}
+                                aria-selected={item.uuid === selectedUUID}
                                 tabindex="0"
-                                class:selected={selectedRecord &&
-                                    selectedRecord.Title === item.title}
+                                class:selected={item.uuid === selectedUUID}
                                 on:click={() => selectItem(item)}
                                 on:dblclick={async () => {
                                     try {
-                                        const rec = getRecordData(item.title);
+                                        const rec = getRecordData(item.uuid);
                                         if (rec && rec.Password) {
                                             await copyToClipboard(rec.Password, 'pass');
                                         }

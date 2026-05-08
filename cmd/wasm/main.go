@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"syscall/js"
 	"time"
 
@@ -56,13 +58,9 @@ func getDBData(this js.Value, args []js.Value) any {
 
 	var items []Item
 
-	keys := db.List()
-	for _, title := range keys {
-		rec := db.Records[title]
-		// UUID is [16]byte, need to convert to string
-		uuidStr := fmt.Sprintf("%x", rec.UUID)
+	for uuidHex, rec := range db.Records {
 		items = append(items, Item{
-			UUID:  uuidStr,
+			UUID:  uuidHex,
 			Title: rec.Title,
 			Group: rec.Group,
 		})
@@ -81,18 +79,14 @@ func getRecord(this js.Value, args []js.Value) any {
 		return "database not open"
 	}
 	if len(args) != 1 {
-		return "invalid arguments: expected (title)" // Using title as key for now based on map
+		return "invalid arguments: expected (uuid)"
 	}
 
-	title := args[0].String()
-	rec, ok := db.Records[title]
+	uuidHex := args[0].String()
+	rec, ok := db.Records[uuidHex]
 	if !ok {
 		return "record not found"
 	}
-
-	// We shouldn't return the raw struct if it contains sensitive binary data that doesn't JSON marshal well slightly,
-	// but Record struct has tags? Let's check record.go later.
-	// For now assuming json.Marshal works or we create a DTO.
 
 	jsonData, err := json.Marshal(rec)
 	if err != nil {
@@ -179,21 +173,149 @@ func getDBInfo(this js.Value, args []js.Value) any {
 	return string(jsonData)
 }
 
-func updateDBInfo(this js.Value, args []js.Value) any {
+// UpdateRecordFields creates or updates a record.
+// Args: uuid, field1, value1, ...
+// Pass empty string for uuid to create a new record (UUID is generated and returned).
+// Supported fields: Title, Group, Username, Password, URL, Notes
+// Title and Password must be non-empty in the final record.
+func updateRecordFields(this js.Value, args []js.Value) interface{} {
 	if db == nil {
 		return "database not open"
 	}
-	if len(args) != 2 {
-		return "invalid arguments: expected (name, description)"
+	if len(args) < 3 || len(args)%2 == 0 {
+		return "invalid arguments: expected (uuid, field, value, ...)"
+	}
+	uuidHex := args[0].String()
+	var rec pwsafe.Record
+	if uuidHex != "" {
+		var ok bool
+		rec, ok = db.Records[uuidHex]
+		if !ok {
+			return "record not found"
+		}
+	}
+	for i := 1; i+1 < len(args); i += 2 {
+		field, value := args[i].String(), args[i+1].String()
+		switch field {
+		case "Title":
+			rec.Title = value
+		case "Group":
+			rec.Group = value
+		case "Username":
+			rec.Username = value
+		case "Password":
+			if value != rec.Password && rec.Password != "" {
+				rec.PasswordHistory = pushPasswordHistory(rec.PasswordHistory, rec.Password)
+			}
+			rec.Password = value
+		case "URL":
+			rec.URL = value
+		case "Notes":
+			rec.Notes = value
+		default:
+			return fmt.Sprintf("unknown field: %s", field)
+		}
+	}
+	if rec.Title == "" {
+		return "Title is required"
+	}
+	if rec.Password == "" {
+		return "Password is required"
+	}
+	return db.SetRecord(rec)
+}
+
+// UpdateDBFields applies a field/value patch to the database header.
+// Args: field1, value1, field2, value2, ...
+// Supported fields: Name, Description, LastSaveUser
+func updateDBFields(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return "database not open"
+	}
+	if len(args) < 2 || len(args)%2 != 0 {
+		return "invalid arguments: expected (field, value, ...)"
+	}
+	for i := 0; i+1 < len(args); i += 2 {
+		field, value := args[i].String(), args[i+1].String()
+		switch field {
+		case "Name":
+			db.Header.Name = value
+		case "Description":
+			db.Header.Description = value
+		case "LastSaveUser":
+			db.Header.LastSaveUser = []byte(value)
+		default:
+			return fmt.Sprintf("unknown field: %s", field)
+		}
+	}
+	return nil
+}
+
+// pushPasswordHistory appends oldPassword to the pwsafe password history string.
+// Format: fmmnn[T(8hex)L(4hex)P]...
+//   f='1' enabled, mm=max entries (hex), nn=count (hex)
+//   each entry: 8-char hex Unix timestamp, 4-char hex pw length, password
+func pushPasswordHistory(current, oldPassword string) string {
+	type entry struct {
+		ts int64
+		pw string
+	}
+	enabled := true
+	maxEntries := 10
+	var entries []entry
+
+	if len(current) >= 5 {
+		enabled = current[0] == '1'
+		if m, err := strconv.ParseInt(current[1:3], 16, 64); err == nil && m > 0 {
+			maxEntries = int(m)
+		}
+		count := 0
+		if c, err := strconv.ParseInt(current[3:5], 16, 64); err == nil {
+			count = int(c)
+		}
+		pos := 5
+		for i := 0; i < count; i++ {
+			if pos+12 > len(current) {
+				break
+			}
+			ts, err := strconv.ParseInt(current[pos:pos+8], 16, 64)
+			if err != nil {
+				break
+			}
+			pos += 8
+			l, err := strconv.ParseInt(current[pos:pos+4], 16, 64)
+			if err != nil {
+				break
+			}
+			pos += 4
+			if pos+int(l) > len(current) {
+				break
+			}
+			entries = append(entries, entry{ts, current[pos : pos+int(l)]})
+			pos += int(l)
+		}
 	}
 
-	name := args[0].String()
-	description := args[1].String()
+	if !enabled {
+		return current
+	}
 
-	db.Header.Name = name
-	db.Header.Description = description
+	entries = append(entries, entry{time.Now().Unix(), oldPassword})
+	for len(entries) > maxEntries {
+		entries = entries[1:]
+	}
 
-	return nil
+	var sb strings.Builder
+	if enabled {
+		sb.WriteByte('1')
+	} else {
+		sb.WriteByte('0')
+	}
+	sb.WriteString(fmt.Sprintf("%02x%02x", maxEntries, len(entries)))
+	for _, e := range entries {
+		sb.WriteString(fmt.Sprintf("%08x%04x%s", e.ts, len(e.pw), e.pw))
+	}
+	return sb.String()
 }
 
 func searchRecords(this js.Value, args []js.Value) any {
@@ -205,8 +327,8 @@ func searchRecords(this js.Value, args []js.Value) any {
 	}
 	query := args[0].String()
 	namesOnly := args[1].Bool()
-	titles := db.Search(query, namesOnly)
-	jsonData, err := json.Marshal(titles)
+	uuids := db.Search(query, namesOnly)
+	jsonData, err := json.Marshal(uuids)
 	if err != nil {
 		return fmt.Sprintf("json marshal error: %s", err)
 	}
@@ -222,71 +344,16 @@ func main() {
 	js.Global().Set("createDatabase", js.FuncOf(createDatabase))
 	js.Global().Set("getDBInfo", js.FuncOf(getDBInfo))
 	js.Global().Set("saveDB", js.FuncOf(saveDB))
-	js.Global().Set("addRecord", js.FuncOf(addRecord))
-	js.Global().Set("updateRecord", js.FuncOf(updateRecord))
+	js.Global().Set("UpdateRecordFields", js.FuncOf(updateRecordFields))
 	js.Global().Set("deleteRecord", js.FuncOf(deleteRecord))
-	js.Global().Set("updateDBInfo", js.FuncOf(updateDBInfo))
+	js.Global().Set("UpdateDBFields", js.FuncOf(updateDBFields))
 	js.Global().Set("searchRecords", js.FuncOf(searchRecords))
 
 	fmt.Println("WASM initialized")
 	<-c
 }
 
-// RecordDTO is a data transfer object for Record to/from JSON
-type RecordDTO struct {
-	AccessTime             string   `json:"accessTime"`
-	Autotype               string   `json:"autotype"`
-	CreateTime             string   `json:"createTime"`
-	DoubleClickAction      [2]byte  `json:"doubleClickAction"`
-	Email                  string   `json:"email"`
-	Group                  string   `json:"group"`
-	ModTime                string   `json:"modTime"`
-	Notes                  string   `json:"notes"`
-	Password               string   `json:"password"`
-	PasswordExpiry         string   `json:"passwordExpiry"`
-	PasswordExpiryInterval uint32   `json:"passwordExpiryInterval"`
-	PasswordHistory        string   `json:"passwordHistory"`
-	PasswordModTime        string   `json:"passwordModTime"`
-	PasswordPolicy         string   `json:"passwordPolicy"`
-	PasswordPolicyName     string   `json:"passwordPolicyName"`
-	ProtectedEntry         byte     `json:"protectedEntry"`
-	RunCommand             string   `json:"runCommand"`
-	ShiftDoubleClickAction [2]byte  `json:"shiftDoubleClickAction"`
-	Title                  string   `json:"title"`
-	Username               string   `json:"username"`
-	URL                    string   `json:"url"`
-	UUID                   [16]byte `json:"uuid"`
-}
-
-func (dto *RecordDTO) toRecord() (pwsafe.Record, error) {
-	var r pwsafe.Record
-	r.AccessTime, _ = time.Parse(time.RFC3339, dto.AccessTime)
-	r.Autotype = dto.Autotype
-	r.CreateTime, _ = time.Parse(time.RFC3339, dto.CreateTime)
-	r.DoubleClickAction = dto.DoubleClickAction
-	r.Email = dto.Email
-	r.Group = dto.Group
-	r.ModTime, _ = time.Parse(time.RFC3339, dto.ModTime)
-	r.Notes = dto.Notes
-	r.Password = dto.Password
-	r.PasswordExpiry, _ = time.Parse(time.RFC3339, dto.PasswordExpiry)
-	r.PasswordExpiryInterval = dto.PasswordExpiryInterval
-	r.PasswordHistory = dto.PasswordHistory
-	r.PasswordModTime = dto.PasswordModTime
-	r.PasswordPolicy = dto.PasswordPolicy
-	r.PasswordPolicyName = dto.PasswordPolicyName
-	r.ProtectedEntry = dto.ProtectedEntry
-	r.RunCommand = dto.RunCommand
-	r.ShiftDoubleClickAction = dto.ShiftDoubleClickAction
-	r.Title = dto.Title
-	r.Username = dto.Username
-	r.URL = dto.URL
-	r.UUID = dto.UUID
-
-	return r, nil
-}
-
-func saveDB(this js.Value, args []js.Value) any {
+func saveDB(this js.Value, args []js.Value) interface{} {
 	if db == nil {
 		return "database not open"
 	}
@@ -302,56 +369,14 @@ func saveDB(this js.Value, args []js.Value) any {
 	return dst
 }
 
-func addRecord(this js.Value, args []js.Value) any {
+func deleteRecord(this js.Value, args []js.Value) interface{} {
 	if db == nil {
 		return "database not open"
 	}
 	if len(args) != 1 {
-		return "invalid arguments: expected (recordJSON)"
+		return "invalid arguments: expected (uuid)"
 	}
 
-	var dto RecordDTO
-	if err := json.Unmarshal([]byte(args[0].String()), &dto); err != nil {
-		return fmt.Sprintf("json unmarshal error: %s", err)
-	}
-
-	record, _ := dto.toRecord()
-	db.SetRecord(record)
-	return nil
-}
-
-func updateRecord(this js.Value, args []js.Value) any {
-	if db == nil {
-		return "database not open"
-	}
-	if len(args) != 2 {
-		return "invalid arguments: expected (oldTitle, recordJSON)"
-	}
-
-	oldTitle := args[0].String()
-	var dto RecordDTO
-	if err := json.Unmarshal([]byte(args[1].String()), &dto); err != nil {
-		return fmt.Sprintf("json unmarshal error: %s", err)
-	}
-
-	record, _ := dto.toRecord()
-
-	if oldTitle != record.Title {
-		db.DeleteRecord(oldTitle)
-	}
-	db.SetRecord(record)
-	return nil
-}
-
-func deleteRecord(this js.Value, args []js.Value) any {
-	if db == nil {
-		return "database not open"
-	}
-	if len(args) != 1 {
-		return "invalid arguments: expected (title)"
-	}
-
-	title := args[0].String()
-	db.DeleteRecord(title)
+	db.DeleteRecord(args[0].String())
 	return nil
 }
