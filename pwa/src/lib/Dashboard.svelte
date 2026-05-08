@@ -430,7 +430,7 @@
                 addRecord(selectedRecord);
             } else {
                 const oldRec = getRecordData(oldTitle);
-                if (oldRec && oldRec.Password !== selectedRecord.Password) {
+                if (oldRec && oldRec.Password !== selectedRecord.Password && oldRec.Password !== "") {
                     selectedRecord.PasswordHistory = pushPasswordHistory(
                         selectedRecord.PasswordHistory,
                         oldRec.Password,
