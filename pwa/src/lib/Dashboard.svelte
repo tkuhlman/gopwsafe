@@ -899,6 +899,9 @@
             <button on:click={() => contextCopy(contextMenu.rec.URL)}>
                 Copy URL
             </button>
+            <button on:click={() => { const url = contextMenu.rec.URL; contextMenu = null; window.open(url, '_blank'); }}>
+                Open URL
+            </button>
         {/if}
     </div>
 {/if}
