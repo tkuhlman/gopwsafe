@@ -151,3 +151,7 @@ export function updateDBInfo(name, description) {
         throw new Error(err);
     }
 }
+
+export function getAutocompleteSuggestion(field, prefix) {
+    return window.getSuggestion(field, prefix) || "";
+}

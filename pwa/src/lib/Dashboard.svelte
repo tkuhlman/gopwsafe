@@ -10,6 +10,7 @@
         updateRecord,
         deleteRecord,
         getDatabaseData,
+        getAutocompleteSuggestion,
     } from "../wasm.js";
     import Menu from "./Menu.svelte";
     import Modal from "./Modal.svelte";
@@ -31,6 +32,66 @@
     let isNewRecord = false;
 
     let isDirty = false;
+
+    let groupSuggestion = "";
+    let groupGhostSuffix = "";
+    let usernameSuggestion = "";
+    let usernameGhostSuffix = "";
+
+    function clearGhosts() {
+        groupSuggestion = "";
+        groupGhostSuffix = "";
+        usernameSuggestion = "";
+        usernameGhostSuffix = "";
+    }
+
+    function applySuggestion(field, value) {
+        const s = getAutocompleteSuggestion(field, value);
+        if (s && s.toLowerCase() !== value.toLowerCase()) {
+            return { suggestion: s, ghost: s.slice(value.length) };
+        }
+        return { suggestion: "", ghost: "" };
+    }
+
+    function onGroupInput() {
+        const v = selectedRecord.Group;
+        if (!v) { groupSuggestion = ""; groupGhostSuffix = ""; return; }
+        const r = applySuggestion("group", v);
+        groupSuggestion = r.suggestion;
+        groupGhostSuffix = r.ghost;
+    }
+
+    function onGroupKeydown(e) {
+        if (e.key === "Tab" && groupSuggestion) {
+            e.preventDefault();
+            selectedRecord = { ...selectedRecord, Group: groupSuggestion };
+            groupSuggestion = "";
+            groupGhostSuffix = "";
+        } else if (e.key === "Escape") {
+            groupSuggestion = "";
+            groupGhostSuffix = "";
+        }
+    }
+
+    function onUsernameInput() {
+        const v = selectedRecord.Username;
+        if (!v) { usernameSuggestion = ""; usernameGhostSuffix = ""; return; }
+        const r = applySuggestion("username", v);
+        usernameSuggestion = r.suggestion;
+        usernameGhostSuffix = r.ghost;
+    }
+
+    function onUsernameKeydown(e) {
+        if (e.key === "Tab" && usernameSuggestion) {
+            e.preventDefault();
+            selectedRecord = { ...selectedRecord, Username: usernameSuggestion };
+            usernameSuggestion = "";
+            usernameGhostSuffix = "";
+        } else if (e.key === "Escape") {
+            usernameSuggestion = "";
+            usernameGhostSuffix = "";
+        }
+    }
 
     let showModal = false;
     let modalConfig = {
@@ -162,6 +223,7 @@
             oldTitle = rec.Title; // Store original title
             showPassword = false;
             isNewRecord = false;
+            clearGhosts();
         } catch (e) {
             console.error(e);
             alert("Failed to load record details");
@@ -185,6 +247,7 @@
         oldTitle = "";
         showPassword = true;
         isNewRecord = true;
+        clearGhosts();
     }
 
     // Bind this to the new record event from the menu
@@ -611,21 +674,41 @@
 
                 <div class="field">
                     <label>Group</label>
-                    <input
-                        type="text"
-                        bind:value={selectedRecord.Group}
-                        placeholder="Group"
-                    />
+                    <div class="autocomplete-wrap">
+                        {#if groupGhostSuffix}
+                            <div class="ghost-overlay" aria-hidden="true">
+                                <span class="ghost-typed">{selectedRecord.Group}</span><span class="ghost-suffix">{groupGhostSuffix}</span>
+                            </div>
+                        {/if}
+                        <input
+                            type="text"
+                            bind:value={selectedRecord.Group}
+                            placeholder="Group"
+                            on:input={onGroupInput}
+                            on:keydown={onGroupKeydown}
+                            on:blur={() => { groupSuggestion = ""; groupGhostSuffix = ""; }}
+                        />
+                    </div>
                 </div>
 
                 <div class="field">
                     <label>Username</label>
                     <div class="field-row">
-                        <input
-                            type="text"
-                            bind:value={selectedRecord.Username}
-                            placeholder="Username"
-                        />
+                        <div class="autocomplete-wrap">
+                            {#if usernameGhostSuffix}
+                                <div class="ghost-overlay" aria-hidden="true">
+                                    <span class="ghost-typed">{selectedRecord.Username}</span><span class="ghost-suffix">{usernameGhostSuffix}</span>
+                                </div>
+                            {/if}
+                            <input
+                                type="text"
+                                bind:value={selectedRecord.Username}
+                                placeholder="Username"
+                                on:input={onUsernameInput}
+                                on:keydown={onUsernameKeydown}
+                                on:blur={() => { usernameSuggestion = ""; usernameGhostSuffix = ""; }}
+                            />
+                        </div>
                         <button
                             class="icon-btn"
                             on:click={() =>
@@ -984,5 +1067,41 @@
         100% {
             opacity: 0;
         }
+    }
+    .autocomplete-wrap {
+        position: relative;
+        display: block;
+    }
+    .autocomplete-wrap input {
+        width: 100%;
+    }
+    .field-row .autocomplete-wrap {
+        flex: 1;
+        min-width: 0;
+    }
+    .field-row .autocomplete-wrap input {
+        width: 100%;
+    }
+    .ghost-overlay {
+        position: absolute;
+        inset: 0;
+        padding: 8px;
+        pointer-events: none;
+        font-size: 1rem;
+        font-family: inherit;
+        line-height: 1.5;
+        white-space: pre;
+        overflow: hidden;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+    }
+    .ghost-typed {
+        color: transparent;
+    }
+    .ghost-suffix {
+        color: #666;
     }
 </style>
