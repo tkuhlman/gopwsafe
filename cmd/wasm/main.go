@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"syscall/js"
 	"time"
 
@@ -213,6 +215,56 @@ func searchRecords(this js.Value, args []js.Value) any {
 	return string(jsonData)
 }
 
+func getSuggestion(this js.Value, args []js.Value) interface{} {
+	if db == nil {
+		return ""
+	}
+	if len(args) != 2 {
+		return ""
+	}
+	field := args[0].String()
+	prefix := args[1].String()
+	if prefix == "" {
+		return ""
+	}
+
+	prefixLower := strings.ToLower(prefix)
+	freq := make(map[string]int)
+	for _, rec := range db.Records {
+		var val string
+		switch field {
+		case "group":
+			val = rec.Group
+		case "username":
+			val = rec.Username
+		default:
+			return ""
+		}
+		if val != "" {
+			freq[val]++
+		}
+	}
+
+	var matches []string
+	for val := range freq {
+		if strings.HasPrefix(strings.ToLower(val), prefixLower) {
+			matches = append(matches, val)
+		}
+	}
+	if len(matches) == 0 {
+		return ""
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		fi, fj := freq[matches[i]], freq[matches[j]]
+		if fi != fj {
+			return fi > fj
+		}
+		return strings.ToLower(matches[i]) < strings.ToLower(matches[j])
+	})
+	return matches[0]
+}
+
 func main() {
 	c := make(chan struct{}, 0)
 
@@ -227,6 +279,7 @@ func main() {
 	js.Global().Set("deleteRecord", js.FuncOf(deleteRecord))
 	js.Global().Set("updateDBInfo", js.FuncOf(updateDBInfo))
 	js.Global().Set("searchRecords", js.FuncOf(searchRecords))
+	js.Global().Set("getSuggestion", js.FuncOf(getSuggestion))
 
 	fmt.Println("WASM initialized")
 	<-c
