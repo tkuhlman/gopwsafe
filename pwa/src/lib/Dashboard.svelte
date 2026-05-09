@@ -10,6 +10,7 @@
         updateRecord,
         deleteRecord,
         getDatabaseData,
+        searchRecords,
     } from "../wasm.js";
     import Menu from "./Menu.svelte";
     import Modal from "./Modal.svelte";
@@ -35,6 +36,7 @@
     let items = [];
     let filteredItems = [];
     let searchTerm = "";
+    let searchNamesOnly = localStorage.getItem('searchNamesOnly') !== 'false';
     let selectedRecord = null;
     let oldTitle = ""; // Track for renames
     let showPassword = false;
@@ -164,25 +166,11 @@
     });
 
     function filterItems() {
-        console.log(
-            "filterItems called. searchTerm:",
-            searchTerm,
-            "Total items:",
-            items.length,
-        );
-        if (!searchTerm) {
+        if (!searchTerm.trim()) {
             filteredItems = items;
         } else {
-            const lower = searchTerm.toLowerCase();
-            filteredItems = items.filter(
-                (i) =>
-                    i.title.toLowerCase().includes(lower) ||
-                    i.group.toLowerCase().includes(lower),
-            );
-        }
-        console.log("Filtered items count:", filteredItems.length);
-        if (filteredItems.length === 0 && items.length > 0) {
-            console.log("First item title:", items[0].title);
+            const matchedTitles = new Set(searchRecords(searchTerm, searchNamesOnly));
+            filteredItems = items.filter(i => matchedTitles.has(i.title));
         }
         groupItems(filteredItems);
     }
@@ -586,7 +574,7 @@
             <input
                 bind:this={searchInput}
                 type="text"
-                placeholder="Search..."
+                placeholder={searchNamesOnly ? "Search names…" : "Search details…"}
                 bind:value={searchTerm}
                 on:input={filterItems}
                 on:keydown={(e) => {
@@ -623,6 +611,17 @@
                     }
                 }}
             />
+            <label class="scope-label">
+                <input
+                    type="checkbox"
+                    bind:checked={searchNamesOnly}
+                    on:change={() => {
+                        localStorage.setItem('searchNamesOnly', String(searchNamesOnly));
+                        filterItems();
+                    }}
+                />
+                Names only
+            </label>
         </div>
 
         <div class="tree">

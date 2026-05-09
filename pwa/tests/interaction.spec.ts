@@ -70,7 +70,7 @@ test.describe('Database Interaction', () => {
         await page.getByRole('button', { name: 'Unlock' }).click();
 
         // Expect StartPage to disappear and Main interface to appear
-        await expect(page.getByPlaceholder('Search...')).toBeVisible();
+        await expect(page.getByPlaceholder(/Search/)).toBeVisible();
 
         // Check for groups in sidebar
         await expect(page.locator('.sidebar details summary').first()).toBeVisible();
@@ -98,7 +98,7 @@ test.describe('Database Interaction', () => {
         await expect(passwordInput).toHaveAttribute('type', 'password');
 
         // Test Search
-        const searchInput = page.getByPlaceholder('Search...');
+        const searchInput = page.getByPlaceholder(/Search/);
         await searchInput.fill(title?.trim() || 'xyz');
 
         // Should still see the item

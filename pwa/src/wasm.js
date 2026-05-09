@@ -151,3 +151,11 @@ export function updateDBInfo(name, description) {
         throw new Error(err);
     }
 }
+
+export function searchRecords(query, namesOnly) {
+    const res = window.searchRecords(query, namesOnly);
+    if (typeof res === 'string' && res.startsWith("database not open")) {
+        throw new Error(res);
+    }
+    return JSON.parse(res);
+}

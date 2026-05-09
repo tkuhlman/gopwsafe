@@ -13,7 +13,7 @@ import (
 
 var db *pwsafe.V3
 
-func openDB(this js.Value, args []js.Value) interface{} {
+func openDB(this js.Value, args []js.Value) any {
 	if len(args) != 2 {
 		return "invalid arguments: expected (data, password)"
 	}
@@ -38,7 +38,7 @@ func openDB(this js.Value, args []js.Value) interface{} {
 	return nil // null means success
 }
 
-func getDBData(this js.Value, args []js.Value) interface{} {
+func getDBData(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -76,7 +76,7 @@ func getDBData(this js.Value, args []js.Value) interface{} {
 	return string(jsonData)
 }
 
-func getRecord(this js.Value, args []js.Value) interface{} {
+func getRecord(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -102,7 +102,7 @@ func getRecord(this js.Value, args []js.Value) interface{} {
 	return string(jsonData)
 }
 
-func createDatabase(this js.Value, args []js.Value) interface{} {
+func createDatabase(this js.Value, args []js.Value) any {
 	if len(args) != 1 {
 		return "invalid arguments: expected (password)"
 	}
@@ -113,7 +113,7 @@ func createDatabase(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
-func getDBInfo(this js.Value, args []js.Value) interface{} {
+func getDBInfo(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -179,7 +179,7 @@ func getDBInfo(this js.Value, args []js.Value) interface{} {
 	return string(jsonData)
 }
 
-func updateDBInfo(this js.Value, args []js.Value) interface{} {
+func updateDBInfo(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -196,6 +196,23 @@ func updateDBInfo(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
+func searchRecords(this js.Value, args []js.Value) any {
+	if db == nil {
+		return "database not open"
+	}
+	if len(args) != 2 {
+		return "invalid arguments: expected (query, namesOnly)"
+	}
+	query := args[0].String()
+	namesOnly := args[1].Bool()
+	titles := db.Search(query, namesOnly)
+	jsonData, err := json.Marshal(titles)
+	if err != nil {
+		return fmt.Sprintf("json marshal error: %s", err)
+	}
+	return string(jsonData)
+}
+
 func main() {
 	c := make(chan struct{}, 0)
 
@@ -209,6 +226,7 @@ func main() {
 	js.Global().Set("updateRecord", js.FuncOf(updateRecord))
 	js.Global().Set("deleteRecord", js.FuncOf(deleteRecord))
 	js.Global().Set("updateDBInfo", js.FuncOf(updateDBInfo))
+	js.Global().Set("searchRecords", js.FuncOf(searchRecords))
 
 	fmt.Println("WASM initialized")
 	<-c
@@ -268,7 +286,7 @@ func (dto *RecordDTO) toRecord() (pwsafe.Record, error) {
 	return r, nil
 }
 
-func saveDB(this js.Value, args []js.Value) interface{} {
+func saveDB(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -284,7 +302,7 @@ func saveDB(this js.Value, args []js.Value) interface{} {
 	return dst
 }
 
-func addRecord(this js.Value, args []js.Value) interface{} {
+func addRecord(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -302,7 +320,7 @@ func addRecord(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
-func updateRecord(this js.Value, args []js.Value) interface{} {
+func updateRecord(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -325,7 +343,7 @@ func updateRecord(this js.Value, args []js.Value) interface{} {
 	return nil
 }
 
-func deleteRecord(this js.Value, args []js.Value) interface{} {
+func deleteRecord(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}

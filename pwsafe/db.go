@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/pborman/uuid"
@@ -99,6 +100,37 @@ func (db V3) ListByGroup(group string) []string {
 	}
 	sort.Strings(entries)
 	return entries
+}
+
+// Search returns titles of records matching all whitespace-separated terms in query.
+// When namesOnly is true only title and group are searched; otherwise username,
+// URL, and notes are included. Password is never searched.
+func (db V3) Search(query string, namesOnly bool) []string {
+	terms := strings.Fields(strings.ToLower(query))
+	if len(terms) == 0 {
+		return db.List()
+	}
+	var results []string
+	for _, rec := range db.Records {
+		var hay string
+		if namesOnly {
+			hay = strings.ToLower(rec.Title + "\n" + rec.Group)
+		} else {
+			hay = strings.ToLower(rec.Title + "\n" + rec.Group + "\n" + rec.Username + "\n" + rec.URL + "\n" + rec.Notes)
+		}
+		match := true
+		for _, t := range terms {
+			if !strings.Contains(hay, t) {
+				match = false
+				break
+			}
+		}
+		if match {
+			results = append(results, rec.Title)
+		}
+	}
+	sort.Strings(results)
+	return results
 }
 
 // NeedsSave Returns true if the db has unsaved modifiations

@@ -20,7 +20,7 @@ test('Mobile UI: Check layout and copy buttons', async ({ page }) => {
 
     // Wait for dashboard to load
     // We look for the search input which is always there
-    await expect(page.getByPlaceholder('Search...')).toBeVisible();
+    await expect(page.getByPlaceholder(/Search/)).toBeVisible();
 
     // Create a new record to see fields
     // Open menu again
