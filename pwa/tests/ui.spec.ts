@@ -155,10 +155,8 @@ test.describe('UI Improvements', () => {
         await modal.getByPlaceholder('Description').fill('Updated Description');
         await modal.getByRole('button', { name: 'Save' }).click();
 
-        // Verify Success Alert
-        // The modal content changes to a generic success message
-        await expect(page.getByText('Detail updated. Don\'t forget to save the database file.')).toBeVisible();
-        await page.locator('.modal .footer button').click();
+        // Verify modal closes (autosaved silently)
+        await expect(modal).not.toBeVisible();
     });
 
     test('should handle mobile layout', async ({ page }) => {
