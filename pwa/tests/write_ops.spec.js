@@ -2,6 +2,18 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Database Write Operations', () => {
     test('Create DB, Add, Update, Delete Record', async ({ page }) => {
+        // Mock showSaveFilePicker so auto-save works without a real file picker
+        await page.addInitScript(() => {
+            let handle = null;
+            window.showSaveFilePicker = async () => {
+                handle = {
+                    createWritable: async () => ({ write: async () => {}, close: async () => {} }),
+                    name: 'test.psafe3',
+                };
+                return handle;
+            };
+        });
+
         // 1. Create New Database
         await page.goto('/');
         await page.click('button[aria-label="Menu"]');
@@ -24,6 +36,7 @@ test.describe('Database Write Operations', () => {
         await page.fill('textarea[placeholder="Notes"]', 'Some notes');
 
         await page.click('text=Save Record');
+        await page.waitForTimeout(500); // Wait for save to complete
 
         // Verify it appears in the tree
         await expect(page.locator('.tree')).toContainText('Test Group');
@@ -33,6 +46,7 @@ test.describe('Database Write Operations', () => {
         await page.click('text=Test Record');
         await page.fill('input[placeholder="Title"]', 'Updated Record');
         await page.click('text=Save Record');
+        await page.waitForTimeout(500); // Wait for save to complete
 
         // Verify tree updates
         await expect(page.locator('.tree')).toContainText('Updated Record');
@@ -41,14 +55,12 @@ test.describe('Database Write Operations', () => {
         // 4. Delete Record
         await page.click('text=Delete Record');
         await page.click('button:has-text("Delete")'); // Click Delete in Modal
+        await page.waitForTimeout(500); // Wait for save to complete
         await expect(page.locator('.backdrop')).not.toBeVisible();
 
         // Verify gone
         await expect(page.locator('.tree')).not.toContainText('Updated Record');
 
-        // 5. Save DB (Just verify it doesn't crash, difficult to test file system API in headless properly without mocking)
-        // We can just verify the button is there.
-        await page.click('button[aria-label="Menu"]');
-        await expect(page.locator('text=Save DB')).toBeVisible();
+        // Auto-save runs after each record operation — no manual Save DB needed.
     });
 });

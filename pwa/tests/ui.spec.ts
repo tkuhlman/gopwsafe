@@ -72,43 +72,8 @@ test.describe('UI Improvements', () => {
         await expect(page.getByText('Database Info')).toBeVisible();
         await page.locator('.modal .footer button').click();
 
-        // 3. Save DB Check
-        // Menu is likely still open because alert doesn't close DOM elements usually, but let's check
-        // ... (truncated in my mind, but I need to match TargetContent for tool)
-        // Oops, I can't replace non-contiguous blocks with replace_file_content.
-        // I need to only replace the first block here, then second block.
-        // Or use multi_replace. 
-        // Let's use multi_replace.
-
-        // 3. Save DB Check
-        // Menu is likely still open because alert doesn't close DOM elements usually, but let's check
-        if (!await page.getByText('Save DB').isVisible()) {
-            await page.locator('.hamburger').click();
-        }
-        await expect(page.getByText('Save DB')).toBeVisible();
-
-        // Save functionality is covered in write_ops.spec.js.
-        // We skip clicking here to avoid flaky dialog interactions in this specific test suite.
-        /*
-        page.once('dialog', async dialog => {
-            console.log(`Dialog message: ${dialog.message()}`);
-            try {
-                expect(dialog.message()).toContain('saved successfully');
-            } catch (e) {
-                console.error('Dialog check failed', e);
-            } finally {
-                await dialog.dismiss();
-            }
-        });
-        await page.getByText('Save DB').click();
-        */
-
-        // Wait for save operation
-        await page.waitForTimeout(500);
-
-        // 4. Close DB Check
-        // If dirty state is implemented, we might get a dialog on close if we didn't save.
-        // But here we just saved, so it should be clean.
+        // 3. Close DB
+        await page.locator('.hamburger').click();
         await page.getByText('Close DB').click();
         await expect(page.locator('.start-page h1')).toHaveText('Password Safe');
     });
@@ -190,10 +155,8 @@ test.describe('UI Improvements', () => {
         await modal.getByPlaceholder('Description').fill('Updated Description');
         await modal.getByRole('button', { name: 'Save' }).click();
 
-        // Verify Success Alert
-        // The modal content changes to a generic success message
-        await expect(page.getByText('Detail updated. Don\'t forget to save the database file.')).toBeVisible();
-        await page.locator('.modal .footer button').click();
+        // Verify modal closes (autosaved silently)
+        await expect(modal).not.toBeVisible();
     });
 
     test('should handle mobile layout', async ({ page }) => {
