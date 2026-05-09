@@ -31,6 +31,7 @@
     let isNewRecord = false;
 
     let isDirty = false;
+    let isSaving = false;
 
     let showModal = false;
     let modalConfig = {
@@ -204,6 +205,11 @@
     }
 
     async function save(silent = false) {
+        if (isSaving) {
+            alert("Database is already saving. Please wait.");
+            return;
+        }
+        isSaving = true;
         try {
             const data = saveDatabase(); // Uint8Array
             let handle = $selectedFile ? $selectedFile.handle : null;
@@ -252,6 +258,8 @@
             if (e.name !== "AbortError") {
                 alert("Failed to save: " + e.message);
             }
+        } finally {
+            isSaving = false;
         }
     }
 
@@ -464,17 +472,12 @@
             <svelte:component
                 this={modalConfig.component}
                 {...modalConfig.props}
-                on:save={() => {
+                on:save={async () => {
                     showModal = false;
                     isDirty = true; // Mark DB as dirty after info update (though main.go modifies in-memory DB directly too)
                     // Actually, main.go modifies the struct. saveDB() marshals that struct.
                     // So we should mark as dirty.
-                    triggerModal({
-                        title: "Success",
-                        message:
-                            "Detail updated. Don't forget to save the database file.",
-                        type: "alert",
-                    });
+                    await save(true);
                 }}
             />
         {:else}
