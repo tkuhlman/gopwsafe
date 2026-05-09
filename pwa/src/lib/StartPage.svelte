@@ -8,6 +8,10 @@
 
     const dispatch = createEventDispatcher();
 
+    function focusOnMount(node) {
+        node.focus();
+    }
+
     let password = "";
     let error = "";
     let isLoading = false;
@@ -186,7 +190,7 @@
                     type="password"
                     bind:value={password}
                     placeholder="New Password"
-                    autofocus
+                    use:focusOnMount
                     on:keydown={(e) => e.key === "Enter" && createDB()}
                 />
                 <button on:click={createDB} disabled={isLoading}>
@@ -239,7 +243,7 @@
                     type="password"
                     bind:value={password}
                     placeholder="Password"
-                    autofocus
+                    use:focusOnMount
                     on:keydown={(e) => e.key === "Enter" && unlock()}
                 />
                 <button on:click={unlock} disabled={isLoading}>

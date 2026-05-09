@@ -27,7 +27,7 @@
     </button>
 
     {#if isOpen}
-        <div class="backdrop" on:click={close}></div>
+        <div class="backdrop" role="presentation" on:click={close} on:keydown={(e) => e.key === 'Escape' && close()}></div>
         <div class="menu-dropdown">
             <slot {close}></slot>
             <div class="menu-footer">v{appVersion}</div>

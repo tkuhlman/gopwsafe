@@ -55,19 +55,19 @@
 
     <div class="meta-grid">
         <div class="meta-item">
-            <label>Version</label>
+            <span class="meta-label">Version</span>
             <span>{info.version}</span>
         </div>
         <div class="meta-item">
-            <label>UUID</label>
+            <span class="meta-label">UUID</span>
             <span class="uuid">{info.uuid}</span>
         </div>
         <div class="meta-item">
-            <label>Last Saved By</label>
+            <span class="meta-label">Last Saved By</span>
             <span>{info.who} @ {info.what || "Unknown"}</span>
         </div>
         <div class="meta-item">
-            <label>Last Saved Time</label>
+            <span class="meta-label">Last Saved Time</span>
             <span>{info.when}</span>
         </div>
     </div>
@@ -84,7 +84,7 @@
         gap: 15px;
     }
     .field label,
-    .meta-item label {
+    .meta-item .meta-label {
         display: block;
         color: #888;
         font-size: 0.9em;
@@ -117,7 +117,7 @@
     .meta-item {
         overflow: hidden;
     }
-    .meta-item span {
+    .meta-item span:not(.meta-label) {
         display: block;
         color: #ddd;
         white-space: nowrap;
