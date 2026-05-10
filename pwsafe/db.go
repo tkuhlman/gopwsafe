@@ -41,31 +41,18 @@ func NewV3(name, password string) *V3 {
 	return &db
 }
 
-// DeleteRecord Removes a record from the db
-func (db *V3) DeleteRecord(title string) {
-	delete(db.Records, title)
+// uuidKey returns the map key string for a record UUID.
+func uuidKey(uuid [16]byte) string {
+	return fmt.Sprintf("%x", uuid)
+}
+
+// DeleteRecord removes a record from the db by UUID hex string.
+func (db *V3) DeleteRecord(uuidHex string) {
+	delete(db.Records, uuidHex)
 	db.LastMod = time.Now()
 }
 
 // Equal compares the content of two V3 DBs except for LastSave fields and fields with transient or changing values.
-func (db *V3) Equal(other *V3) (bool, error) {
-	if matches, err := db.Header.Equal(other.Header); !matches || err != nil {
-		return matches, err
-	}
-
-	// compare records
-	if len(db.List()) != len(other.List()) {
-		return false, fmt.Errorf("record lengths don't match, %v != %v", len(db.List()), len(other.List()))
-	}
-	for _, title := range db.List() {
-		equal, err := db.Records[title].Equal(other.Records[title], true)
-		if !equal {
-			return false, err
-		}
-	}
-	return true, nil
-}
-
 // Groups Returns an slice of strings which match all groups used by records in the DB
 func (db V3) Groups() []string {
 	groups := make([]string, 0, len(db.Records))
@@ -80,25 +67,23 @@ func (db V3) Groups() []string {
 	return groups
 }
 
-// List Returns the titles of all the records in the db.
+// List Returns the UUID hex keys of all records in the db.
 func (db V3) List() []string {
 	entries := make([]string, 0, len(db.Records))
 	for key := range db.Records {
 		entries = append(entries, key)
 	}
-	sort.Strings(entries)
 	return entries
 }
 
-// ListByGroup Returns the list of record titles that have the given group.
+// ListByGroup Returns the UUID hex keys of records that have the given group.
 func (db V3) ListByGroup(group string) []string {
 	entries := make([]string, 0, len(db.Records))
-	for key, value := range db.Records {
-		if value.Group == group {
+	for key, rec := range db.Records {
+		if rec.Group == group {
 			entries = append(entries, key)
 		}
 	}
-	sort.Strings(entries)
 	return entries
 }
 
@@ -111,7 +96,7 @@ func (db V3) Search(query string, namesOnly bool) []string {
 		return db.List()
 	}
 	var results []string
-	for _, rec := range db.Records {
+	for key, rec := range db.Records {
 		var hay string
 		if namesOnly {
 			hay = strings.ToLower(rec.Title + "\n" + rec.Group)
@@ -126,16 +111,10 @@ func (db V3) Search(query string, namesOnly bool) []string {
 			}
 		}
 		if match {
-			results = append(results, rec.Title)
+			results = append(results, key)
 		}
 	}
-	sort.Strings(results)
 	return results
-}
-
-// NeedsSave Returns true if the db has unsaved modifiations
-func (db V3) NeedsSave() bool {
-	return db.Header.LastSave.Before(db.LastMod)
 }
 
 // SetPassword Sets the password that will be used to encrypt the file on next save
@@ -150,30 +129,24 @@ func (db *V3) SetPassword(pw string) error {
 	return nil
 }
 
-// SetRecord Adds or updates a record in the db
-func (db *V3) SetRecord(record Record) {
+// SetRecord Adds or updates a record in the db, keyed by UUID. Returns the UUID hex key.
+func (db *V3) SetRecord(record Record) string {
 	now := time.Now()
-	//detect if there have been changes and only update if needed
-	oldRecord, prs := db.Records[record.Title]
-	if prs {
-		equal, _ := oldRecord.Equal(record, false)
-		if equal {
-			return
-		}
-	} else {
-		record.CreateTime = now
-	}
-
-	if prs && record.CreateTime.IsZero() {
-		record.CreateTime = oldRecord.CreateTime
-	}
-
 	if record.UUID == [16]byte{} {
 		record.UUID = [16]byte(uuid.NewRandom().Array())
 	}
+	key := uuidKey(record.UUID)
+	oldRecord, prs := db.Records[key]
+	if !prs {
+		record.CreateTime = now
+	} else if record.CreateTime.IsZero() {
+		record.CreateTime = oldRecord.CreateTime
+	}
+
 	record.ModTime = now
-	db.Records[record.Title] = record
+	db.Records[key] = record
 	db.LastMod = now
+	return key
 }
 
 // calculateHMAC calculate and set db.HMAC for the unencrypted data using HMACKey
