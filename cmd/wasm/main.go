@@ -178,7 +178,7 @@ func getDBInfo(this js.Value, args []js.Value) any {
 // Pass empty string for uuid to create a new record (UUID is generated and returned).
 // Supported fields: Title, Group, Username, Password, URL, Notes
 // Title and Password must be non-empty in the final record.
-func updateRecordFields(this js.Value, args []js.Value) interface{} {
+func updateRecordFields(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -228,7 +228,7 @@ func updateRecordFields(this js.Value, args []js.Value) interface{} {
 // UpdateDBFields applies a field/value patch to the database header.
 // Args: field1, value1, field2, value2, ...
 // Supported fields: Name, Description, LastSaveUser
-func updateDBFields(this js.Value, args []js.Value) interface{} {
+func updateDBFields(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -353,7 +353,7 @@ func main() {
 	<-c
 }
 
-func saveDB(this js.Value, args []js.Value) interface{} {
+func saveDB(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
@@ -369,7 +369,7 @@ func saveDB(this js.Value, args []js.Value) interface{} {
 	return dst
 }
 
-func deleteRecord(this js.Value, args []js.Value) interface{} {
+func deleteRecord(this js.Value, args []js.Value) any {
 	if db == nil {
 		return "database not open"
 	}
