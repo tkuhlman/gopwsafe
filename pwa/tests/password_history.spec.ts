@@ -30,7 +30,7 @@ async function openThreeDb(page) {
     await page.getByText('Open Database File').click();
     await page.getByPlaceholder('Password').fill('three3#;');
     await page.getByRole('button', { name: 'Unlock' }).click();
-    await expect(page.getByPlaceholder('Search...')).toBeVisible();
+    await expect(page.getByPlaceholder(/Search/)).toBeVisible();
 }
 
 test.describe('Password history', () => {
