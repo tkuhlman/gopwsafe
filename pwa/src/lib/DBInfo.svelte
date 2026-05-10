@@ -12,7 +12,7 @@
 
     function save() {
         try {
-            updateDBFields({ Name: name, Description: description, LastSaveUser: lastSaveUser });
+            updateDBFields({ Name: name, Description: description });
             dispatch("save");
         } catch (e) {
             console.error(e);
