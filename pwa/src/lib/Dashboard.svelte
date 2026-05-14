@@ -40,28 +40,33 @@
     //   each entry: T=timestamp(8hex) L=pwLen(4hex) P=password
     function parsePasswordHistory(raw) {
         if (!raw || raw.length < 5) return null;
-        const enabled = raw[0] === '1';
-        const max = parseInt(raw.slice(1, 3), 16) || 10;
-        const count = parseInt(raw.slice(3, 5), 16);
+        const rawBytes = new TextEncoder().encode(raw);
+        const decoder = new TextDecoder();
+        const readStr = (start, length) => decoder.decode(rawBytes.slice(start, start + length));
+
+        const enabled = readStr(0, 1) === '1';
+        const max = parseInt(readStr(1, 2), 16) || 10;
+        const count = parseInt(readStr(3, 2), 16);
         const entries = [];
         let pos = 5;
         for (let i = 0; i < count; i++) {
-            if (pos + 12 > raw.length) break;
-            const timestamp = parseInt(raw.slice(pos, pos + 8), 16);
+            if (pos + 12 > rawBytes.length) break;
+            const timestamp = parseInt(readStr(pos, 8), 16);
             pos += 8;
-            const len = parseInt(raw.slice(pos, pos + 4), 16);
+            const len = parseInt(readStr(pos, 4), 16);
             pos += 4;
-            if (pos + len > raw.length) break;
-            entries.push({ timestamp, password: raw.slice(pos, pos + len) });
+            if (pos + len > rawBytes.length) break;
+            entries.push({ timestamp, password: readStr(pos, len) });
             pos += len;
         }
         return { enabled, max, entries };
     }
 
     function serializePasswordHistory(h) {
+        const encoder = new TextEncoder();
         const body = h.entries.map(e => {
             const t = Math.floor(e.timestamp).toString(16).padStart(8, '0');
-            const l = e.password.length.toString(16).padStart(4, '0');
+            const l = encoder.encode(e.password).length.toString(16).padStart(4, '0');
             return t + l + e.password;
         }).join('');
         return (h.enabled ? '1' : '0')
