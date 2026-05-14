@@ -159,3 +159,7 @@ export function searchRecords(query, namesOnly) {
     }
     return JSON.parse(res);
 }
+
+export function getAutocompleteSuggestion(field, prefix) {
+    return window.getSuggestion(field, prefix) || "";
+}
