@@ -187,6 +187,8 @@
     {#if error}
         <div class="error-msg">{error}</div>
     {/if}
+
+    <slot />
 </div>
 {/if}
 

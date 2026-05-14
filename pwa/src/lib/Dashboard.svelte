@@ -1,5 +1,6 @@
 <script>
     import { createEventDispatcher } from "svelte";
+    import { slide } from "svelte/transition";
     import { dbItems, selectedFile } from "../store.js";
 
     import {
@@ -34,6 +35,54 @@
         };
     }
 
+    // Password history field format: fmmnnTLPTLP...
+    //   f=enabled(1/0), mm=maxEntries(hex), nn=count(hex)
+    //   each entry: T=timestamp(8hex) L=pwLen(4hex) P=password
+    function parsePasswordHistory(raw) {
+        if (!raw || raw.length < 5) return null;
+        const rawBytes = new TextEncoder().encode(raw);
+        const decoder = new TextDecoder();
+        const readStr = (start, length) => decoder.decode(rawBytes.slice(start, start + length));
+
+        const enabled = readStr(0, 1) === '1';
+        const max = parseInt(readStr(1, 2), 16) || 10;
+        const count = parseInt(readStr(3, 2), 16);
+        const entries = [];
+        let pos = 5;
+        for (let i = 0; i < count; i++) {
+            if (pos + 12 > rawBytes.length) break;
+            const timestamp = parseInt(readStr(pos, 8), 16);
+            pos += 8;
+            const len = parseInt(readStr(pos, 4), 16);
+            pos += 4;
+            if (pos + len > rawBytes.length) break;
+            entries.push({ timestamp, password: readStr(pos, len) });
+            pos += len;
+        }
+        return { enabled, max, entries };
+    }
+
+    function serializePasswordHistory(h) {
+        const encoder = new TextEncoder();
+        const body = h.entries.map(e => {
+            const t = Math.floor(e.timestamp).toString(16).padStart(8, '0');
+            const l = encoder.encode(e.password).length.toString(16).padStart(4, '0');
+            return t + l + e.password;
+        }).join('');
+        return (h.enabled ? '1' : '0')
+            + h.max.toString(16).padStart(2, '0')
+            + h.entries.length.toString(16).padStart(2, '0')
+            + body;
+    }
+
+    function pushPasswordHistory(raw, oldPassword) {
+        let h = parsePasswordHistory(raw) ?? { enabled: true, max: 10, entries: [] };
+        if (!h.enabled) return raw;
+        h.entries.push({ timestamp: Date.now() / 1000, password: oldPassword });
+        while (h.entries.length > h.max) h.entries.shift();
+        return serializePasswordHistory(h);
+    }
+
     let items = [];
     let filteredItems = [];
     let searchTerm = "";
@@ -47,6 +96,8 @@
     let copyPassSuccess = false;
     let copyUrlSuccess = false;
     let isNewRecord = false;
+    let showHistory = false;
+    let historyRevealedSet = new Set();
 
     let isDirty = false;
     let isSaving = false;
@@ -266,6 +317,7 @@
             isNewRecord = false;
             showGenOptions = false;
             clearGhosts();
+            showHistory = false;
         } catch (e) {
             console.error(e);
             alert("Failed to load record details");
@@ -291,6 +343,8 @@
         isNewRecord = true;
         showGenOptions = false;
         clearGhosts();
+        showHistory = false;
+        historyRevealedSet = new Set();
     }
 
     // Bind this to the new record event from the menu
@@ -381,6 +435,13 @@
             if (isNewRecord) {
                 addRecord(selectedRecord);
             } else {
+                const oldRec = getRecordData(oldTitle);
+                if (oldRec && oldRec.Password !== selectedRecord.Password && oldRec.Password !== "") {
+                    selectedRecord.PasswordHistory = pushPasswordHistory(
+                        selectedRecord.PasswordHistory,
+                        oldRec.Password,
+                    );
+                }
                 updateRecord(oldTitle, selectedRecord);
             }
 
@@ -831,63 +892,38 @@
                 <div class="field">
                     <button type="button" class="field-label-btn" title="Click to copy" on:click={() => copyToClipboard(selectedRecord.Password, 'pass')} on:contextmenu|preventDefault={() => copyToClipboard(selectedRecord.Password, 'pass')}>Password</button>
                     <div class="password-row">
-                        <input
-                            id="record-password"
-                            aria-label="Password"
-                            type={showPassword ? "text" : "password"}
-                            bind:value={selectedRecord.Password}
-                            placeholder="Password"
-                        />
-                        <button on:click={() => (showPassword = !showPassword)}>
-                            {showPassword ? "Hide" : "Show"}
-                        </button>
-                        <button class="generate-btn" on:click={() => generator.generate()}>
-                            <span class="generate-text">Generate</span>
-                            <svg class="generate-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-                                <path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/>
-                                <path d="M16 16h.01"/><path d="M12 12h.01"/>
-                            </svg>
-                        </button>
-                        <button class="icon-btn" on:click={() => (showGenOptions = !showGenOptions)} title="Generator options">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                            </svg>
-                        </button>
-                        <button
-                            class="icon-btn"
-                            on:click={() =>
-                                copyToClipboard(
-                                    selectedRecord.Password,
-                                    "pass",
-                                )}
-                            title="Copy Password (Ctrl+P)"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                ><rect
-                                    x="9"
-                                    y="9"
-                                    width="13"
-                                    height="13"
-                                    rx="2"
-                                    ry="2"
-                                ></rect><path
-                                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                                ></path></svg
+                        <div class="password-input-row">
+                            <input
+                                id="record-password"
+                                aria-label="Password"
+                                type={showPassword ? "text" : "password"}
+                                bind:value={selectedRecord.Password}
+                                placeholder="Password"
+                            />
+                            <button
+                                class="icon-btn"
+                                on:click={() => copyToClipboard(selectedRecord.Password, "pass")}
+                                title="Copy Password (Ctrl+P)"
                             >
-                        </button>
-                        {#if copyPassSuccess}
-                            <span class="copy-feedback">Copied!</span>
-                        {/if}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            </button>
+                            {#if copyPassSuccess}
+                                <span class="copy-feedback">Copied!</span>
+                            {/if}
+                        </div>
+                        <div class="password-actions">
+                            <button on:click={() => (showPassword = !showPassword)}>
+                                {showPassword ? "Hide" : "Show"}
+                            </button>
+                            <button class="generate-btn" on:click={() => generator.generate()}>
+                                Generate
+                            </button>
+                            <button class="icon-btn" on:click={() => (showGenOptions = !showGenOptions)} title="Password options">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <PasswordGenerator
@@ -897,7 +933,39 @@
                         selectedRecord.Password = e.detail;
                         showPassword = true;
                     }}
-                />
+                >
+                    {#if !isNewRecord && selectedRecord.PasswordHistory}
+                        {@const hist = parsePasswordHistory(selectedRecord.PasswordHistory)}
+                        {#if hist && hist.entries.length > 0}
+                            <hr class="panel-divider" />
+                            <button
+                                type="button"
+                                class="history-toggle-btn"
+                                on:click={() => (showHistory = !showHistory)}
+                            >
+                                Show {hist.entries.length} previous password{hist.entries.length === 1 ? '' : 's'}
+                                <span>{showHistory ? '▲' : '▶'}</span>
+                            </button>
+                            {#if showHistory}
+                                <div class="history-list" transition:slide={{ duration: 150 }}>
+                                    {#each [...hist.entries].reverse() as entry}
+                                        <div class="history-entry">
+                                            <span class="history-date">{formatDate(new Date(entry.timestamp * 1000).toISOString())}</span>
+                                            <span class="history-pw">{entry.password}</span>
+                                            <button
+                                                class="icon-btn"
+                                                title="Copy"
+                                                on:click={() => copyToClipboard(entry.password, 'hist')}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                            </button>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+                        {/if}
+                    {/if}
+                </PasswordGenerator>
                 <div class="field">
                     <button type="button" class="field-label-btn" title="Click to copy" on:click={() => copyToClipboard(selectedRecord.URL, 'url')} on:contextmenu|preventDefault={() => copyToClipboard(selectedRecord.URL, 'url')}>URL</button>
                     <div class="field-row">
@@ -1062,10 +1130,7 @@
         font-size: 1.5rem;
         cursor: pointer;
     }
-    .generate-icon { display: none; }
     @media (max-width: 768px) {
-        .generate-text { display: none; }
-        .generate-icon { display: inline-flex; align-items: center; vertical-align: middle; }
         .sidebar {
             width: 100%;
             height: 100vh;
@@ -1133,12 +1198,23 @@
     }
     .password-row {
         display: flex;
-        gap: 10px;
+        flex-direction: column;
+        gap: 6px;
     }
-    .password-row input {
+    .password-input-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .password-input-row input {
         flex: 1;
-        width: auto;
         min-width: 0;
+        width: auto;
+    }
+    .password-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     textarea {
         background: #2d2d2d;
@@ -1187,6 +1263,61 @@
         color: #4caf50;
         font-size: 0.9em;
         animation: fadeOut 2s forwards;
+    }
+    .panel-divider {
+        border: none;
+        border-top: 1px solid #3a3a3a;
+        margin: 8px 0 6px;
+    }
+    .history-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 0.8em;
+        padding: 2px 0;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: left;
+    }
+    .history-toggle-btn:hover {
+        color: #bbb;
+    }
+    .history-list {
+        margin-top: 6px;
+        border: 1px solid #333;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .history-entry {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-bottom: 1px solid #2a2a2a;
+        font-size: 0.85em;
+    }
+    .history-entry:last-child {
+        border-bottom: none;
+    }
+    .history-entry:nth-child(odd) {
+        background: #252525;
+    }
+    .history-date {
+        color: #666;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .history-pw {
+        flex: 1;
+        font-family: monospace;
+        color: #ccc;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .actions-row {
         margin-top: 30px;

@@ -43,10 +43,10 @@ test.describe('Password options panel', () => {
         const panel = page.locator('.pwgen-panel');
         await expect(panel).not.toBeVisible();
 
-        await page.getByTitle('Generator options').click();
+        await page.getByTitle('Password options').click();
         await expect(panel).toBeVisible();
 
-        await page.getByTitle('Generator options').click();
+        await page.getByTitle('Password options').click();
         await expect(panel).not.toBeVisible();
     });
 
@@ -57,7 +57,7 @@ test.describe('Password options panel', () => {
         const passwordInput = page.locator('.record-details').getByPlaceholder('Password');
         const before = await passwordInput.inputValue();
 
-        await page.getByTitle('Generator options').click();
+        await page.getByTitle('Password options').click();
         await page.getByRole('button', { name: 'Generate' }).click();
 
         const after = await passwordInput.inputValue();
