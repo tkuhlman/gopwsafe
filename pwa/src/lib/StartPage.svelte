@@ -18,6 +18,7 @@
     let recentFiles = [];
 
     let currentHandle = null;
+    let rawHandle = null;
     let isCreating = false; // Mode switch for "Create New DB"
     let showPassword = false;
 
@@ -30,7 +31,7 @@
 
     async function openFile() {
         try {
-            [currentHandle] = await window.showOpenFilePicker({
+            const handles = await window.showOpenFilePicker({
                 types: [
                     {
                         description: "Password Safe Strings",
@@ -40,6 +41,8 @@
                     },
                 ],
             });
+            rawHandle = handles[0];
+            currentHandle = rawHandle;
             console.log("File selected:", currentHandle.name);
         } catch (e) {
             // User cancelled or not supported
@@ -63,7 +66,7 @@
             const items = getDatabaseData();
             dbItems.set(items);
             selectedFile.set({
-                handle: currentHandle,
+                handle: rawHandle || currentHandle,
                 name: currentHandle.name,
             });
 
@@ -80,11 +83,12 @@
                 (r) => r.name !== currentHandle.name,
             );
             try {
-                await set("recentFiles", [
+                const rawRecents = [
                     newRecent,
-                    ...otherRecents.slice(0, 4),
-                ]);
-                await set("lastHandle", currentHandle);
+                    ...otherRecents.slice(0, 4).map(r => ({ name: r.name, date: r.date }))
+                ];
+                await set("recentFiles", rawRecents);
+                await set("lastHandle", rawHandle || currentHandle);
             } catch (err) {
                 console.warn(
                     "Failed to update recent files or last handle",
@@ -118,10 +122,12 @@
             if (handle && handle.name === fileInfo.name) {
                 // verify permission
                 if ((await handle.queryPermission()) === "granted") {
+                    rawHandle = handle;
                     currentHandle = handle;
                     return;
                 }
                 if ((await handle.requestPermission()) === "granted") {
+                    rawHandle = handle;
                     currentHandle = handle;
                     return;
                 }

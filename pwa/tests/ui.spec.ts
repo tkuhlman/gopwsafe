@@ -455,6 +455,7 @@ test.describe('UI Improvements', () => {
         await page.getByText('New Record').click();
 
         await page.getByPlaceholder('Title').fill('URL Test Record');
+        await page.getByPlaceholder('Password').fill('testpass');
         await page.getByPlaceholder('URL').fill('https://example.com');
         await page.getByRole('button', { name: 'Save Record' }).click();
 
