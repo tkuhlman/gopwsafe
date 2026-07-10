@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/pborman/uuid v1.2.1
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/crypto v0.46.0
+	golang.org/x/crypto v0.52.0
 )
 
 require (
