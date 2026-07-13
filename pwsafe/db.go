@@ -24,9 +24,26 @@ type V3 struct {
 	Iter          uint32 //the number of iterations on the hash function to create the stretched key
 	LastMod       time.Time
 	LastSavePath  string
-	Records       map[string]Record //the key is the record title
+	Records       map[string]Record //the key is the record title, or its hex-encoded UUID if KeyByUUID is set
 	Salt          [32]byte
 	StretchedKey  [sha256.Size]byte
+
+	// KeyByUUID controls how Records is keyed. Password Safe v3 only guarantees a
+	// record's UUID to be unique, not its Title, so a db containing multiple records
+	// with the same title (e.g. several "Google" entries) will have all but one of
+	// them silently overwritten in Records when keyed by Title (the default, kept
+	// for backwards compatibility). Set KeyByUUID to true, before Decrypt/SetRecord
+	// are called, to key Records by UUID instead and retain every record.
+	KeyByUUID bool
+}
+
+// recordKey returns the map key to use for storing/looking up a record in db.Records,
+// based on the current KeyByUUID setting.
+func (db *V3) recordKey(record Record) string {
+	if db.KeyByUUID {
+		return fmt.Sprintf("%x", record.UUID)
+	}
+	return record.Title
 }
 
 // NewV3 - create and initialize a new pwsafe.V3 db
@@ -40,10 +57,45 @@ func NewV3(name, password string) *V3 {
 	return &db
 }
 
-// DeleteRecord Removes a record from the db
+// DeleteRecord Removes a record from the db. When KeyByUUID is false (the default),
+// this removes the record keyed by this exact title. When KeyByUUID is true, titles
+// are not guaranteed unique, so this removes the first record found with a matching
+// title; use DeleteRecordByUUID for precise deletion in that case.
 func (db *V3) DeleteRecord(title string) {
-	delete(db.Records, title)
+	if db.KeyByUUID {
+		for key, record := range db.Records {
+			if record.Title == title {
+				delete(db.Records, key)
+				break
+			}
+		}
+	} else {
+		delete(db.Records, title)
+	}
 	db.LastMod = time.Now()
+}
+
+// DeleteRecordByUUID removes the record with the given UUID from the db, if present.
+// Only meaningful when KeyByUUID is true.
+func (db *V3) DeleteRecordByUUID(id [16]byte) {
+	delete(db.Records, fmt.Sprintf("%x", id))
+	db.LastMod = time.Now()
+}
+
+// RecordByTitle returns the first record found with a matching title. When KeyByUUID
+// is true, titles are not guaranteed unique, so if the db contains multiple records
+// sharing this title, which one gets returned is undefined.
+func (db V3) RecordByTitle(title string) (Record, bool) {
+	if !db.KeyByUUID {
+		record, prs := db.Records[title]
+		return record, prs
+	}
+	for _, record := range db.Records {
+		if record.Title == title {
+			return record, true
+		}
+	}
+	return Record{}, false
 }
 
 // Equal compares the content of two V3 DBs except for LastSave fields and fields with transient or changing values.
@@ -57,7 +109,12 @@ func (db *V3) Equal(other *V3) (bool, error) {
 		return false, fmt.Errorf("record lengths don't match, %v != %v", len(db.List()), len(other.List()))
 	}
 	for _, title := range db.List() {
-		equal, err := db.Records[title].Equal(other.Records[title], true)
+		record, _ := db.RecordByTitle(title)
+		otherRecord, prs := other.RecordByTitle(title)
+		if !prs {
+			return false, fmt.Errorf("record with title %q not found in other db", title)
+		}
+		equal, err := record.Equal(otherRecord, true)
 		if !equal {
 			return false, err
 		}
@@ -79,11 +136,12 @@ func (db V3) Groups() []string {
 	return groups
 }
 
-// List Returns the titles of all the records in the db.
+// List Returns the titles of all the records in the db. When KeyByUUID is true and the
+// db contains records sharing a title, that title is included once per such record.
 func (db V3) List() []string {
 	entries := make([]string, 0, len(db.Records))
-	for key := range db.Records {
-		entries = append(entries, key)
+	for _, value := range db.Records {
+		entries = append(entries, value.Title)
 	}
 	sort.Strings(entries)
 	return entries
@@ -92,9 +150,9 @@ func (db V3) List() []string {
 // ListByGroup Returns the list of record titles that have the given group.
 func (db V3) ListByGroup(group string) []string {
 	entries := make([]string, 0, len(db.Records))
-	for key, value := range db.Records {
+	for _, value := range db.Records {
 		if value.Group == group {
-			entries = append(entries, key)
+			entries = append(entries, value.Title)
 		}
 	}
 	sort.Strings(entries)
@@ -118,11 +176,23 @@ func (db *V3) SetPassword(pw string) error {
 	return nil
 }
 
-// SetRecord Adds or updates a record in the db
+// SetRecord Adds or updates a record in the db. When KeyByUUID is false (the default),
+// a record is recognized as an update to an existing one if it shares that record's
+// Title (the original, backwards-compatible behavior). When KeyByUUID is true, a
+// record is only recognized as an update if it carries the existing record's UUID;
+// records with no UUID set (the zero value) are always treated as new in that mode.
 func (db *V3) SetRecord(record Record) {
 	now := time.Now()
 	//detect if there have been changes and only update if needed
-	oldRecord, prs := db.Records[record.Title]
+	var oldRecord Record
+	var prs bool
+	if db.KeyByUUID {
+		if record.UUID != [16]byte{} {
+			oldRecord, prs = db.Records[db.recordKey(record)]
+		}
+	} else {
+		oldRecord, prs = db.Records[record.Title]
+	}
 	if prs {
 		equal, _ := oldRecord.Equal(record, false)
 		if equal {
@@ -140,7 +210,7 @@ func (db *V3) SetRecord(record Record) {
 		record.UUID = [16]byte(uuid.NewRandom().Array())
 	}
 	record.ModTime = now
-	db.Records[record.Title] = record
+	db.Records[db.recordKey(record)] = record
 	db.LastMod = now
 }
 

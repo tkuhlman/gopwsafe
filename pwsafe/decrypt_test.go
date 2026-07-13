@@ -490,3 +490,63 @@ func TestEdgeCases_ModifyDeleteAndNonExistent(t *testing.T) {
 	// DeleteRecord always updates LastMod, so NeedsSave will become true.
 	assert.True(t, dbNonExistent.NeedsSave(), "NeedsSave() should become true after DeleteRecord, even if record did not exist, due to LastMod update")
 }
+
+// TestDuplicateTitlesDefaultBehavior documents the existing, backwards-compatible default
+// behavior: when KeyByUUID is false (the default), db.Records is keyed by Title, so a db
+// containing multiple records that share a title (e.g. several "Google" entries) will have
+// all but one of them silently dropped, both in memory and across a save/reload round trip.
+func TestDuplicateTitlesDefaultBehavior(t *testing.T) {
+	db := NewV3("", "password")
+	dupPath := "./test_dbs/duplicate_titles_default_test.dat"
+	db.LastSavePath = dupPath
+
+	db.SetRecord(Record{Title: "Google", Username: "work.user@example.com", Password: "workpass", Group: "Work"})
+	db.SetRecord(Record{Title: "Google", Username: "personal.user@example.com", Password: "personalpass", Group: "Personal"})
+
+	// Only the most recently set record survives, since both share the "Google" map key.
+	assert.Equal(t, 1, len(db.Records), "default Title-keyed behavior only retains the last same-titled record")
+	record, ok := db.RecordByTitle("Google")
+	assert.True(t, ok)
+	assert.Equal(t, "personal.user@example.com", record.Username)
+
+	err := WritePWSafeFile(db, dupPath)
+	assert.Nil(t, err)
+	defer os.Remove(dupPath)
+
+	reopened, err := OpenPWSafeFile(dupPath, "password")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(reopened.Records), "duplicate title loss persists across a save/reload round trip")
+}
+
+// TestDuplicateTitlesKeyedByUUID is a regression test for the fix: when KeyByUUID is
+// true, db.Records is keyed by UUID instead of Title, so records sharing a title are
+// no longer dropped during SetRecord or Decrypt.
+func TestDuplicateTitlesKeyedByUUID(t *testing.T) {
+	db := NewV3("", "password")
+	db.KeyByUUID = true
+	dupPath := "./test_dbs/duplicate_titles_uuid_test.dat"
+	db.LastSavePath = dupPath
+
+	db.SetRecord(Record{Title: "Google", Username: "work.user@example.com", Password: "workpass", Group: "Work"})
+	db.SetRecord(Record{Title: "Google", Username: "personal.user@example.com", Password: "personalpass", Group: "Personal"})
+
+	assert.Equal(t, 2, len(db.Records), "both same-titled records should be retained")
+	assert.Equal(t, []string{"Google", "Google"}, db.List())
+
+	err := WritePWSafeFile(db, dupPath)
+	assert.Nil(t, err)
+	defer os.Remove(dupPath)
+
+	// Reopen keyed by UUID and verify decryption doesn't drop either "Google" entry.
+	reopened, err := OpenPWSafeFileKeyedByUUID(dupPath, "password")
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(reopened.Records), "both same-titled records should survive a save/reload round trip")
+	assert.Equal(t, []string{"Google", "Google"}, reopened.List())
+
+	usernames := make([]string, 0, 2)
+	for _, record := range reopened.Records {
+		assert.Equal(t, "Google", record.Title)
+		usernames = append(usernames, record.Username)
+	}
+	assert.ElementsMatch(t, []string{"work.user@example.com", "personal.user@example.com"}, usernames)
+}

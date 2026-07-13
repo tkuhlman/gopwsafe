@@ -2,9 +2,25 @@ package pwsafe
 
 import "os"
 
-//OpenPWSafeFile Opens a password safe v3 file and decrypts with the supplied password
+//OpenPWSafeFile Opens a password safe v3 file and decrypts with the supplied password.
+//Records is keyed by Title (see V3.KeyByUUID); use OpenPWSafeFileKeyedByUUID to key by
+//UUID instead, which retains every record in databases with duplicate titles.
 func OpenPWSafeFile(dbPath string, passwd string) (*V3, error) {
+	return openPWSafeFile(dbPath, passwd, false)
+}
+
+//OpenPWSafeFileKeyedByUUID Opens a password safe v3 file and decrypts with the supplied
+//password, keying the resulting V3.Records by UUID instead of Title. Password Safe v3
+//only guarantees UUID to be unique, not Title, so prefer this over OpenPWSafeFile when
+//the database may contain multiple records sharing a title (e.g. several "Google"
+//entries) to avoid having all but one of them silently dropped.
+func OpenPWSafeFileKeyedByUUID(dbPath string, passwd string) (*V3, error) {
+	return openPWSafeFile(dbPath, passwd, true)
+}
+
+func openPWSafeFile(dbPath string, passwd string, keyByUUID bool) (*V3, error) {
 	var db V3
+	db.KeyByUUID = keyByUUID
 
 	// Open the file
 	f, err := os.Open(dbPath)

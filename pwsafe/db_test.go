@@ -71,3 +71,49 @@ func TestSetRecordTimes(t *testing.T) {
 	assert.True(t, updatedRecord.ModTime.After(modTime))
 	assert.True(t, db.LastMod.After(dbLastMod))
 }
+
+// TestSetRecordKeyedByUUIDSameTitleDifferentUUID is a regression test ensuring that,
+// with KeyByUUID enabled, SetRecord treats records with the same Title but no matching
+// UUID as distinct entries, rather than overwriting one another (the default behavior
+// exercised by TestSetRecordTimes above, which stays keyed by Title for compatibility).
+func TestSetRecordKeyedByUUIDSameTitleDifferentUUID(t *testing.T) {
+	db := NewV3("test", "password")
+	db.KeyByUUID = true
+
+	db.SetRecord(Record{Title: "Google", Username: "user1", Password: "pass1"})
+	db.SetRecord(Record{Title: "Google", Username: "user2", Password: "pass2"})
+
+	assert.Equal(t, 2, len(db.Records), "both same-titled records should be kept as distinct entries")
+
+	usernames := make([]string, 0, 2)
+	for _, record := range db.Records {
+		usernames = append(usernames, record.Username)
+	}
+	assert.ElementsMatch(t, []string{"user1", "user2"}, usernames)
+}
+
+// TestDeleteRecordByUUID verifies precise, identity-based deletion when KeyByUUID is
+// enabled, which matters when multiple records share a Title and DeleteRecord's
+// title-based match would be ambiguous.
+func TestDeleteRecordByUUID(t *testing.T) {
+	db := NewV3("test", "password")
+	db.KeyByUUID = true
+
+	db.SetRecord(Record{Title: "Google", Username: "user1", Password: "pass1"})
+	db.SetRecord(Record{Title: "Google", Username: "user2", Password: "pass2"})
+	assert.Equal(t, 2, len(db.Records))
+
+	var target Record
+	for _, record := range db.Records {
+		if record.Username == "user2" {
+			target = record
+		}
+	}
+
+	db.DeleteRecordByUUID(target.UUID)
+	assert.Equal(t, 1, len(db.Records))
+
+	remaining, ok := db.RecordByTitle("Google")
+	assert.True(t, ok)
+	assert.NotEqual(t, target.UUID, remaining.UUID)
+}

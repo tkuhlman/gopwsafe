@@ -157,7 +157,7 @@ func (db *V3) unmarshalRecords(records []byte) (int, []byte, error) {
 	for recordStart < len(records) {
 		record := &Record{}
 		recordLength, recordData, err := unmarshalRecord(records[recordStart:], record)
-		db.Records[record.Title] = *record
+		db.Records[db.recordKey(*record)] = *record
 		if err != nil {
 			return recordStart, hmacData, errors.New("error parsing record - " + err.Error())
 		}
