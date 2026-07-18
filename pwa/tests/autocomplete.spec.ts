@@ -24,6 +24,7 @@ async function addRecord(page, title: string, group: string, username: string) {
     await page.fill('input[placeholder="Title"]', title);
     await page.fill('input[placeholder="Group"]', group);
     await page.fill('input[aria-label="Username"]', username);
+    await page.fill('input[placeholder="Password"]', 'password123');
     await page.click('text=Save Record');
     await expect(page.locator('.tree')).toContainText(title);
 }

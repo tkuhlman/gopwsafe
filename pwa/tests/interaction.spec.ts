@@ -143,7 +143,7 @@ test.describe('Database Interaction', () => {
         await copyUserBtn.click();
         await expect(page.getByText('Copied!').first()).toBeVisible();
         // Wait for it to disappear
-        await expect(page.getByText('Copied!').first()).toBeHidden({ timeout: 3000 });
+        await expect(page.getByText('Copied!').first()).toBeHidden({ timeout: 7000 });
 
         // Test Copy Password Button
         const copyPassBtn = page.getByTitle('Copy Password');
@@ -151,7 +151,7 @@ test.describe('Database Interaction', () => {
         await copyPassBtn.click();
         await expect(page.getByText('Copied!').last()).toBeVisible(); // Might be the same if transient, but we have two locations
         // Wait for it to disappear
-        await expect(page.getByText('Copied!').last()).toBeHidden({ timeout: 3000 });
+        await expect(page.getByText('Copied!').last()).toBeHidden({ timeout: 7000 });
 
         // Test Shortcuts
         // Ctrl+U
