@@ -47,8 +47,8 @@ func TestSetRecordTimes(t *testing.T) {
 	record := Record{Title: "Test Record", Password: "password"}
 
 	// Test new record
-	db.SetRecord(record)
-	savedRecord, ok := db.Records["Test Record"]
+	uuidBytes := db.SetRecord(record)
+	savedRecord, ok := db.Records[uuidBytes]
 	assert.True(t, ok)
 	assert.False(t, savedRecord.CreateTime.IsZero())
 	assert.False(t, savedRecord.ModTime.IsZero())
@@ -63,11 +63,49 @@ func TestSetRecordTimes(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Test update record
+	record.UUID = uuidBytes
 	record.Password = "newpassword"
 	db.SetRecord(record)
-	updatedRecord, ok := db.Records["Test Record"]
+	updatedRecord, ok := db.Records[uuidBytes]
 	assert.True(t, ok)
 	assert.Equal(t, createTime, updatedRecord.CreateTime)
 	assert.True(t, updatedRecord.ModTime.After(modTime))
 	assert.True(t, db.LastMod.After(dbLastMod))
+}
+
+func TestSetRecordSameTitleDifferentUUID(t *testing.T) {
+	db := NewV3("test", "password")
+
+	db.SetRecord(Record{Title: "Google", Username: "user1", Password: "pass1"})
+	db.SetRecord(Record{Title: "Google", Username: "user2", Password: "pass2"})
+
+	assert.Equal(t, 2, len(db.Records), "both same-titled records should be kept as distinct entries")
+
+	usernames := make([]string, 0, 2)
+	for _, record := range db.Records {
+		usernames = append(usernames, record.Username)
+	}
+	assert.ElementsMatch(t, []string{"user1", "user2"}, usernames)
+}
+
+func TestDeleteRecordByUUID(t *testing.T) {
+	db := NewV3("test", "password")
+
+	db.SetRecord(Record{Title: "Google", Username: "user1", Password: "pass1"})
+	db.SetRecord(Record{Title: "Google", Username: "user2", Password: "pass2"})
+	assert.Equal(t, 2, len(db.Records))
+
+	var target Record
+	for _, record := range db.Records {
+		if record.Username == "user2" {
+			target = record
+		}
+	}
+
+	db.DeleteRecord(target.UUID)
+	assert.Equal(t, 1, len(db.Records))
+
+	remaining, ok := db.RecordByTitle("Google")
+	assert.True(t, ok)
+	assert.NotEqual(t, target.UUID, remaining.UUID)
 }

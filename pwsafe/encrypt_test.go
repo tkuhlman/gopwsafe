@@ -103,7 +103,7 @@ func TestConsecutiveSaves(t *testing.T) {
 	newRecord.Username = "consecutive_user"
 	newRecord.Password = "consecutive_pass"
 	newRecord.Group = "ConsecutiveGroup"
-	loadedDb1.SetRecord(newRecord) // This updates loadedDb1.LastMod
+	newRecordUUID := loadedDb1.SetRecord(newRecord) // This updates loadedDb1.LastMod
 
 	// Keep a snapshot of loadedDb1's relevant state before the next save for later comparison
 	// For Equal(), we need to align Version and LastSave after the next save.
@@ -121,7 +121,7 @@ func TestConsecutiveSaves(t *testing.T) {
 	assert.Nil(t, err)
 
 	// 8. Verify that the changes made in step 2e are present
-	retrievedNewRecord, exists := loadedDb2.Records["NewConsecutiveRecord"]
+	retrievedNewRecord, exists := loadedDb2.Records[newRecordUUID]
 	assert.True(t, exists, "NewConsecutiveRecord not found in loadedDb2")
 	assert.Equal(t, "consecutive_user", retrievedNewRecord.Username)
 	assert.Equal(t, "consecutive_pass", retrievedNewRecord.Password)
@@ -135,7 +135,7 @@ func TestConsecutiveSaves(t *testing.T) {
 	assert.True(t, equal, "loadedDb1 (after SetRecord and save) and loadedDb2 should be equal")
 
 	// Also check that the original record from simple.dat is still there in loadedDb2
-	_, oldRecordExists := loadedDb2.Records["Test entry"]
+	_, oldRecordExists := loadedDb2.RecordByTitle("Test entry")
 	assert.True(t, oldRecordExists, "Original 'Test entry' record not found in loadedDb2")
 }
 
@@ -165,7 +165,7 @@ func TestAddRecordToPreviouslyEmptyDB(t *testing.T) {
 	newRec.Password = "pass1"
 	newRec.Group = "GroupForNew"
 	// Other fields will be default zero values, which is fine.
-	loadedEmptyDb1.SetRecord(newRec)
+	newRecUUID := loadedEmptyDb1.SetRecord(newRec)
 
 	// 7. Assert that loadedEmptyDb1 now contains 1 record
 	assert.Equal(t, 1, len(loadedEmptyDb1.Records), "loadedEmptyDb1 should have 1 record after SetRecord")
@@ -189,7 +189,7 @@ func TestAddRecordToPreviouslyEmptyDB(t *testing.T) {
 
 	// 11. Verify that loadedDbWithRecord contains the "NewRecordInEmpty" record
 	assert.Equal(t, 1, len(loadedDbWithRecord.Records), "loadedDbWithRecord should have 1 record")
-	retrievedRec, exists := loadedDbWithRecord.Records["NewRecordInEmpty"]
+	retrievedRec, exists := loadedDbWithRecord.Records[newRecUUID]
 	assert.True(t, exists, "NewRecordInEmpty should exist in loadedDbWithRecord")
 	assert.Equal(t, "user1", retrievedRec.Username)
 	assert.Equal(t, "pass1", retrievedRec.Password)
@@ -203,10 +203,15 @@ func TestAddRecordToPreviouslyEmptyDB(t *testing.T) {
 	assert.True(t, equal, "loadedEmptyDb1 (after SetRecord and save) and loadedDbWithRecord should be equal")
 }
 
-// TestNewV3 test creating a new DB, saving it to a file and loading it
 func TestNewV3(t *testing.T) {
+	orig, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
+	assert.Nil(t, err)
+	origRec, ok := orig.RecordByTitle("Test entry")
+	assert.True(t, ok)
+
 	newDB := NewV3("", "password")
 	var record Record
+	record.UUID = origRec.UUID
 	record.Title = "Test entry"
 	record.Username = "test"
 	record.Password = "password"
@@ -216,13 +221,11 @@ func TestNewV3(t *testing.T) {
 	newDB.SetRecord(record)
 
 	newPath := "./test_dbs/simple-new.dat"
-	err := WritePWSafeFile(newDB, newPath)
+	err = WritePWSafeFile(newDB, newPath)
 	defer os.Remove(newPath)
 	assert.Nil(t, err)
 
 	readNew, err := OpenPWSafeFile("./test_dbs/simple-new.dat", "password")
-	assert.Nil(t, err)
-	orig, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err)
 
 	// The UUID for these should be different since one was created fresh, check then set the same for comparison

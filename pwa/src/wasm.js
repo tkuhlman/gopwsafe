@@ -85,9 +85,9 @@ export function getDatabaseData() {
     return parsed || [];
 }
 
-export function getRecordData(title) {
-    const res = window.getRecord(title);
-    if (typeof res === 'string' && (res === "record not found" || res === "database not open")) {
+export function getRecordData(uuid) {
+    const res = window.getRecord(uuid);
+    if (typeof res === 'string' && (res === "record not found" || res === "database not open" || res === "invalid uuid format")) {
         throw new Error(res);
     }
     return JSON.parse(res);
@@ -121,27 +121,30 @@ export function saveDatabase() {
 }
 
 export function addRecord(record) {
-    // record is object, convert to JSON string
     const json = JSON.stringify(record);
-    const err = window.addRecord(json);
-    if (err) {
-        throw new Error(err);
+    const res = window.addRecord(json);
+    const parsed = JSON.parse(res);
+    if (parsed.error) {
+        throw new Error(parsed.error);
+    }
+    return parsed.uuid;
+}
+
+export function updateRecord(oldUUID, record) {
+    const json = JSON.stringify(record);
+    const res = window.updateRecord(oldUUID, json);
+    const parsed = JSON.parse(res);
+    if (parsed.error) {
+        throw new Error(parsed.error);
     }
 }
 
-export function updateRecord(oldTitle, record) {
-    const json = JSON.stringify(record);
-    const err = window.updateRecord(oldTitle, json);
-    if (err) {
-        throw new Error(err);
-    }
-}
 
-
-export function deleteRecord(title) {
-    const err = window.deleteRecord(title);
-    if (err) {
-        throw new Error(err);
+export function deleteRecord(uuid) {
+    const res = window.deleteRecord(uuid);
+    const parsed = JSON.parse(res);
+    if (parsed.error) {
+        throw new Error(parsed.error);
     }
 }
 

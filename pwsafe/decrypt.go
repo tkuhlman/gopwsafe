@@ -153,11 +153,14 @@ type fieldSetter interface {
 func (db *V3) unmarshalRecords(records []byte) (int, []byte, error) {
 	recordStart := 0
 	var hmacData []byte
-	db.Records = make(map[string]Record)
+	db.Records = make(map[[16]byte]Record)
 	for recordStart < len(records) {
 		record := &Record{}
 		recordLength, recordData, err := unmarshalRecord(records[recordStart:], record)
-		db.Records[record.Title] = *record
+		if record.UUID == [16]byte{} {
+			record.UUID = [16]byte(uuid.NewRandom().Array())
+		}
+		db.Records[record.UUID] = *record
 		if err != nil {
 			return recordStart, hmacData, errors.New("error parsing record - " + err.Error())
 		}

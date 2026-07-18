@@ -18,7 +18,7 @@ func TestSimpleDB(t *testing.T) {
 	assert.Equal(t, db.Header.Name, "")
 	assert.Equal(t, filepath.Base(db.LastSavePath), "simple.dat")
 	assert.Equal(t, len(db.Records), 1)
-	record, exists := db.Records["Test entry"]
+	record, exists := db.RecordByTitle("Test entry")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "test")
 	assert.Equal(t, record.Password, "password")
@@ -54,7 +54,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, group1List, db.ListByGroup("group1"))
 
 	//record 1
-	record, exists := db.Records["three entry 1"]
+	record, exists := db.RecordByTitle("three entry 1")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three1_user")
 	assert.Equal(t, record.Password, "three1!@$%^&*()")
@@ -63,7 +63,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Notes, "three DB\r\nentry 1")
 
 	//record 2
-	record, exists = db.Records["three entry 2"]
+	record, exists = db.RecordByTitle("three entry 2")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three2_user")
 	assert.Equal(t, record.Password, "three2_-+=\\\\|][}{';:")
@@ -72,7 +72,7 @@ func TestThreeDB(t *testing.T) {
 	assert.Equal(t, record.Notes, "three DB\r\nsecond entry")
 
 	//record 3
-	record, exists = db.Records["three entry 3"]
+	record, exists = db.RecordByTitle("three entry 3")
 	assert.Equal(t, exists, true)
 	assert.Equal(t, record.Username, "three3_user")
 	assert.Equal(t, record.Password, ",./<>?`~0")
@@ -91,10 +91,10 @@ func TestDBModifications(t *testing.T) {
 	assert.Equal(t, false, db.NeedsSave())
 
 	//test Delete
-	record, exists := db.Records["Test entry"]
+	record, exists := db.RecordByTitle("Test entry")
 	assert.Equal(t, true, exists)
-	db.DeleteRecord("Test entry")
-	record, exists = db.Records["Test entry"]
+	db.DeleteRecord(record.UUID)
+	record, exists = db.RecordByTitle("Test entry")
 	assert.Equal(t, false, exists)
 	assert.Equal(t, true, db.NeedsSave())
 
@@ -112,12 +112,12 @@ func TestDBModifications(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, false, db.NeedsSave())
-	record, exists = db.Records["Test entry"]
+	record, exists = db.RecordByTitle("Test entry")
 	assert.Equal(t, true, exists)
 	startTime := record.ModTime
 	record.Username = "newuser"
 	db.SetRecord(record)
-	record, exists = db.Records["Test entry"]
+	record, exists = db.Records[record.UUID]
 	assert.Equal(t, true, exists)
 	assert.NotEqual(t, startTime, record.ModTime)
 	assert.Equal(t, true, db.NeedsSave())
@@ -195,7 +195,7 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Verify Record with empty Username
-	retrievedRecord, exists := openedDb.Records["EmptyUsername"]
+	retrievedRecord, exists := openedDb.RecordByTitle("EmptyUsername")
 	assert.True(t, exists)
 	assert.Equal(t, "", retrievedRecord.Username)
 	assert.Equal(t, "password", retrievedRecord.Password)
@@ -204,7 +204,7 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	assert.Equal(t, "TestGroup", retrievedRecord.Group)
 
 	// Verify Record with empty URL
-	retrievedRecord, exists = openedDb.Records["EmptyURL"]
+	retrievedRecord, exists = openedDb.RecordByTitle("EmptyURL")
 	assert.True(t, exists)
 	assert.Equal(t, "user", retrievedRecord.Username)
 	assert.Equal(t, "password", retrievedRecord.Password)
@@ -213,7 +213,7 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	assert.Equal(t, "TestGroup", retrievedRecord.Group)
 
 	// Verify Record with empty Notes
-	retrievedRecord, exists = openedDb.Records["EmptyNotes"]
+	retrievedRecord, exists = openedDb.RecordByTitle("EmptyNotes")
 	assert.True(t, exists)
 	assert.Equal(t, "user", retrievedRecord.Username)
 	assert.Equal(t, "password", retrievedRecord.Password)
@@ -222,7 +222,7 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	assert.Equal(t, "TestGroup", retrievedRecord.Group)
 
 	// Verify Record with empty Group
-	retrievedRecord, exists = openedDb.Records["EmptyGroup"]
+	retrievedRecord, exists = openedDb.RecordByTitle("EmptyGroup")
 	assert.True(t, exists)
 	assert.Equal(t, "user", retrievedRecord.Username)
 	assert.Equal(t, "password", retrievedRecord.Password)
@@ -231,8 +231,8 @@ func TestRecordFieldVariations_EmptyFields(t *testing.T) {
 	assert.Equal(t, "", retrievedRecord.Group)
 
 	// Verify Record with all optional string fields empty (should not exist as it was invalid)
-	_, exists = openedDb.Records["AllEmpty"]
-	assert.True(t, exists, "Record 'AllEmpty' should exist as it had an empty optional fields")
+	_, exists = openedDb.RecordByTitle("AllEmpty")
+	assert.True(t, exists, "Record 'AllEmpty' should exist as it had empty optional fields")
 }
 
 func TestRecordFieldVariations_SpecialCharsAndLongStrings(t *testing.T) {
@@ -297,7 +297,7 @@ func TestRecordFieldVariations_SpecialCharsAndLongStrings(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Verify Record with special chars in Title
-	retrievedRecord, exists := openedDb.Records[recordSpecialTitle.Title]
+	retrievedRecord, exists := openedDb.RecordByTitle(recordSpecialTitle.Title)
 	assert.True(t, exists)
 	assert.Equal(t, recordSpecialTitle.Username, retrievedRecord.Username)
 	assert.Equal(t, recordSpecialTitle.Password, retrievedRecord.Password)
@@ -306,7 +306,7 @@ func TestRecordFieldVariations_SpecialCharsAndLongStrings(t *testing.T) {
 	assert.Equal(t, recordSpecialTitle.Group, retrievedRecord.Group)
 
 	// Verify Record with special chars in Notes
-	retrievedRecord, exists = openedDb.Records["SpecialNotesRecord"]
+	retrievedRecord, exists = openedDb.RecordByTitle("SpecialNotesRecord")
 	assert.True(t, exists)
 	assert.Equal(t, "user2", retrievedRecord.Username)
 	assert.Equal(t, "pass2", retrievedRecord.Password)
@@ -315,7 +315,7 @@ func TestRecordFieldVariations_SpecialCharsAndLongStrings(t *testing.T) {
 	assert.Equal(t, "Group2", retrievedRecord.Group)
 
 	// Verify Record with long string in Notes
-	retrievedRecord, exists = openedDb.Records["LongNotesRecord"]
+	retrievedRecord, exists = openedDb.RecordByTitle("LongNotesRecord")
 	assert.True(t, exists)
 	assert.Equal(t, "user3", retrievedRecord.Username)
 	assert.Equal(t, "pass3", retrievedRecord.Password)
@@ -324,7 +324,7 @@ func TestRecordFieldVariations_SpecialCharsAndLongStrings(t *testing.T) {
 	assert.Equal(t, "Group3", retrievedRecord.Group)
 
 	// Verify Record with special chars in various fields
-	retrievedRecord, exists = openedDb.Records["SpecialAllFieldsRecord"]
+	retrievedRecord, exists = openedDb.RecordByTitle("SpecialAllFieldsRecord")
 	assert.True(t, exists)
 	assert.Equal(t, "User "+specialChars, retrievedRecord.Username)
 	assert.Equal(t, "Pass "+specialChars, retrievedRecord.Password)
@@ -365,7 +365,7 @@ func TestRecordFieldVariations_ZeroTimeFields(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Verify Record with zero time fields
-	retrievedRecord, exists := openedDb.Records["ZeroTimeRecord"]
+	retrievedRecord, exists := openedDb.RecordByTitle("ZeroTimeRecord")
 	assert.True(t, exists)
 
 	assert.Equal(t, "userZ", retrievedRecord.Username) // Check other fields remain
@@ -401,7 +401,11 @@ func TestEdgeCases_EmptyDBOperations(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(openedDb1.Records), "Should have 1 record after opening")
 
-	openedDb1.DeleteRecord("OnlyRecord")
+	var onlyRecordUUID [16]byte
+	for uuidVal := range openedDb1.Records {
+		onlyRecordUUID = uuidVal
+	}
+	openedDb1.DeleteRecord(onlyRecordUUID)
 	assert.Equal(t, 0, len(openedDb1.Records), "Should have 0 records after delete")
 	assert.Empty(t, openedDb1.List(), "List() should be empty after delete")
 	assert.Empty(t, openedDb1.Groups(), "Groups() should be empty after delete")
@@ -447,15 +451,15 @@ func TestEdgeCases_ModifyDeleteAndNonExistent(t *testing.T) {
 	db, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err, "Failed to open simple.dat for modify-delete test")
 
-	record, exists := db.Records["Test entry"]
+	record, exists := db.RecordByTitle("Test entry")
 	assert.True(t, exists, "Test entry not found in simple.dat")
 
 	record.Username = "new_username_for_delete_test"
 	db.SetRecord(record)
 	assert.True(t, db.NeedsSave(), "NeedsSave() should be true after modifying record")
 
-	db.DeleteRecord("Test entry")
-	_, exists = db.Records["Test entry"]
+	db.DeleteRecord(record.UUID)
+	_, exists = db.RecordByTitle("Test entry")
 	assert.False(t, exists, "Record should not exist after DeleteRecord")
 	// Current implementation of DeleteRecord sets needsSave to true if the key existed.
 	// If SetRecord also sets it, it remains true.
@@ -467,7 +471,7 @@ func TestEdgeCases_ModifyDeleteAndNonExistent(t *testing.T) {
 
 	reopenedDb, err := OpenPWSafeFile(modifyDeletePath, "password")
 	assert.Nil(t, err, "Failed to reopen DB for modify-delete test")
-	_, exists = reopenedDb.Records["Test entry"]
+	_, exists = reopenedDb.RecordByTitle("Test entry")
 	assert.False(t, exists, "Deleted record should not exist in reopened DB")
 	// simple.dat only has one record. If it had more, we'd verify they are still there.
 
@@ -475,7 +479,7 @@ func TestEdgeCases_ModifyDeleteAndNonExistent(t *testing.T) {
 	dbNonExistent, err := OpenPWSafeFile("./test_dbs/simple.dat", "password")
 	assert.Nil(t, err, "Failed to open simple.dat for non-existent record test")
 
-	retrievedRecord, exists := dbNonExistent.Records["NonExistentTitle"]
+	retrievedRecord, exists := dbNonExistent.RecordByTitle("NonExistentTitle")
 	assert.False(t, exists, "Exists should be false for a non-existent record title")
 	// When exists is false, retrievedRecord will be the zero value for the Record struct.
 	// We can assert a few fields to be sure, or just rely on 'exists'.
@@ -485,8 +489,36 @@ func TestEdgeCases_ModifyDeleteAndNonExistent(t *testing.T) {
 	// db.NeedsSave() is false at this point as it's freshly loaded.
 	assert.False(t, dbNonExistent.NeedsSave(), "NeedsSave() should be false before DeleteRecord on non-existent")
 
-	dbNonExistent.DeleteRecord("NonExistentTitle") // This should not error
+	dbNonExistent.DeleteRecord([16]byte{}) // This should not error
 	assert.Equal(t, initialRecordCount, len(dbNonExistent.Records), "Record count should be unchanged after deleting non-existent record")
 	// DeleteRecord always updates LastMod, so NeedsSave will become true.
 	assert.True(t, dbNonExistent.NeedsSave(), "NeedsSave() should become true after DeleteRecord, even if record did not exist, due to LastMod update")
+}
+
+func TestDuplicateTitles(t *testing.T) {
+	db := NewV3("", "password")
+	dupPath := "./test_dbs/duplicate_titles_test.dat"
+	db.LastSavePath = dupPath
+
+	db.SetRecord(Record{Title: "Google", Username: "work.user@example.com", Password: "workpass", Group: "Work"})
+	db.SetRecord(Record{Title: "Google", Username: "personal.user@example.com", Password: "personalpass", Group: "Personal"})
+
+	assert.Equal(t, 2, len(db.Records), "both same-titled records should be retained")
+	assert.Equal(t, []string{"Google", "Google"}, db.List())
+
+	err := WritePWSafeFile(db, dupPath)
+	assert.Nil(t, err)
+	defer os.Remove(dupPath)
+
+	reopened, err := OpenPWSafeFile(dupPath, "password")
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(reopened.Records), "both same-titled records should survive a save/reload round trip")
+	assert.Equal(t, []string{"Google", "Google"}, reopened.List())
+
+	usernames := make([]string, 0, 2)
+	for _, record := range reopened.Records {
+		assert.Equal(t, "Google", record.Title)
+		usernames = append(usernames, record.Username)
+	}
+	assert.ElementsMatch(t, []string{"work.user@example.com", "personal.user@example.com"}, usernames)
 }

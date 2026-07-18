@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -45,11 +46,6 @@ func getDBData(this js.Value, args []js.Value) any {
 		return "database not open"
 	}
 
-	// We want to return a tree structure.
-	// For now, let's just return a flat list of items with their groups for the frontend to process,
-	// or build a simplified tree here.
-	// Let's return a list of {uuid, title, group} objects.
-
 	type Item struct {
 		UUID  string `json:"uuid"`
 		Title string `json:"title"`
@@ -58,10 +54,7 @@ func getDBData(this js.Value, args []js.Value) any {
 
 	var items []Item
 
-	keys := db.List()
-	for _, title := range keys {
-		rec := db.Records[title]
-		// UUID is [16]byte, need to convert to string
+	for _, rec := range db.Records {
 		uuidStr := fmt.Sprintf("%x", rec.UUID)
 		items = append(items, Item{
 			UUID:  uuidStr,
@@ -69,6 +62,16 @@ func getDBData(this js.Value, args []js.Value) any {
 			Group: rec.Group,
 		})
 	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Group != items[j].Group {
+			return items[i].Group < items[j].Group
+		}
+		if items[i].Title != items[j].Title {
+			return items[i].Title < items[j].Title
+		}
+		return items[i].UUID < items[j].UUID
+	})
 
 	jsonData, err := json.Marshal(items)
 	if err != nil {
@@ -83,18 +86,21 @@ func getRecord(this js.Value, args []js.Value) any {
 		return "database not open"
 	}
 	if len(args) != 1 {
-		return "invalid arguments: expected (title)" // Using title as key for now based on map
+		return "invalid arguments: expected (uuid)"
 	}
 
-	title := args[0].String()
-	rec, ok := db.Records[title]
+	uuidStr := args[0].String()
+	bytes, err := hex.DecodeString(uuidStr)
+	if err != nil || len(bytes) != 16 {
+		return "invalid uuid format"
+	}
+	var uuidBytes [16]byte
+	copy(uuidBytes[:], bytes)
+
+	rec, ok := db.Records[uuidBytes]
 	if !ok {
 		return "record not found"
 	}
-
-	// We shouldn't return the raw struct if it contains sensitive binary data that doesn't JSON marshal well slightly,
-	// but Record struct has tags? Let's check record.go later.
-	// For now assuming json.Marshal works or we create a DTO.
 
 	jsonData, err := json.Marshal(rec)
 	if err != nil {
@@ -357,54 +363,68 @@ func saveDB(this js.Value, args []js.Value) any {
 
 func addRecord(this js.Value, args []js.Value) any {
 	if db == nil {
-		return "database not open"
+		return `{"error":"database not open"}`
 	}
 	if len(args) != 1 {
-		return "invalid arguments: expected (recordJSON)"
+		return `{"error":"invalid arguments: expected (recordJSON)"}`
 	}
 
 	var dto RecordDTO
 	if err := json.Unmarshal([]byte(args[0].String()), &dto); err != nil {
-		return fmt.Sprintf("json unmarshal error: %s", err)
+		return fmt.Sprintf(`{"error":"json unmarshal error: %s"}`, err)
 	}
 
 	record, _ := dto.toRecord()
-	db.SetRecord(record)
-	return nil
+	uuidBytes := db.SetRecord(record)
+	return fmt.Sprintf(`{"uuid":"%x"}`, uuidBytes)
 }
 
 func updateRecord(this js.Value, args []js.Value) any {
 	if db == nil {
-		return "database not open"
+		return `{"error":"database not open"}`
 	}
 	if len(args) != 2 {
-		return "invalid arguments: expected (oldTitle, recordJSON)"
+		return `{"error":"invalid arguments: expected (oldUUID, recordJSON)"}`
 	}
 
-	oldTitle := args[0].String()
+	oldUUIDStr := args[0].String()
+	bytes, err := hex.DecodeString(oldUUIDStr)
+	if err != nil || len(bytes) != 16 {
+		return `{"error":"invalid oldUUID format"}`
+	}
+	var oldUUID [16]byte
+	copy(oldUUID[:], bytes)
+
 	var dto RecordDTO
 	if err := json.Unmarshal([]byte(args[1].String()), &dto); err != nil {
-		return fmt.Sprintf("json unmarshal error: %s", err)
+		return fmt.Sprintf(`{"error":"json unmarshal error: %s"}`, err)
 	}
 
 	record, _ := dto.toRecord()
 
-	if oldTitle != record.Title {
-		db.DeleteRecord(oldTitle)
+	if oldUUID != record.UUID {
+		db.DeleteRecord(oldUUID)
 	}
 	db.SetRecord(record)
-	return nil
+	return `{"success":true}`
 }
 
 func deleteRecord(this js.Value, args []js.Value) any {
 	if db == nil {
-		return "database not open"
+		return `{"error":"database not open"}`
 	}
 	if len(args) != 1 {
-		return "invalid arguments: expected (title)"
+		return `{"error":"invalid arguments: expected (uuid)"}`
 	}
 
-	title := args[0].String()
-	db.DeleteRecord(title)
-	return nil
+	uuidStr := args[0].String()
+	bytes, err := hex.DecodeString(uuidStr)
+	if err != nil || len(bytes) != 16 {
+		return `{"error":"invalid uuid format"}`
+	}
+	var uuidBytes [16]byte
+	copy(uuidBytes[:], bytes)
+
+	db.DeleteRecord(uuidBytes)
+	return `{"success":true}`
 }

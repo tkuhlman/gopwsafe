@@ -88,7 +88,22 @@
     let searchTerm = "";
     let searchNamesOnly = localStorage.getItem('searchNamesOnly') !== 'false';
     let selectedRecord = null;
-    let oldTitle = ""; // Track for renames
+    let oldUUID = ""; // Track for renames
+
+    function getRecordUUIDStr(rec) {
+        if (!rec) return "";
+        const u = rec.uuid || rec.UUID;
+        if (!u) return "";
+        return u.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function hexToBytes(hex) {
+        const bytes = new Uint8Array(16);
+        for (let i = 0; i < 16; i++) {
+            bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+        }
+        return Array.from(bytes);
+    }
     let showPassword = false;
     let groupedItems = {};
     let searchInput; // Reference for autofocus
@@ -169,7 +184,7 @@
     function openContextMenu(e, item) {
         e.preventDefault();
         try {
-            const rec = getRecordData(item.title);
+            const rec = getRecordData(item.uuid);
             contextMenu = { x: e.clientX, y: e.clientY, rec };
         } catch (err) {
             console.error("Context menu: failed to load record", err);
@@ -281,8 +296,8 @@
         if (!searchTerm.trim()) {
             filteredItems = items;
         } else {
-            const matchedTitles = new Set(searchRecords(searchTerm, searchNamesOnly));
-            filteredItems = items.filter(i => matchedTitles.has(i.title));
+            const matchedUUIDs = new Set(searchRecords(searchTerm, searchNamesOnly));
+            filteredItems = items.filter(i => matchedUUIDs.has(i.uuid));
         }
         groupItems(filteredItems);
     }
@@ -309,10 +324,10 @@
     function selectItem(item) {
         console.log("selectItem called for:", item.title);
         try {
-            const rec = getRecordData(item.title);
+            const rec = getRecordData(item.uuid);
             selectedRecord = rec;
             console.log("Record loaded:", rec ? rec.Title : "null");
-            oldTitle = rec.Title; // Store original title
+            oldUUID = item.uuid; // Store original uuid
             showPassword = false;
             isNewRecord = false;
             showGenOptions = false;
@@ -338,7 +353,7 @@
             CreateTime: new Date().toISOString(),
             ModTime: new Date().toISOString(),
         };
-        oldTitle = "";
+        oldUUID = "";
         showPassword = true;
         isNewRecord = true;
         showGenOptions = false;
@@ -433,24 +448,28 @@
             selectedRecord.ModTime = new Date().toISOString();
 
             if (isNewRecord) {
-                addRecord(selectedRecord);
+                const newUUID = addRecord(selectedRecord);
+                const bytes = hexToBytes(newUUID);
+                selectedRecord.uuid = bytes;
+                selectedRecord.UUID = bytes;
+                oldUUID = newUUID;
             } else {
-                const oldRec = getRecordData(oldTitle);
+                const oldRec = getRecordData(oldUUID);
                 if (oldRec && oldRec.Password !== selectedRecord.Password && oldRec.Password !== "") {
                     selectedRecord.PasswordHistory = pushPasswordHistory(
                         selectedRecord.PasswordHistory,
                         oldRec.Password,
                     );
                 }
-                updateRecord(oldTitle, selectedRecord);
+                updateRecord(oldUUID, selectedRecord);
             }
 
             // Refresh list
             const items = getDatabaseData();
             dbItems.set(items);
 
-            // Re-select to refresh state (or update oldTitle)
-            oldTitle = selectedRecord.Title;
+            // Re-select to refresh state (or update oldUUID)
+            oldUUID = getRecordUUIDStr(selectedRecord);
             isNewRecord = false;
             isDirty = true;
 
@@ -481,7 +500,7 @@
 
     async function performDelete() {
         try {
-            deleteRecord(selectedRecord.Title);
+            deleteRecord(getRecordUUIDStr(selectedRecord));
             selectedRecord = null;
             isNewRecord = false;
             isDirty = true;
@@ -759,14 +778,14 @@
                             <li
                                 role="option"
                                 aria-selected={!!(selectedRecord &&
-                                    selectedRecord.Title === item.title)}
+                                    getRecordUUIDStr(selectedRecord) === item.uuid)}
                                 tabindex="0"
                                 class:selected={selectedRecord &&
-                                    selectedRecord.Title === item.title}
+                                    getRecordUUIDStr(selectedRecord) === item.uuid}
                                 on:click={() => selectItem(item)}
                                 on:dblclick={async () => {
                                     try {
-                                        const rec = getRecordData(item.title);
+                                        const rec = getRecordData(item.uuid);
                                         if (rec && rec.Password) {
                                             await copyToClipboard(rec.Password, 'pass');
                                         }
