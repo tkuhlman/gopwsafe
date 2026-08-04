@@ -2,7 +2,6 @@
 :toc:
 :toc-placement: preamble
 
-image:https://goreportcard.com/badge/github.com/tkuhlman/gopwsafe["Go Report Card",link="https://goreportcard.com/report/github.com/tkuhlman/gopwsafe"]
 image:https://pkg.go.dev/badge/github.com/tkuhlman/gopwsafe.svg["Go Reference",link="https://pkg.go.dev/github.com/tkuhlman/gopwsafe"]
 
 A password safe written in go using and implementing the http://pwsafe.org/[password safe] version 3 database.
