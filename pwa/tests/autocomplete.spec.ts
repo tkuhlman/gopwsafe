@@ -16,6 +16,7 @@ async function setupDb(page) {
     await page.fill('input[placeholder="New Password"]', 'password123');
     await page.click('button:has-text("Create")');
     await expect(page.locator('.sidebar')).toBeVisible();
+    await expect(page.getByPlaceholder(/Search/)).toBeFocused();
 }
 
 async function addRecord(page, title: string, group: string, username: string) {

@@ -1,5 +1,5 @@
 <script>
-    import { createEventDispatcher } from "svelte";
+    import { onMount, createEventDispatcher } from "svelte";
     import { slide } from "svelte/transition";
     import { dbItems, selectedFile } from "../store.js";
 
@@ -283,13 +283,16 @@
         }
     }
 
-    dbItems.subscribe((val) => {
-        items = val || [];
-        filterItems();
-        // Autofocus search when items are loaded (DB opened)
+    onMount(() => {
+        // Autofocus search when Dashboard mounts (DB opened)
         setTimeout(() => {
             if (searchInput) searchInput.focus();
         }, 100);
+    });
+
+    dbItems.subscribe((val) => {
+        items = val || [];
+        filterItems();
     });
 
     function filterItems() {
